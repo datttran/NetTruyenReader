@@ -114,10 +114,13 @@ class NetTruyenService {
     final List data = jsonBody['data'] as List<dynamic>;
 
     // 4. build each chapter URL
-    return data.map<String>((e) {
+    final chapters = data.map<String>((e) {
       final slug = e['chapter_slug'] as String;
       return '$_base/truyen-tranh/$comicSlug/$slug';
     }).toList();
+
+    // 5. invert the list so Chapter 1 comes first
+    return chapters.reversed.toList();
   }
 
   /// Fetches a chapter page and returns the list of image URLs.

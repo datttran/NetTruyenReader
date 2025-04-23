@@ -45,19 +45,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Chapter ${chapIndex + 1}'),
-        leading: IconButton(
-          icon: Icon(Icons.chevron_left),
-          onPressed: () => _goChapter(-1),
-        ),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.chevron_right),
-            onPressed: () => _goChapter(1),
-          ),
-        ],
-      ),
+
       body: FutureBuilder<List<String>>(
         future: _pagesFuture,
         builder: (context, snap) {
