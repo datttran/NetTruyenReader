@@ -1,3 +1,5 @@
+// lib/screens/reader_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../services/nettruyen_service.dart';
@@ -6,10 +8,11 @@ class ReaderScreen extends StatefulWidget {
   final List<String> chapters;
   final int initialIndex;
 
-  ReaderScreen({
+  const ReaderScreen({
+    Key? key,
     required this.chapters,
     this.initialIndex = 0,
-  });
+  }) : super(key: key);
 
   @override
   _ReaderScreenState createState() => _ReaderScreenState();
@@ -17,63 +20,98 @@ class ReaderScreen extends StatefulWidget {
 
 class _ReaderScreenState extends State<ReaderScreen> {
   late int chapIndex;
-  late Future<List<String>> _pagesFuture;
+  List<String>? _pages;
+  bool _isLoadingNext = false;
+  bool _isInitialLoading = true;
+  final ScrollController _scrollCtrl = ScrollController();
 
   @override
   void initState() {
     super.initState();
     chapIndex = widget.initialIndex;
-    _loadChapter();
+    _loadChapter(chapIndex);
+    _scrollCtrl.addListener(_onScroll);
   }
 
-  void _loadChapter() {
-    _pagesFuture =
-        NetTruyenService().fetchChapterPages(widget.chapters[chapIndex]);
-    setState(() {});
+  @override
+  void dispose() {
+    _scrollCtrl.dispose();
+    super.dispose();
   }
 
-  void _goChapter(int offset) {
-    final newIndex = (chapIndex + offset)
-        .clamp(0, widget.chapters.length - 1)
-        .toInt();
-    if (newIndex != chapIndex) {
-      chapIndex = newIndex;
-      _loadChapter();
+  Future<void> _loadChapter(int index, {bool append = false}) async {
+    if (!append) {
+      setState(() {
+        _isInitialLoading = true;
+      });
+    }
+    try {
+      final pages = await NetTruyenService()
+          .fetchChapterPages(widget.chapters[index]);
+      setState(() {
+        if (append && _pages != null) {
+          _pages!.addAll(pages);
+        } else {
+          _pages = pages;
+        }
+      });
+    } catch (e) {
+      // handle error / show toast if you want
+    } finally {
+      setState(() {
+        _isInitialLoading = false;
+        _isLoadingNext = false;
+      });
+    }
+  }
+
+  void _onScroll() {
+    if (_pages == null || _isLoadingNext) return;
+    final max = _scrollCtrl.position.maxScrollExtent;
+    final cur = _scrollCtrl.position.pixels;
+    if (cur >= max - 100 && chapIndex < widget.chapters.length - 1) {
+      _isLoadingNext = true;
+      chapIndex++;
+      _loadChapter(chapIndex, append: true);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    // initial loading
+    if (_isInitialLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
 
-      body: FutureBuilder<List<String>>(
-        future: _pagesFuture,
-        builder: (context, snap) {
-          if (snap.connectionState != ConnectionState.done) {
-            return Center(child: CircularProgressIndicator());
+    final pages = _pages!;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Chapter ${chapIndex + 1}'),
+      ),
+      body: ListView.builder(
+        controller: _scrollCtrl,
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        itemCount: pages.length + (_isLoadingNext ? 1 : 0),
+        itemBuilder: (context, i) {
+          if (i == pages.length) {
+            // loading spinner at bottom
+            return const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Center(child: CircularProgressIndicator()),
+            );
           }
-          if (snap.hasError) {
-            return Center(child: Text('Error: ${snap.error}'));
-          }
-          final pages = snap.data!;
-          return ListView.builder(
-            padding: EdgeInsets.symmetric(vertical: 8),
-            itemCount: pages.length,
-            itemBuilder: (context, i) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: CachedNetworkImage(
-                  imageUrl: pages[i],
-                  httpHeaders: const {
-                    'Referer': 'https://nettruyenvio.com'
-                  },
-                  placeholder: (context, _) =>
-                      Center(child: CircularProgressIndicator()),
-                  errorWidget: (context, _, __) =>
-                      Center(child: Icon(Icons.broken_image)),
-                ),
-              );
-            },
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: CachedNetworkImage(
+              imageUrl: pages[i],
+              httpHeaders: const {'Referer': 'https://nettruyenvio.com'},
+              placeholder: (ctx, _) => const Center(child: CircularProgressIndicator()),
+              errorWidget: (ctx, _, __) =>
+              const Center(child: Icon(Icons.broken_image)),
+            ),
           );
         },
       ),
