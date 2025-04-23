@@ -6,11 +6,11 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/comic.dart';
 import '../screens/cloudflare_bypass_screen.dart';
-import 'package:html/parser.dart' as html_parser;
+
 import 'package:http/http.dart' as http;
-import 'package:html/dom.dart';
 
 
+import 'package:html/parser.dart';
 
 Future<http.Response> getWithSavedCookies(String url) async {
   final prefs = await SharedPreferences.getInstance();
@@ -32,6 +32,14 @@ Future<http.Response> getWithSavedCookies(String url) async {
 
 
 final String _baseUrl = 'https://nettruyenvio.com';
+
+
+/// Thrown when Cloudflare returns a 403 on our search URL.
+class CloudflareException implements Exception {
+  final String url;
+  CloudflareException(this.url);
+}
+
 
 class NetTruyenService {
   static final http.Client _client = http.Client();  // <-- Fix 1: define _client
@@ -203,98 +211,84 @@ class NetTruyenService {
   /// [keyword] – the text the user typed.
   /// [cookie]  – OPTIONAL header string that contains cf_clearance and friends.
   ///             Pass the value returned from CloudflareHelper.ensureCookie().
-  Future<List<Comic>> searchComics(BuildContext context, String query) async {
-    final searchUrl = 'https://nettruyenvio.com/tim-truyen?keyword=${Uri.encodeComponent(query)}';
-    final prefs = await SharedPreferences.getInstance();
-    String cookie = prefs.getString('cookie') ?? '';
+  /// Search comics, popping Cloudflare bypass UI if needed.
+  Future<List<Comic>> searchComics(String keyword) async {
+    final completer = Completer<List<Comic>>();
+    final searchUrl =
+        'https://nettruyenvio.com/tim-truyen?keyword=${Uri.encodeComponent(keyword)}';
 
+    final headless = HeadlessInAppWebView(
+      initialUrlRequest: URLRequest(
+        url: WebUri(searchUrl),
+        headers: {
+          'Referer': 'https://nettruyenvio.com',
+          'User-Agent': 'Mozilla/5.0',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        },
+      ),
+      initialOptions: InAppWebViewGroupOptions(
+        crossPlatform: InAppWebViewOptions(javaScriptEnabled: true),
+      ),
 
-    print(cookie.contains('cf_clearance='));
-    print('so be it');
+      // If Cloudflare blocks us:
+      onReceivedHttpError: (controller, request, errorResponse) {
+        if (errorResponse.statusCode == 403 && !completer.isCompleted) {
+          completer.completeError(CloudflareException(searchUrl));
+        }
+      },
 
+      onLoadStop: (controller, _) async {
+        // If already errored, skip
+        if (completer.isCompleted) return;
 
+        try {
+          // give JS a moment
+          await Future.delayed(Duration(seconds: 2));
 
+          const js = r"""
+            (function() {
+              const items = document.querySelectorAll('.items .item');
+              const results = [];
+              items.forEach(item => {
+                const link = item.querySelector('.image a');
+                const thumbImg = item.querySelector('img');
+                const titleEl = item.querySelector('figcaption h3 a');
+                if (!link || !thumbImg || !titleEl) return;
+                const thumb = thumbImg.getAttribute('data-original')
+                             || thumbImg.getAttribute('data-src')
+                             || thumbImg.src;
+                results.push({
+                  title: titleEl.textContent.trim(),
+                  href: link.href.trim(),
+                  thumb: thumb.trim()
+                });
+              });
+              return JSON.stringify(results);
+            })();
+          """;
 
-    http.Response response = await _client.get(
-      Uri.parse(searchUrl),
-      headers: {
-        'Referer': 'https://nettruyenvio.com',
-        'User-Agent': _userAgent,
-        'Cookie': cookie,
+          final raw = await controller.evaluateJavascript(source: js) as String;
+          final List data = json.decode(raw);
+          final comics = data.map<Comic>((m) => Comic(
+            title: m['title'],
+            imageUrl: m['thumb'],
+            detailUrl: m['href'],
+          )).toList();
+
+          completer.complete(comics);
+        } catch (e) {
+          if (!completer.isCompleted) completer.completeError(e);
+        }
+      },
+
+      onConsoleMessage: (controller, msg) {
+        print("SearchConsole: ${msg.message}");
       },
     );
 
-    print('RESPONSE START:');
-    print(response.body.substring(0, 500));
-    print('RESPONSE END.');
-
-    if (response.statusCode == 403 ||
-        response.body.contains('cf_chl_opt') ||
-        response.body.contains('Attention Required')) {
-      print('⚡ Cloudflare challenge detected. Opening bypass screen...');
-
-      final result = await Navigator.push<bool>(
-        context,
-        MaterialPageRoute(
-          builder: (_) => CloudflareBypassScreen(url: searchUrl),
-        ),
-      );
-
-      if (result == true) {
-        print('✅ Verification successful. Retrying search request with new cookies...');
-
-        final prefsAfter = await SharedPreferences.getInstance();
-        final updatedCookie = prefsAfter.getString('cookie') ?? '';
-
-        response = await _client.get(
-          Uri.parse(searchUrl),
-          headers: {
-            'Referer': 'https://nettruyenvio.com',
-            'User-Agent': _userAgent,
-            'Cookie': updatedCookie,
-          },
-        );
-
-        if (response.statusCode != 200) {
-          throw Exception('Retry search failed after Cloudflare verification.');
-        }
-      } else {
-        throw Exception('Cloudflare verification failed.');
-      }
-    }
-
-    if (response.statusCode != 200) {
-      throw Exception('Failed to load search results. Status code: ${response.statusCode}');
-    }
-
-    final doc = html_parser.parse(response.body);
-    final items = doc.querySelectorAll('div.item');
-    List<Comic> results = [];
-
-    for (var item in items) {
-      try {
-        final aTag = item.querySelector('div.image > a');
-        final imgTag = item.querySelector('div.image > a > img');
-
-        if (aTag == null || imgTag == null) continue;
-
-        final title = aTag.attributes['title'] ?? '';
-        final detailUrl = aTag.attributes['href'] ?? '';
-        final imageUrl = imgTag.attributes['data-original'] ?? imgTag.attributes['src'] ?? '';
-
-        if (title.isNotEmpty && detailUrl.isNotEmpty && imageUrl.isNotEmpty) {
-          results.add(Comic(
-            title: title.trim(),
-            detailUrl: detailUrl.trim(),
-            imageUrl: imageUrl.trim(),
-          ));
-        }
-      } catch (e) {
-        print('Error parsing a comic item: $e');
-      }
-    }
-
-    return results;
+    await headless.run();
+    final result = await completer.future;
+    await headless.dispose();
+    return result;
   }
-
 }
