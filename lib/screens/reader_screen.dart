@@ -1,17 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:photo_view/photo_view.dart';
 import '../services/nettruyen_service.dart';
 
 class ReaderScreen extends StatefulWidget {
   final List<String> chapters;
   final int initialIndex;
-  final Function(int) saveLastRead;
 
   ReaderScreen({
     required this.chapters,
     this.initialIndex = 0,
-    required this.saveLastRead,
   });
 
   @override
@@ -21,8 +18,6 @@ class ReaderScreen extends StatefulWidget {
 class _ReaderScreenState extends State<ReaderScreen> {
   late int chapIndex;
   late Future<List<String>> _pagesFuture;
-  PageController _pageController = PageController();
-  List<String> _pages = [];
 
   @override
   void initState() {
@@ -32,22 +27,17 @@ class _ReaderScreenState extends State<ReaderScreen> {
   }
 
   void _loadChapter() {
-    _pagesFuture = NetTruyenService().fetchChapterPages(widget.chapters[chapIndex]);
-    _pagesFuture.then((pages) {
-      setState(() {
-        _pages = pages;
-      });
-      widget.saveLastRead(chapIndex);
-    });
+    _pagesFuture =
+        NetTruyenService().fetchChapterPages(widget.chapters[chapIndex]);
+    setState(() {});
   }
 
   void _goChapter(int offset) {
-    final newIndex = (chapIndex + offset).clamp(0, widget.chapters.length - 1);
+    final newIndex = (chapIndex + offset)
+        .clamp(0, widget.chapters.length - 1)
+        .toInt();
     if (newIndex != chapIndex) {
-      setState(() {
-        chapIndex = newIndex;
-        _pages = [];
-      });
+      chapIndex = newIndex;
       _loadChapter();
     }
   }
@@ -57,68 +47,48 @@ class _ReaderScreenState extends State<ReaderScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Chapter ${chapIndex + 1}'),
-        leading: IconButton(icon: Icon(Icons.chevron_left), onPressed: () => _goChapter(-1)),
-        actions: [IconButton(icon: Icon(Icons.chevron_right), onPressed: () => _goChapter(1))],
+        leading: IconButton(
+          icon: Icon(Icons.chevron_left),
+          onPressed: () => _goChapter(-1),
+        ),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.chevron_right),
+            onPressed: () => _goChapter(1),
+          ),
+        ],
       ),
       body: FutureBuilder<List<String>>(
         future: _pagesFuture,
-        builder: (context, snapshot) {
-          if (!snapshot.hasData) return Center(child: CircularProgressIndicator());
-          return Stack(
-            children: [
-              ListView.builder(
-                controller: _pageController,
-                itemCount: _pages.length,
-                itemBuilder: (context, idx) {
-                  return Container(
-                    padding: EdgeInsets.symmetric(vertical: 8),
-                    child: PhotoView.customChild(
-                      child: CachedNetworkImage(
-                        imageUrl: _pages[idx],
-                        placeholder: (context, url) => Center(child: CircularProgressIndicator()),
-                        errorWidget: (context, url, error) => Icon(Icons.broken_image),
-                      ),
-                    ),
-                  );
-                },
-              ),
-              Positioned(
-                bottom: 16,
-                right: 16,
-                child: GestureDetector(
-                  onTap: () async {
-                    final page = await showModalBottomSheet<int>(
-                      context: context,
-                      builder: (_) {
-                        return ListView.builder(
-                          itemCount: _pages.length,
-                          itemBuilder: (context, i) {
-                            return ListTile(
-                              title: Text('Page ${i + 1}'),
-                              onTap: () => Navigator.pop(context, i),
-                            );
-                          },
-                        );
-                      },
-                    );
-                    if (page != null) _pageController.jumpToPage(page);
+        builder: (context, snap) {
+          if (snap.connectionState != ConnectionState.done) {
+            return Center(child: CircularProgressIndicator());
+          }
+          if (snap.hasError) {
+            return Center(child: Text('Error: ${snap.error}'));
+          }
+          final pages = snap.data!;
+          return ListView.builder(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            itemCount: pages.length,
+            itemBuilder: (context, i) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: CachedNetworkImage(
+                  imageUrl: pages[i],
+                  httpHeaders: const {
+                    'Referer': 'https://nettruyenvio.com'
                   },
-                  child: Container(
-                    padding: EdgeInsets.all(8),
-                    color: Colors.black45,
-                    child: Text(
-                      '\${_pageController.hasClients ? _pageController.page?.round() ?? 1 : 1} / \${_pages.length}',
-                    ),
-                  ),
+                  placeholder: (context, _) =>
+                      Center(child: CircularProgressIndicator()),
+                  errorWidget: (context, _, __) =>
+                      Center(child: Icon(Icons.broken_image)),
                 ),
-              ),
-            ],
+              );
+            },
           );
         },
       ),
     );
   }
-
-
-
 }

@@ -31,7 +31,7 @@ Future<http.Response> getWithSavedCookies(String url) async {
 
 
 
-final String _baseUrl = 'https://nettruyenvio.com';
+ const _base = 'https://nettruyenvio.com';
 
 
 /// Thrown when Cloudflare returns a 403 on our search URL.
@@ -42,166 +42,103 @@ class CloudflareException implements Exception {
 
 
 class NetTruyenService {
-  static final http.Client _client = http.Client();  // <-- Fix 1: define _client
-  static const String _userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'; // <-- Fix 2: define _userAgent
+
   /// Fetch comics by loading JS-rendered page in a headless WebView
+  final _client = http.Client();
+  static const _baseHeaders = {
+    'User-Agent': 'Mozilla/5.0',
+    'Referer': 'https://nettruyenvio.com',
+  };
+
+  /// Fetches the homepage and parses the list of comics.
   Future<List<Comic>> fetchComics() async {
-    final completer = Completer<List<Comic>>();
-
-
-    final headless = HeadlessInAppWebView(
-      initialUrlRequest: URLRequest(
-        url: WebUri('https://nettruyenvio.com'),
-        headers: {
-          'Referer': 'https://nettruyenvio.com',
-          'User-Agent': 'Mozilla/5.0',
-        },
-      ),
-      initialOptions: InAppWebViewGroupOptions(
-        crossPlatform: InAppWebViewOptions(javaScriptEnabled: true),
-      ),
-      onLoadStop: (controller, url) async {
-        try {
-          // Allow JS-driven lazy-loading to finish
-          await Future.delayed(Duration(seconds: 5));
-          final pageTitle = await controller.getTitle();
-          print('Headless page title: $pageTitle');
-
-          // JS snippet: find <a[title]> anchors linking to comics and grab real thumbnail
-          const js = r"""
-            (function(){
-              const anchors = Array.from(document.querySelectorAll('a[title]'));
-              const items = [];
-              anchors.forEach(a => {
-                if (!a.href.includes('/truyen-')) return;
-                const img = a.querySelector('img');
-                if (!img) return;
-                // Use data-original for actual thumb, fallback to data-src or src
-                const thumbUrl = img.getAttribute('data-original') || img.getAttribute('data-src') || img.src;
-                items.push({
-                  title: a.title.trim(),
-                  thumb: thumbUrl,
-                  href: a.href
-                });
-              });
-              return JSON.stringify(items);
-            })();
-          """;
-
-          final raw = await controller.evaluateJavascript(source: js);
-          print('JS raw result: $raw');
-          final List data = json.decode(raw as String);
-          final comics = data.map<Comic>((m) => Comic(
-            title: m['title'],
-            imageUrl: m['thumb'],
-            detailUrl: m['href'],
-          )).toList();
-
-          if (!completer.isCompleted) completer.complete(comics);
-        } catch (e) {
-          print('Error in fetchComics JS eval: $e');
-          if (!completer.isCompleted) completer.completeError(e);
-        }
-      },
-      onConsoleMessage: (controller, consoleMessage) {
-        print('Console: ${consoleMessage.message}');
-      },
+    final resp = await _client.get(
+      Uri.parse('https://nettruyenvio.com'),
+      headers: _baseHeaders,
     );
+    if (resp.statusCode != 200) {
+      throw Exception('Failed to load homepage (${resp.statusCode})');
+    }
+    final doc = parse(resp.body);
+    final anchors = doc
+        .querySelectorAll('a[title]')
+        .where((a) => a.attributes['href']?.contains('/truyen-') == true);
 
-    await headless.run();
-    final result = await completer.future;
-    await headless.dispose();
-    return result;
+    return anchors.map((a) {
+      final title = a.attributes['title']!.trim();
+      final img = a.querySelector('img');
+      final thumb = img?.attributes['data-original'] ??
+          img?.attributes['data-src'] ??
+          img?.attributes['src'] ?? '';
+      return Comic(
+        title: title,
+        imageUrl: thumb,
+        detailUrl: a.attributes['href']!,
+      );
+    }).toList();
   }
 
-  /// Scrape chapter list via JS
+  /// Parses the detail page to get all chapter URLs.
+  /// Fetch the full list of chapter URLs via the site's JSON endpoint.
+  /// Given a detail page like
+  ///   https://…/truyen-tranh/{comicSlug}
+  /// this will hit the JSON endpoint
+  ///   …/Comic/Services/ComicService.asmx/ChapterList?slug={comicSlug}
+  /// parse the returned payload, then build and return the
+  /// full detail-URL for each chapter.
   Future<List<String>> fetchChapters(String detailUrl) async {
-    final completer = Completer<List<String>>();
-    final headless = HeadlessInAppWebView(
-      initialUrlRequest: URLRequest(
-        url: WebUri(detailUrl),
-        headers: {
-          'Referer': 'https://nettruyenvio.com',
-          'User-Agent': 'Mozilla/5.0',
-        },
-      ),
-      initialOptions: InAppWebViewGroupOptions(
-        crossPlatform: InAppWebViewOptions(javaScriptEnabled: true),
-      ),
-      onLoadStop: (controller, url) async {
-        try {
-          await Future.delayed(Duration(seconds: 3));
-          const js = r"""
-            (function(){
-              const els = document.querySelectorAll('.chapter-list a');
-              return JSON.stringify(Array.from(els).map(a => a.href));
-            })();
-          """;
-          final raw = await controller.evaluateJavascript(source: js);
-          print('Chapters JS raw: $raw');
-          final List data = json.decode(raw as String);
-          final chapters = List<String>.from(data);
-          if (!completer.isCompleted) completer.complete(chapters);
-        } catch (e) {
-          print('Error in fetchChapters JS eval: $e');
-          if (!completer.isCompleted) completer.completeError(e);
-        }
-      },
-      onConsoleMessage: (controller, consoleMessage) {
-        print('Console: ${consoleMessage.message}');
-      },
-    );
+    // 1. extract the slug ("every-day-in-a-vampire-family", etc)
+    final uri = Uri.parse(detailUrl);
+    final segments = uri.pathSegments;
+    if (segments.length < 2) {
+      throw FormatException('Unexpected detailUrl format: $detailUrl');
+    }
+    final comicSlug = segments.last;
 
-    await headless.run();
-    final result = await completer.future;
-    await headless.dispose();
-    return result;
+    // 2. call the AJAX endpoint
+    final api = Uri.parse(
+      '$_base/Comic/Services/ComicService.asmx/ChapterList?slug=$comicSlug',
+    );
+    final resp = await http.get(api, headers: {
+      'Referer': _base,
+      'User-Agent': 'Mozilla/5.0',
+      'Accept': 'application/json',
+    });
+    if (resp.statusCode != 200) {
+      throw Exception(
+          'Failed to load chapter list (${resp.statusCode}): ${resp.body}');
+    }
+
+    // 3. decode the JSON you supplied
+    final Map<String, dynamic> jsonBody = json.decode(resp.body);
+    final List data = jsonBody['data'] as List<dynamic>;
+
+    // 4. build each chapter URL
+    return data.map<String>((e) {
+      final slug = e['chapter_slug'] as String;
+      return '$_base/truyen-tranh/$comicSlug/$slug';
+    }).toList();
   }
 
-  /// Scrape chapter pages via JS
+  /// Fetches a chapter page and returns the list of image URLs.
   Future<List<String>> fetchChapterPages(String chapterUrl) async {
-    final completer = Completer<List<String>>();
-    final headless = HeadlessInAppWebView(
-      initialUrlRequest: URLRequest(
-        url: WebUri(chapterUrl),
-        headers: {
-          'Referer': 'https://nettruyenvio.com',
-          'User-Agent': 'Mozilla/5.0',
-        },
-      ),
-      initialOptions: InAppWebViewGroupOptions(
-        crossPlatform: InAppWebViewOptions(javaScriptEnabled: true),
-      ),
-      onLoadStop: (controller, url) async {
-        try {
-          await Future.delayed(Duration(seconds: 3));
-          const js = r"""
-            (function(){
-              const imgs = document.querySelectorAll('.reading-detail img');
-              return JSON.stringify(Array.from(imgs).map(img => img.getAttribute('data-src') || img.src));
-            })();
-          """;
-          final raw = await controller.evaluateJavascript(source: js);
-          print('Pages JS raw: $raw');
-          final List data = json.decode(raw as String);
-          final pages = List<String>.from(data);
-          if (!completer.isCompleted) completer.complete(pages);
-        } catch (e) {
-          print('Error in fetchChapterPages JS eval: $e');
-          if (!completer.isCompleted) completer.completeError(e);
-        }
-      },
-      onConsoleMessage: (controller, consoleMessage) {
-        print('Console: ${consoleMessage.message}');
-      },
+    final resp = await _client.get(
+      Uri.parse(chapterUrl),
+      headers: _baseHeaders,
     );
-
-    await headless.run();
-    final result = await completer.future;
-    await headless.dispose();
-    return result;
+    if (resp.statusCode != 200) {
+      throw Exception('Failed to load chapter (${resp.statusCode})');
+    }
+    final doc = parse(resp.body);
+    final imgs = doc.querySelectorAll('.page-chapter img');
+    return imgs.map((img) {
+      return img.attributes['data-src'] ?? img.attributes['src'] ?? '';
+    }).toList();
   }
 
+  void dispose() {
+    _client.close();
+  }
 
 
 

@@ -1,0 +1,2 @@
+C:/Users/dattt/Desktop/nettruyenreader/android/app/.cxx/Debug/616m2y4i/x86/CMakeFiles/edit_cache.dir
+C:/Users/dattt/Desktop/nettruyenreader/android/app/.cxx/Debug/616m2y4i/x86/CMakeFiles/rebuild_cache.dir
