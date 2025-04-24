@@ -9,6 +9,7 @@ class NetTruyenReaderApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       title: 'NetTruyen Reader',
       theme: ThemeData(
         // remove the standalone brightness:

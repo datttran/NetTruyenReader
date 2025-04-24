@@ -49,17 +49,20 @@ class _DetailScreenState extends State<DetailScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // 1) cover image
-          Hero(
-            tag: widget.comic.imageUrl,
-            child: CachedNetworkImage(
-              cacheManager: _thumbCache,
-              imageUrl: widget.comic.imageUrl,
-              height: 200,
-              width: double.infinity,
-              fit: BoxFit.cover,
-              httpHeaders: const {'Referer': 'https://nettruyenvio.com'},
-              placeholder: (_, __) => const Center(child: CircularProgressIndicator()),
-              errorWidget: (_, __, ___) => const Icon(Icons.broken_image, size: 80),
+          Expanded(
+            flex: 2,
+            child: Hero(
+              tag: widget.comic.imageUrl,
+              child: CachedNetworkImage(
+                cacheManager: _thumbCache,
+                imageUrl: widget.comic.imageUrl,
+                height: 300,
+                width: double.infinity,
+                fit: BoxFit.cover,
+                httpHeaders: const {'Referer': 'https://nettruyenvio.com'},
+                placeholder: (_, __) => const Center(child: CircularProgressIndicator()),
+                errorWidget: (_, __, ___) => const Icon(Icons.broken_image, size: 80),
+              ),
             ),
           ),
 
