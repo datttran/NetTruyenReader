@@ -10,6 +10,7 @@ import '../services/nettruyen_service.dart';
 import '../models/comic.dart';
 import 'detail_screen.dart';
 import 'cloudflare_bypass_screen.dart';
+import 'settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -32,7 +33,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _loadCachedComics().then((_) => _loadMore());
+    _loadMore();
     _scrollController.addListener(() {
       if (_scrollController.position.pixels >=
           _scrollController.position.maxScrollExtent * 0.8) {
@@ -45,24 +46,6 @@ class _HomeScreenState extends State<HomeScreen> {
     return title.replaceFirst(RegExp(r'^[Tt]ruyện tranh\s*'), '').trim();
   }
 
-  Future<void> _loadCachedComics() async {
-    final prefs = await SharedPreferences.getInstance();
-    final jsonStr = prefs.getString('cachedComics');
-    if (jsonStr != null) {
-      final data = json.decode(jsonStr) as List;
-      _allComics = data.map((m) => Comic(
-        title: m['title'] as String,
-        imageUrl: m['imageUrl'] as String,
-        detailUrl: m['detailUrl'] as String,
-      )).toList();
-      _applyDeduplication();
-      setState(() {
-        _displayComics = _allComics.take(_pageSize).toList();
-        _hasMore = _allComics.length > _displayComics.length;
-      });
-    }
-  }
-
   Future<void> _loadMore() async {
     if (_isLoading || !_hasMore) return;
     setState(() => _isLoading = true);
@@ -71,15 +54,6 @@ class _HomeScreenState extends State<HomeScreen> {
       if (_allComics.isEmpty) {
         _allComics = await NetTruyenService().fetchComics();
         _applyDeduplication();
-        final prefs = await SharedPreferences.getInstance();
-        prefs.setString(
-          'cachedComics',
-          json.encode(_allComics.map((c) => {
-            'title': c.title,
-            'imageUrl': c.imageUrl,
-            'detailUrl': c.detailUrl,
-          }).toList()),
-        );
       }
 
       final newItems = _allComics
@@ -127,81 +101,113 @@ class _HomeScreenState extends State<HomeScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.search),
+            onPressed: () async {
+              final comic = await showSearch(
+                context: context,
+                delegate: ComicSearchDelegate(),
+              );
+              if (comic != null) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => DetailScreen(comic: comic),
+                  ),
+                );
+              }
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.settings),
             onPressed: () {
-              showSearch(context: context, delegate: ComicSearchDelegate());
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const SettingsScreen(),
+                ),
+              );
             },
           ),
         ],
       ),
-      body: _displayComics.isEmpty
-          ? _buildShimmerGrid()
-          : GridView.builder(
-        controller: _scrollController,
-        cacheExtent: 200,
-        padding: const EdgeInsets.all(8),
-        itemCount: _displayComics.length + (_hasMore ? 1 : 0),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 3,
-          childAspectRatio: 0.65,
-          crossAxisSpacing: 8,
-          mainAxisSpacing: 8,
-        ),
-        itemBuilder: (context, index) {
-          if (index >= _displayComics.length) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          final comic = _displayComics[index];
-          return GestureDetector(
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => DetailScreen(comic: comic)),
-            ),
-            child: Card(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              elevation: 4,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(
-                    child: Hero(
-                      tag: comic.imageUrl,
-                      child: ClipRRect(
-                        borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
-                        child: CachedNetworkImage(
-                          cacheManager: _thumbCacheManager,
-                          imageUrl: comic.imageUrl,
-                          httpHeaders: const {'Referer': 'https://nettruyenvio.com'},
-                          imageBuilder: (ctx, provider) => Image(
-                            image: ResizeImage(provider, width: 200),
-                            fit: BoxFit.cover,
+      body: RefreshIndicator(
+        onRefresh: () async {
+          _allComics = await NetTruyenService().fetchComics();
+          _applyDeduplication();
+          setState(() {
+            _displayComics = _allComics.take(_pageSize).toList();
+            _hasMore = _allComics.length > _displayComics.length;
+          });
+        },
+        child: _displayComics.isEmpty
+            ? _buildShimmerGrid()
+            : GridView.builder(
+                controller: _scrollController,
+                cacheExtent: 200,
+                padding: const EdgeInsets.all(8),
+                itemCount: _displayComics.length + (_hasMore ? 1 : 0),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 3,
+                  childAspectRatio: 0.65,
+                  crossAxisSpacing: 8,
+                  mainAxisSpacing: 8,
+                ),
+                itemBuilder: (context, index) {
+                  if (index >= _displayComics.length) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  final comic = _displayComics[index];
+                  return GestureDetector(
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => DetailScreen(comic: comic)),
+                    ),
+                    child: Card(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      elevation: 4,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(
+                            child: Hero(
+                              tag: comic.imageUrl,
+                              child: ClipRRect(
+                                borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                                child: CachedNetworkImage(
+                                  cacheManager: _thumbCacheManager,
+                                  imageUrl: comic.imageUrl,
+                                  httpHeaders: const {'Referer': 'https://nettruyenvio.com'},
+                                  imageBuilder: (ctx, provider) => Image(
+                                    image: ResizeImage(provider, width: 200),
+                                    fit: BoxFit.cover,
+                                  ),
+                                  placeholder: (ctx, url) => Shimmer.fromColors(
+                                    baseColor: Colors.grey[800]!,
+                                    highlightColor: Colors.grey[600]!,
+                                    child: Container(color: Colors.grey[700]),
+                                  ),
+                                  errorWidget: (ctx, url, error) =>
+                                      const Center(child: Icon(Icons.broken_image, size: 40)),
+                                ),
+                              ),
+                            ),
                           ),
-                          placeholder: (ctx, url) => Shimmer.fromColors(
-                            baseColor: Colors.grey[800]!,
-                            highlightColor: Colors.grey[600]!,
-                            child: Container(color: Colors.grey[700]),
+                          Padding(
+                            padding: const EdgeInsets.all(4),
+                            child: Text(
+                              comic.title,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
                           ),
-                          errorWidget: (ctx, url, error) =>
-                          const Center(child: Icon(Icons.broken_image, size: 40)),
-                        ),
+                        ],
                       ),
                     ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(4),
-                    child: Text(
-                      comic.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ),
-                ],
+                  );
+                },
               ),
-            ),
-          );
-        },
       ),
     );
   }
@@ -230,7 +236,7 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 /// ------------------------------------------------------------------
-/// SearchDelegate: only fires on Enter, shows “Verify” button if 403
+/// SearchDelegate: only fires on Enter, shows "Verify" button if 403
 /// ------------------------------------------------------------------
 class ComicSearchDelegate extends SearchDelegate<Comic?> {
   final NetTruyenService _service = NetTruyenService();
@@ -272,7 +278,7 @@ class ComicSearchDelegate extends SearchDelegate<Comic?> {
             // blocked → let user manually verify
             return Center(
               child: ElevatedButton(
-                child: const Text('Verify you’re human'),
+                child: const Text('Verify you are human'),
                 onPressed: () async {
                   final ok = await Navigator.push<bool>(
                     context,

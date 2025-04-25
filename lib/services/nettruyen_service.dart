@@ -12,6 +12,8 @@ import 'package:http/http.dart' as http;
 
 import 'package:html/parser.dart';
 
+import '../services/database_helper.dart';
+
 Future<http.Response> getWithSavedCookies(String url) async {
   final prefs = await SharedPreferences.getInstance();
   final savedCookie = prefs.getString('cookie');
@@ -50,7 +52,6 @@ class NetTruyenService {
     'Referer': 'https://nettruyenvio.com',
   };
 
-  /// Fetches the homepage and parses the list of comics.
   Future<List<Comic>> fetchComics() async {
     final resp = await _client.get(
       Uri.parse('https://nettruyenvio.com'),
@@ -60,22 +61,33 @@ class NetTruyenService {
       throw Exception('Failed to load homepage (${resp.statusCode})');
     }
     final doc = parse(resp.body);
-    final anchors = doc
-        .querySelectorAll('a[title]')
-        .where((a) => a.attributes['href']?.contains('/truyen-') == true);
+    final items = doc.querySelectorAll('.items .item');
 
-    return anchors.map((a) {
-      final title = a.attributes['title']!.trim();
-      final img = a.querySelector('img');
-      final thumb = img?.attributes['data-original'] ??
-          img?.attributes['data-src'] ??
-          img?.attributes['src'] ?? '';
+    return items.map((item) {
+      final link = item.querySelector('.image a');
+      final img = item.querySelector('img');
+      final titleEl = item.querySelector('figcaption h3 a');
+      
+      if (link == null || img == null || titleEl == null) {
+        throw Exception('Missing required elements in comic item');
+      }
+
+      final href = link.attributes['href'] ?? '';
+      if (!href.contains('truyen-tranh')) {
+        throw Exception('Not a comic link: $href');
+      }
+
+      final title = titleEl.text.trim();
+      final thumb = img.attributes['data-original'] ??
+          img.attributes['data-src'] ??
+          img.attributes['src'] ?? '';
+
       return Comic(
         title: title,
         imageUrl: thumb,
-        detailUrl: a.attributes['href']!,
+        detailUrl: href,
       );
-    }).toList();
+    }).where((comic) => comic.detailUrl.contains('truyen-tranh')).toList();
   }
 
   /// Parses the detail page to get all chapter URLs.
@@ -87,6 +99,18 @@ class NetTruyenService {
   /// parse the returned payload, then build and return the
   /// full detail-URL for each chapter.
   Future<List<String>> fetchChapters(String detailUrl) async {
+    try {
+      // Always fetch fresh data from network
+      final chapters = await _fetchChaptersFromNetwork(detailUrl);
+      return chapters;
+    } catch (e) {
+      print('Error fetching chapters: $e');
+      rethrow;
+    }
+  }
+
+  /// Internal method to fetch chapters from network
+  Future<List<String>> _fetchChaptersFromNetwork(String detailUrl) async {
     // 1. extract the slug ("every-day-in-a-vampire-family", etc)
     final uri = Uri.parse(detailUrl);
     final segments = uri.pathSegments;
@@ -231,4 +255,113 @@ class NetTruyenService {
     await headless.dispose();
     return result;
   }
+
+  /// Fetches detailed information about a comic from its detail page
+  Future<Map<String, dynamic>> fetchComicDetails(String detailUrl) async {
+    print('Fetching details from: $detailUrl');
+    final resp = await _client.get(
+      Uri.parse(detailUrl),
+      headers: _baseHeaders,
+    );
+    if (resp.statusCode != 200) {
+      throw Exception('Failed to load detail page (${resp.statusCode})');
+    }
+    final doc = parse(resp.body);
+
+    // Get article details
+    final article = doc.querySelector('article#item-detail');
+    if (article == null) {
+      print('Could not find article#item-detail');
+      return {};
+    }
+
+    // Get title and update time
+    final title = article.querySelector('h1.title-detail')?.text?.trim() ?? '';
+    final updateTime = article.querySelector('time.small')?.text?.trim() ?? '';
+    print('Found title: $title');
+    print('Found update time: $updateTime');
+
+    // Get details from list-info
+    final listInfo = article.querySelector('ul.list-info');
+    String? status;
+    String? author;
+    String? views;
+    List<String> genres = [];
+
+    if (listInfo != null) {
+      // Get author
+      final authorRow = listInfo.querySelector('li.author.row');
+      if (authorRow != null) {
+        final authorName = authorRow.querySelector('p.col-xs-8')?.text?.trim();
+        if (authorName != null && authorName != 'Đang cập nhật') {
+          author = authorName;
+        }
+      }
+
+      // Get status
+      final statusRow = listInfo.querySelector('li.status.row');
+      if (statusRow != null) {
+        status = statusRow.querySelector('p.col-xs-8')?.text?.trim();
+      }
+
+      // Get genres
+      final kindRow = listInfo.querySelector('li.kind.row');
+      if (kindRow != null) {
+        genres = kindRow.querySelectorAll('a')
+            .map((e) => e.text.trim())
+            .where((e) => e.isNotEmpty)
+            .toList();
+      }
+    }
+
+    print('Found author: $author');
+    print('Found status: $status');
+    print('Found genres: $genres');
+
+    return {
+      'title': title,
+      'status': status,
+      'author': author,
+      'views': views,
+      'genres': genres,
+      'updateTime': updateTime,
+    };
+  }
+
+  /// Updates a comic with its full details
+  Future<Comic> updateComicWithDetails(Comic comic) async {
+    try {
+      // Try to get from database first
+      final cached = await DatabaseHelper.instance.getComic(comic.detailUrl);
+      if (cached != null) {
+        print('Using cached comic details for: ${comic.title}');
+        return cached;
+      }
+
+      // If not in database, fetch from network
+      final details = await fetchComicDetails(comic.detailUrl);
+      final updated = Comic(
+        title: comic.title,
+        imageUrl: comic.imageUrl,
+        detailUrl: comic.detailUrl,
+        status: details['status'],
+        author: details['author'],
+        views: details['views'],
+        genres: List<String>.from(details['genres']),
+        updateTime: details['updateTime'],
+      );
+
+      // Save to database
+      final comicId = await DatabaseHelper.instance.insertComic(updated);
+      print('Saved comic to database with id: $comicId');
+
+      return updated;
+    } catch (e) {
+      print('Error updating comic details: $e');
+      rethrow;
+    }
+  }
+
+  /// Internal method to fetch chapters from network
+
 }

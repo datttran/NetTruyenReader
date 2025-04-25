@@ -17,6 +17,7 @@ class DetailScreen extends StatefulWidget {
 
 class _DetailScreenState extends State<DetailScreen> {
   late Future<List<String>> _chaptersFuture;
+  late Future<Comic> _comicFuture;
 
   // reuse the same thumbnail cache as HomeScreen
   final _thumbCache = CacheManager(
@@ -26,8 +27,10 @@ class _DetailScreenState extends State<DetailScreen> {
   @override
   void initState() {
     super.initState();
-    // fetch the full chapter list (including “Xem thêm” expansion)
+    // fetch the full chapter list (including "Xem thêm" expansion)
     _chaptersFuture = NetTruyenService().fetchChapters(widget.comic.detailUrl);
+    // fetch the full-size image URL
+    _comicFuture = NetTruyenService().updateComicWithDetails(widget.comic);
   }
 
   void _openReader(List<String> chapters, int index) {
@@ -35,8 +38,6 @@ class _DetailScreenState extends State<DetailScreen> {
       builder: (_) => ReaderScreen(
         chapters: chapters,
         initialIndex: index,
-        // if you want to save last read, pass your prefs‐saving callback here:
-
       ),
     ));
   }
@@ -45,84 +46,185 @@ class _DetailScreenState extends State<DetailScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(widget.comic.title)),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // 1) cover image
-          Expanded(
-            flex: 2,
-            child: Hero(
-              tag: widget.comic.imageUrl,
-              child: CachedNetworkImage(
-                cacheManager: _thumbCache,
-                imageUrl: widget.comic.imageUrl,
-                height: 300,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                httpHeaders: const {'Referer': 'https://nettruyenvio.com'},
-                placeholder: (_, __) => const Center(child: CircularProgressIndicator()),
-                errorWidget: (_, __, ___) => const Icon(Icons.broken_image, size: 80),
+      body: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Header section with image and details
+            Container(
+              padding: const EdgeInsets.all(16),
+              child: FutureBuilder<Comic>(
+                future: _comicFuture,
+                builder: (context, snapshot) {
+                  final comic = snapshot.data ?? widget.comic;
+                  
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+
+
+                      
+                      const SizedBox(height: 16),
+                      
+                      // Image and info side by side
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(width: 10,),
+                          // Cover image
+                          Hero(
+                            tag: comic.imageUrl,
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: CachedNetworkImage(
+                                cacheManager: _thumbCache,
+                                imageUrl: comic.imageUrl,
+                                width: 150,
+                                height: 200,
+                                fit: BoxFit.cover,
+                                httpHeaders: const {'Referer': 'https://nettruyenvio.com'},
+                                placeholder: (_, __) => Container(
+                                  width: 150,
+                                  height: 200,
+                                  color: Colors.grey[300],
+                                  child: const Center(child: CircularProgressIndicator()),
+                                ),
+                                errorWidget: (_, __, ___) => const Icon(Icons.broken_image, size: 80),
+                              ),
+                            ),
+                          ),
+                          
+                          const SizedBox(width: 16),
+                          
+                          // Details
+                          Expanded(
+                            child: snapshot.connectionState != ConnectionState.done
+                              ? const Center(child: CircularProgressIndicator())
+                              : Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    if (comic.status?.isNotEmpty == true) 
+                                      _buildInfoRow('Tình trạng:', comic.status!),
+                                    if (comic.author?.isNotEmpty == true) 
+                                      _buildInfoRow('Tác giả:', comic.author!),
+                                    if (comic.views?.isNotEmpty == true) 
+                                      _buildInfoRow('Lượt xem:', comic.views!),
+                                    if (comic.genres.isNotEmpty)
+                                      _buildInfoRow('Thể loại:', comic.genres.join(', ')),
+                                    
+                                    const SizedBox(height: 16),
+                                    
+                                    // Last updated time
+                                    Text(
+                                      'Cập nhật lúc: ${DateTime.now().toString().substring(0, 16)}',
+                                      style: Theme.of(context).textTheme.bodySmall,
+                                    ),
+                                  ],
+                                ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
-          ),
 
-          const SizedBox(height: 12),
-
-          // 2) title
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Text(
-              widget.comic.title,
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-          ),
-
-          const SizedBox(height: 12),
-
-          // 3) Read Now + chapter list
-          Expanded(
-            child: FutureBuilder<List<String>>(
-              future: _chaptersFuture,
-              builder: (ctx, snap) {
-                if (snap.connectionState != ConnectionState.done) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (snap.hasError) {
-                  return Center(
-                    child: Text('Error loading chapters:\n${snap.error}'),
-                  );
-                }
-
-                final chapters = snap.data ?? [];
-                if (chapters.isEmpty) {
-                  return const Center(child: Text('No chapters found.'));
-                }
-
-                return ListView.builder(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  itemCount: chapters.length + 1,
-                  itemBuilder: (context, i) {
-                    if (i == 0) {
-                      // “Read Now” always opens chapter 1
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 8),
+            // Action buttons
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: FutureBuilder<List<String>>(
+                future: _chaptersFuture,
+                builder: (context, snapshot) {
+                  final chapters = snapshot.data ?? [];
+                  return Row(
+                    children: [
+                      Expanded(
                         child: ElevatedButton(
-                          onPressed: () => _openReader(chapters, 0),
-                          child: const Text('Read Now'),
+                          onPressed: chapters.isEmpty ? null : () => _openReader(chapters, 0),
+                          child: const Text('Đọc từ đầu'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Theme.of(context).primaryColor,
+                            foregroundColor: Colors.white,
+                          ),
                         ),
-                      );
-                    }
-                    final chapIndex = i - 1;
-                    return ListTile(
-                      title: Text('Chapter ${chapIndex + 1}'),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () => _openReader(chapters, chapIndex),
-                    );
-                  },
-                );
-              },
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: chapters.isEmpty ? null : () => _openReader(chapters, chapters.length - 1),
+                          child: const Text('Đọc mới nhất'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.orange,
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
             ),
+
+            const SizedBox(height: 16),
+
+            // Chapter list
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: FutureBuilder<List<String>>(
+                future: _chaptersFuture,
+                builder: (ctx, snap) {
+                  if (snap.connectionState != ConnectionState.done) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (snap.hasError) {
+                    return Center(
+                      child: Text('Error loading chapters:\n${snap.error}'),
+                    );
+                  }
+
+                  final chapters = snap.data ?? [];
+                  if (chapters.isEmpty) {
+                    return const Center(child: Text('No chapters found.'));
+                  }
+
+                  return ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: chapters.length,
+                    itemBuilder: (context, index) {
+                      return ListTile(
+                        title: Text('Chapter ${chapters.length - index}'),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => _openReader(chapters, index),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.grey,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(value),
           ),
         ],
       ),
