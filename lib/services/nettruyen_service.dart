@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
@@ -13,6 +14,7 @@ import 'package:http/http.dart' as http;
 import 'package:html/parser.dart';
 
 import '../services/database_helper.dart';
+
 
 Future<http.Response> getWithSavedCookies(String url) async {
   final prefs = await SharedPreferences.getInstance();
@@ -42,6 +44,13 @@ class CloudflareException implements Exception {
   CloudflareException(this.url);
 }
 
+/// Represents a single page with its chapter information
+class PageItem {
+  final String imageUrl;
+  final int chapterIndex;
+
+  PageItem({required this.imageUrl, required this.chapterIndex});
+}
 
 class NetTruyenService {
 
@@ -53,41 +62,49 @@ class NetTruyenService {
   };
 
   Future<List<Comic>> fetchComics() async {
-    final resp = await _client.get(
-      Uri.parse('https://nettruyenvio.com'),
-      headers: _baseHeaders,
-    );
-    if (resp.statusCode != 200) {
-      throw Exception('Failed to load homepage (${resp.statusCode})');
-    }
-    final doc = parse(resp.body);
-    final items = doc.querySelectorAll('.items .item');
-
-    return items.map((item) {
-      final link = item.querySelector('.image a');
-      final img = item.querySelector('img');
-      final titleEl = item.querySelector('figcaption h3 a');
-      
-      if (link == null || img == null || titleEl == null) {
-        throw Exception('Missing required elements in comic item');
-      }
-
-      final href = link.attributes['href'] ?? '';
-      if (!href.contains('truyen-tranh')) {
-        throw Exception('Not a comic link: $href');
-      }
-
-      final title = titleEl.text.trim();
-      final thumb = img.attributes['data-original'] ??
-          img.attributes['data-src'] ??
-          img.attributes['src'] ?? '';
-
-      return Comic(
-        title: title,
-        imageUrl: thumb,
-        detailUrl: href,
+    try {
+      final resp = await _client.get(
+        Uri.parse('https://nettruyenvio.com'),
+        headers: _baseHeaders,
       );
-    }).where((comic) => comic.detailUrl.contains('truyen-tranh')).toList();
+      if (resp.statusCode != 200) {
+        throw Exception('Failed to load homepage (${resp.statusCode})');
+      }
+      final doc = parse(resp.body);
+      final items = doc.querySelectorAll('.items .item');
+
+      return items.map((item) {
+        final link = item.querySelector('.image a');
+        final img = item.querySelector('img');
+        final titleEl = item.querySelector('figcaption h3 a');
+        
+        if (link == null || img == null || titleEl == null) {
+          throw Exception('Missing required elements in comic item');
+        }
+
+        final href = link.attributes['href'] ?? '';
+        if (!href.contains('truyen-tranh')) {
+          throw Exception('Not a comic link: $href');
+        }
+
+        final title = titleEl.text.trim();
+        final thumb = img.attributes['data-original'] ??
+            img.attributes['data-src'] ??
+            img.attributes['src'] ?? '';
+
+        return Comic(
+          title: title,
+          imageUrl: thumb,
+          detailUrl: href,
+        );
+      }).where((comic) => comic.detailUrl.contains('truyen-tranh')).toList();
+    } on SocketException catch (e) {
+      print('Network error: $e');
+      throw Exception('Failed to load homepage');
+    } catch (e) {
+      print('Other error: $e');
+      throw Exception('Failed to load homepage');
+    }
   }
 
   /// Parses the detail page to get all chapter URLs.
@@ -148,7 +165,11 @@ class NetTruyenService {
   }
 
   /// Fetches a chapter page and returns the list of image URLs.
-  Future<List<String>> fetchChapterPages(String chapterUrl) async {
+  /// Optionally calls [onImageFound] for each image as it's discovered.
+  Future<List<String>> fetchChapterPages(
+    String chapterUrl, {
+    Function(String imageUrl)? onImageFound,
+  }) async {
     final resp = await _client.get(
       Uri.parse(chapterUrl),
       headers: _baseHeaders,
@@ -158,9 +179,18 @@ class NetTruyenService {
     }
     final doc = parse(resp.body);
     final imgs = doc.querySelectorAll('.page-chapter img');
-    return imgs.map((img) {
-      return img.attributes['data-src'] ?? img.attributes['src'] ?? '';
-    }).toList();
+    
+    final imageUrls = <String>[];
+    for (final img in imgs) {
+      final imageUrl = img.attributes['data-src'] ?? img.attributes['src'] ?? '';
+      if (imageUrl.isNotEmpty) {
+        imageUrls.add(imageUrl);
+        // Call the callback for each image as it's found
+        onImageFound?.call(imageUrl);
+      }
+    }
+    
+    return imageUrls;
   }
 
   void dispose() {
@@ -364,4 +394,40 @@ class NetTruyenService {
 
   /// Internal method to fetch chapters from network
 
+}
+
+Future<ImageProvider> fetchImageWithHeaders(String url) async {
+  final response = await http.get(
+    Uri.parse(url),
+    headers: {
+      'Referer': 'https://nettruyenvio.com',
+      'User-Agent': 'Mozilla/5.0',
+    },
+  );
+  if (response.statusCode == 200) {
+    return MemoryImage(response.bodyBytes);
+  } else {
+    throw Exception('Failed to load image: ${response.statusCode}');
+  }
+}
+
+class CustomNetworkImage extends StatelessWidget {
+  final String imageUrl;
+  const CustomNetworkImage({required this.imageUrl});
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<ImageProvider>(
+      future: fetchImageWithHeaders(imageUrl),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.done && snapshot.hasData) {
+          return Image(image: snapshot.data!);
+        } else if (snapshot.hasError) {
+          return Icon(Icons.error);
+        } else {
+          return CircularProgressIndicator();
+        }
+      },
+    );
+  }
 }
