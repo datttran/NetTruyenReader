@@ -1,6 +1,7 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../models/comic.dart';
+import 'dart:io'; // Added for File
 
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
@@ -210,5 +211,23 @@ class DatabaseHelper {
       await txn.delete('comics');
       await txn.delete('genres');
     });
+  }
+
+  Future<String> getDatabaseSize() async {
+    try {
+      final db = await database;
+      final dbPath = await getDatabasesPath();
+      final path = join(dbPath, 'nettruyen.db');
+      
+      final file = File(path);
+      if (await file.exists()) {
+        final size = await file.length();
+        return '${(size / 1024 / 1024).toStringAsFixed(2)} MB';
+      } else {
+        return '0 MB';
+      }
+    } catch (e) {
+      return 'Error calculating size';
+    }
   }
 } 

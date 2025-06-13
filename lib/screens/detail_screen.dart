@@ -5,7 +5,11 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import '../models/comic.dart';
 import '../services/nettruyen_service.dart';
+import '../services/database_helper.dart';
 import 'reader_screen.dart';
+import '../services/comic_search_delegate.dart';
+import '../constants/app_constants.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class DetailScreen extends StatefulWidget {
   final Comic comic;
@@ -21,7 +25,7 @@ class _DetailScreenState extends State<DetailScreen> {
 
   // reuse the same thumbnail cache as HomeScreen
   final _thumbCache = CacheManager(
-    Config('thumbCache', maxNrOfCacheObjects: 200),
+    Config(AppConstants.THUMB_CACHE_KEY, maxNrOfCacheObjects: AppConstants.CACHE_MAX_OBJECTS),
   );
 
   @override
@@ -31,6 +35,13 @@ class _DetailScreenState extends State<DetailScreen> {
     _chaptersFuture = NetTruyenService().fetchChapters(widget.comic.detailUrl);
     // fetch the full-size image URL
     _comicFuture = NetTruyenService().updateComicWithDetails(widget.comic);
+  }
+
+  /// CRITICAL: DO NOT CHANGE THIS METHOD! This method gets the current domain for use in headers.
+  /// It ensures that thumbnails are loaded with the correct Referer header.
+  Future<String> _getCurrentDomainForHeaders() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('custom_domain') ?? AppConstants.PRIMARY_DOMAIN;
   }
 
   void _openReader(List<String> chapters, int index) {
@@ -70,26 +81,40 @@ class _DetailScreenState extends State<DetailScreen> {
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          SizedBox(width: 10,),
+                          const SizedBox(width: 10,),
                           // Cover image
                           Hero(
                             tag: comic.imageUrl,
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(8),
-                              child: CachedNetworkImage(
-                                cacheManager: _thumbCache,
-                                imageUrl: comic.imageUrl,
-                                width: 150,
-                                height: 200,
-                                fit: BoxFit.cover,
-                                httpHeaders: const {'Referer': 'https://nettruyenvio.com'},
-                                placeholder: (_, __) => Container(
-                                  width: 150,
-                                  height: 200,
-                                  color: Colors.grey[300],
-                                  child: const Center(child: CircularProgressIndicator()),
-                                ),
-                                errorWidget: (_, __, ___) => const Icon(Icons.broken_image, size: 80),
+                              child: FutureBuilder<String>(
+                                future: _getCurrentDomainForHeaders(),
+                                builder: (context, domainSnapshot) {
+                                  if (!domainSnapshot.hasData) {
+                                    return Container(
+                                      width: 150,
+                                      height: 200,
+                                      color: Colors.grey[300],
+                                      child: const Center(child: CircularProgressIndicator()),
+                                    );
+                                  }
+                                  
+                                  return CachedNetworkImage(
+                                    cacheManager: _thumbCache,
+                                    imageUrl: comic.imageUrl,
+                                    width: 150,
+                                    height: 200,
+                                    fit: BoxFit.cover,
+                                    httpHeaders: {'Referer': domainSnapshot.data!},
+                                    placeholder: (_, __) => Container(
+                                      width: 150,
+                                      height: 200,
+                                      color: Colors.grey[300],
+                                      child: const Center(child: CircularProgressIndicator()),
+                                    ),
+                                    errorWidget: (_, __, ___) => const Icon(Icons.broken_image, size: 80),
+                                  );
+                                },
                               ),
                             ),
                           ),
@@ -142,22 +167,22 @@ class _DetailScreenState extends State<DetailScreen> {
                       Expanded(
                         child: ElevatedButton(
                           onPressed: chapters.isEmpty ? null : () => _openReader(chapters, 0),
-                          child: const Text('Đọc từ đầu'),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Theme.of(context).primaryColor,
                             foregroundColor: Colors.white,
                           ),
+                          child: const Text('Đọc từ đầu'),
                         ),
                       ),
                       const SizedBox(width: 16),
                       Expanded(
                         child: ElevatedButton(
                           onPressed: chapters.isEmpty ? null : () => _openReader(chapters, chapters.length - 1),
-                          child: const Text('Đọc mới nhất'),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.orange,
                             foregroundColor: Colors.white,
                           ),
+                          child: const Text('Đọc mới nhất'),
                         ),
                       ),
                     ],

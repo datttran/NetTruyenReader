@@ -1,44 +1,107 @@
 // lib/screens/home_screen.dart
 
-import 'dart:convert';
-import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:shimmer/shimmer.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../services/nettruyen_service.dart';
 import '../models/comic.dart';
+import '../services/nettruyen_service.dart';
+import '../constants/app_constants.dart';
 import 'detail_screen.dart';
-import 'cloudflare_bypass_screen.dart';
 import 'settings_screen.dart';
+import 'cloudflare_bypass_screen.dart';
+import '../services/comic_search_delegate.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({Key? key}) : super(key: key);
+  const HomeScreen({super.key});
+
   @override
-  _HomeScreenState createState() => _HomeScreenState();
+  State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  static const _pageSize = 15;
+  List<Comic> _allComics = []; // Changed from final
+  List<Comic> _displayComics = []; // Changed from final
   final ScrollController _scrollController = ScrollController();
-  final CacheManager _thumbCacheManager = CacheManager(
-    Config('thumbCache', maxNrOfCacheObjects: 200),
-  );
-
-  List<Comic> _allComics = [];
-  List<Comic> _displayComics = [];
+  
+  static const int _pageSize = 12;
   bool _isLoading = false;
   bool _hasMore = true;
+  
+  String? _lastUsedDomain;
+  final _thumbCacheManager = DefaultCacheManager();
 
   @override
   void initState() {
     super.initState();
     _loadMore();
+    
     _scrollController.addListener(() {
       if (_scrollController.position.pixels >=
-          _scrollController.position.maxScrollExtent * 0.8) {
+              _scrollController.position.maxScrollExtent * 0.8 &&
+          !_isLoading &&
+          _hasMore) {
         _loadMore();
       }
+    });
+    
+    _initializeLastUsedDomain();
+  }
+
+  /// CRITICAL: DO NOT CHANGE THIS METHOD! This method initializes the last used domain
+  /// to track changes when returning from settings. It's essential for the auto-reload
+  /// functionality to work properly.
+  Future<void> _initializeLastUsedDomain() async {
+    _lastUsedDomain = await NetTruyenService().getCurrentDomain();
+    print('🔍 Initialized last used domain: $_lastUsedDomain');
+  }
+
+  /// CRITICAL: DO NOT CHANGE THIS METHOD! This method gets the current domain for use in headers.
+  /// It ensures that thumbnails are loaded with the correct Referer header.
+  String _getCurrentDomainForHeaders() {
+    return _lastUsedDomain ?? AppConstants.PRIMARY_DOMAIN;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _checkAndReloadIfNeeded();
+  }
+
+  /// CRITICAL: DO NOT CHANGE THIS METHOD! This method checks if the domain has changed
+  /// since the last check and triggers a content reload if needed. It's essential for
+  /// the automatic content refresh functionality when returning from settings.
+  Future<void> _checkAndReloadIfNeeded() async {
+    final currentDomain = await NetTruyenService().getCurrentDomain();
+    print('🔍 Checking domain change: $_lastUsedDomain -> $currentDomain');
+    
+    if (_lastUsedDomain != null && _lastUsedDomain != currentDomain) {
+      print('🔍 Domain changed from $_lastUsedDomain to $currentDomain, reloading content...');
+      _reloadContent();
+    }
+    _lastUsedDomain = currentDomain;
+  }
+
+  /// CRITICAL: DO NOT CHANGE THIS METHOD! This method completely reloads the content
+  /// by clearing existing comics and triggering a fresh load. It's essential for
+  /// ensuring that content from the new domain is displayed properly.
+  Future<void> _reloadContent() async {
+    setState(() {
+      _allComics.clear();
+      _displayComics.clear();
+      _hasMore = true;
+    });
+    await _loadMore();
+  }
+
+  /// CRITICAL: DO NOT CHANGE THIS METHOD! This method handles thumbnail loading failures
+  /// by silently removing the failed comic from both the all comics list and display list.
+  /// It's essential for maintaining a clean UI without broken thumbnails.
+  void _onThumbnailFailed(String imageUrl) {
+    setState(() {
+      _allComics.removeWhere((comic) => comic.imageUrl == imageUrl);
+      _displayComics.removeWhere((comic) => comic.imageUrl == imageUrl);
+      _hasMore = _displayComics.length < _allComics.length;
     });
   }
 
@@ -48,12 +111,16 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadMore() async {
     if (_isLoading || !_hasMore) return;
+    
     setState(() => _isLoading = true);
 
     try {
       if (_allComics.isEmpty) {
+        print('🔍 Loading comics from home screen...');
         _allComics = await NetTruyenService().fetchComics();
+        print('🔍 Loaded ${_allComics.length} comics');
         _applyDeduplication();
+        print('🔍 After deduplication: ${_allComics.length} comics');
       }
 
       final newItems = _allComics
@@ -66,7 +133,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _hasMore = _displayComics.length < _allComics.length;
       });
     } catch (e) {
-      // TODO: show an error snackbar, etc.
+      print('❌ Error loading comics: $e');
     } finally {
       setState(() => _isLoading = false);
     }
@@ -97,7 +164,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('NetTruyen Reader'),
+        title: Text(AppConstants.APP_NAME),
         actions: [
           IconButton(
             icon: const Icon(Icons.search),
@@ -118,13 +185,17 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.settings),
-            onPressed: () {
-              Navigator.push(
+            onPressed: () async {
+              final result = await Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (_) => const SettingsScreen(),
                 ),
               );
+              if (result == true) {
+                print('🔍 Returning from settings, checking for domain changes...');
+                await _checkAndReloadIfNeeded();
+              }
             },
           ),
         ],
@@ -177,18 +248,32 @@ class _HomeScreenState extends State<HomeScreen> {
                                 child: CachedNetworkImage(
                                   cacheManager: _thumbCacheManager,
                                   imageUrl: comic.imageUrl,
-                                  httpHeaders: const {'Referer': 'https://nettruyenvio.com'},
-                                  imageBuilder: (ctx, provider) => Image(
-                                    image: ResizeImage(provider, width: 200),
-                                    fit: BoxFit.cover,
-                                  ),
-                                  placeholder: (ctx, url) => Shimmer.fromColors(
-                                    baseColor: Colors.grey[800]!,
-                                    highlightColor: Colors.grey[600]!,
-                                    child: Container(color: Colors.grey[700]),
-                                  ),
-                                  errorWidget: (ctx, url, error) =>
-                                      const Center(child: Icon(Icons.broken_image, size: 40)),
+                                  httpHeaders: {'Referer': _getCurrentDomainForHeaders()},
+                                  imageBuilder: (ctx, provider) {
+                                    print('🔍 Thumbnail loaded successfully: ${comic.title}');
+                                    return Image(
+                                      image: provider,
+                                      fit: BoxFit.cover,
+                                    );
+                                  },
+                                  placeholder: (ctx, url) {
+                                    print('🔍 Loading thumbnail: $url');
+                                    print('🔍 Using Referer: ${_getCurrentDomainForHeaders()}');
+                                    return Shimmer.fromColors(
+                                      baseColor: Colors.grey[800]!,
+                                      highlightColor: Colors.grey[600]!,
+                                      child: Container(color: Colors.grey[700]),
+                                    );
+                                  },
+                                  errorWidget: (ctx, url, error) {
+                                    print('❌ Thumbnail failed to load: $url');
+                                    print('❌ Error: $error');
+                                    print('❌ Using Referer: ${_getCurrentDomainForHeaders()}');
+                                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                                      _onThumbnailFailed(url);
+                                    });
+                                    return const Center(child: Icon(Icons.broken_image, size: 40));
+                                  },
                                 ),
                               ),
                             ),
@@ -197,9 +282,10 @@ class _HomeScreenState extends State<HomeScreen> {
                             padding: const EdgeInsets.all(4),
                             child: Text(
                               comic.title,
+                              style: const TextStyle(fontSize: 12),
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.bodySmall,
+                              textAlign: TextAlign.center,
                             ),
                           ),
                         ],
@@ -215,145 +301,44 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildShimmerGrid() {
     return GridView.builder(
       padding: const EdgeInsets.all(8),
-      itemCount: _pageSize,
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
         childAspectRatio: 0.65,
         crossAxisSpacing: 8,
         mainAxisSpacing: 8,
       ),
-      itemBuilder: (_, __) => Card(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        elevation: 4,
-        child: Shimmer.fromColors(
-          baseColor: Colors.grey[800]!,
-          highlightColor: Colors.grey[600]!,
-          child: Container(color: Colors.grey[700]),
-        ),
-      ),
-    );
-  }
-}
-
-/// ------------------------------------------------------------------
-/// SearchDelegate: only fires on Enter, shows "Verify" button if 403
-/// ------------------------------------------------------------------
-class ComicSearchDelegate extends SearchDelegate<Comic?> {
-  final NetTruyenService _service = NetTruyenService();
-
-  @override
-  String get searchFieldLabel => 'Search comics…';
-
-  @override
-  List<Widget>? buildActions(BuildContext context) {
-    if (query.isEmpty) return null;
-    return [
-      IconButton(icon: const Icon(Icons.clear), onPressed: () => query = ''),
-    ];
-  }
-
-  @override
-  Widget? buildLeading(BuildContext context) {
-    return IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => close(context, null));
-  }
-
-  // Only trigger a search when user hits Enter
-  @override
-  void showResults(BuildContext context) {
-    if (query.trim().isEmpty) return;
-    super.showResults(context);
-  }
-
-  @override
-  Widget buildResults(BuildContext context) {
-    return FutureBuilder<List<Comic>>(
-      future: _service.searchComics(query.trim()),
-      builder: (ctx, snap) {
-        if (snap.connectionState != ConnectionState.done) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (snap.hasError) {
-          final err = snap.error;
-          if (err is CloudflareException) {
-            // blocked → let user manually verify
-            return Center(
-              child: ElevatedButton(
-                child: const Text('Verify you are human'),
-                onPressed: () async {
-                  final ok = await Navigator.push<bool>(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => CloudflareBypassScreen(url: err.url),
-                    ),
-                  );
-                  if (ok == true) {
-                    // retry
-                    showResults(context);
-                  }
-                },
-              ),
-            );
-          }
-          return Center(child: Text('Error: $err'));
-        }
-
-        final results = snap.data!;
-        if (results.isEmpty) return const Center(child: Text('No results found.'));
-        return GridView.builder(
-          padding: const EdgeInsets.all(8),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3,
-            childAspectRatio: 0.65,
-            crossAxisSpacing: 8,
-            mainAxisSpacing: 8,
+      itemCount: 12,
+      itemBuilder: (context, index) {
+        return Card(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
           ),
-          itemCount: results.length,
-          itemBuilder: (_, i) {
-            final comic = results[i];
-            return GestureDetector(
-              onTap: () {
-                close(context, comic);
-                Navigator.push(context, MaterialPageRoute(builder: (_) => DetailScreen(comic: comic)));
-              },
-              child: Card(
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Expanded(
-                      child: ClipRRect(
-                        borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
-                        child: CachedNetworkImage(
-                          cacheManager: CacheManager(Config('thumbCache')),
-                          imageUrl: comic.imageUrl,
-                          httpHeaders: const {'Referer': 'https://nettruyenvio.com'},
-                          fit: BoxFit.cover,
-                          placeholder: (_, __) => const Center(child: CircularProgressIndicator()),
-                          errorWidget: (_, __, ___) => const Icon(Icons.broken_image),
-                        ),
-                      ),
+          child: Shimmer.fromColors(
+            baseColor: Colors.grey[800]!,
+            highlightColor: Colors.grey[600]!,
+            child: Column(
+              children: [
+                Expanded(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.grey[700],
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
                     ),
-                    Padding(
-                      padding: const EdgeInsets.all(4),
-                      child: Text(
-                        comic.title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-            );
-          },
+                Container(
+                  height: 16,
+                  margin: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[700],
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              ],
+            ),
+          ),
         );
       },
     );
-  }
-
-  @override
-  Widget buildSuggestions(BuildContext context) {
-    // no live suggestions—only on Enter
-    return const Center(child: Text('Type a title and hit Enter'));
   }
 }

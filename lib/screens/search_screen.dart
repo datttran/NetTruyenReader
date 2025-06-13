@@ -3,6 +3,8 @@ import '../models/comic.dart';
 
 /// A placeholder screen for searching comics.
 class SearchScreen extends StatefulWidget {
+  const SearchScreen({super.key});
+
   @override
   _SearchScreenState createState() => _SearchScreenState();
 }
@@ -19,7 +21,7 @@ class _SearchScreenState extends State<SearchScreen> {
     });
 
     // TODO: Integrate real search service here
-    await Future.delayed(Duration(seconds: 1));
+    await Future.delayed(const Duration(seconds: 1));
 
     setState(() {
       _isLoading = false;
@@ -34,7 +36,7 @@ class _SearchScreenState extends State<SearchScreen> {
       appBar: AppBar(
         title: TextField(
           controller: _searchController,
-          decoration: InputDecoration(
+          decoration: const InputDecoration(
             hintText: 'Search comics...',
             border: InputBorder.none,
           ),
@@ -43,7 +45,7 @@ class _SearchScreenState extends State<SearchScreen> {
         ),
       ),
       body: _isLoading
-          ? Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator())
           : ListView.builder(
         itemCount: _searchResults.length,
         itemBuilder: (context, index) {
