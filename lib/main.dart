@@ -1,9 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:nettruyen_reader/screens/home_screen.dart';
 import 'package:nettruyen_reader/constants/app_constants.dart';
+import 'package:nettruyen_reader/constants/theme_constants.dart';
+import 'package:nettruyen_reader/providers/theme_provider.dart';
 
 void main() {
-  runApp(const NetTruyenReaderApp());
+  runApp(
+    ChangeNotifierProvider(
+      create: (_) => ThemeProvider(),
+      child: const NetTruyenReaderApp(),
+    ),
+  );
 }
 
 class NetTruyenReaderApp extends StatelessWidget {
@@ -11,23 +19,17 @@ class NetTruyenReaderApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: AppConstants.APP_NAME,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.deepPurple,
-          brightness: Brightness.dark,
-        ),
-        useMaterial3: false, // Disable Material 3 to prevent unwanted color changes
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.deepPurple,
-          foregroundColor: Colors.white,
-          surfaceTintColor: Colors.transparent,
-          elevation: 0,
-        ),
-      ),
-      home: const HomeScreen(),
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, child) {
+        return MaterialApp(
+          debugShowCheckedModeBanner: false,
+          title: AppConstants.APP_NAME,
+          theme: ThemeConstants.lightTheme,
+          darkTheme: ThemeConstants.darkTheme,
+          themeMode: themeProvider.themeMode,
+          home: const HomeScreen(),
+        );
+      },
     );
   }
 }

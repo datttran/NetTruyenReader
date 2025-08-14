@@ -2,8 +2,11 @@
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
 import '../constants/app_constants.dart';
+import '../constants/theme_constants.dart';
 import '../services/database_helper.dart';
+import '../providers/theme_provider.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -209,6 +212,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const SizedBox(height: 16),
                 ],
               ),
+            ),
+            const Divider(),
+            
+            const ListTile(
+              title: Text(
+                'Appearance',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+            ),
+            Consumer<ThemeProvider>(
+              builder: (context, themeProvider, child) {
+                return ListTile(
+                  title: const Text('Theme'),
+                  subtitle: Text(themeProvider.themeModeDescription),
+                  trailing: DropdownButton<ThemeMode>(
+                    value: themeProvider.themeMode,
+                    onChanged: (ThemeMode? newValue) {
+                      if (newValue != null) {
+                        themeProvider.setThemeMode(newValue);
+                      }
+                    },
+                    items: ThemeMode.values.map<DropdownMenuItem<ThemeMode>>((ThemeMode themeMode) {
+                      return DropdownMenuItem<ThemeMode>(
+                        value: themeMode,
+                        child: Text(themeMode.name),
+                      );
+                    }).toList(),
+                  ),
+                );
+              },
             ),
             const Divider(),
             

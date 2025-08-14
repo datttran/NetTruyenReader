@@ -7,6 +7,7 @@ import 'package:shimmer/shimmer.dart';
 import '../models/comic.dart';
 import '../services/nettruyen_service.dart';
 import '../constants/app_constants.dart';
+import '../constants/theme_constants.dart';
 import 'detail_screen.dart';
 import 'settings_screen.dart';
 import '../services/comic_search_delegate.dart';
@@ -211,6 +212,8 @@ class _HomeScreenState extends State<HomeScreen> {
       _isLoading = false;
     });
   }
+
+
 
   /// Apply deduplication to filtered comics
   void _applyDeduplicationToFiltered() {
@@ -524,14 +527,14 @@ class _HomeScreenState extends State<HomeScreen> {
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Shimmer.fromColors(
-                            baseColor: Colors.grey[800]!,
-                            highlightColor: Colors.grey[600]!,
+                            baseColor: ThemeConstants.getShimmerBaseColor(ThemeMode.dark),
+                            highlightColor: ThemeConstants.getShimmerHighlightColor(ThemeMode.dark),
                             child: Column(
                               children: [
                                 Expanded(
                                   child: Container(
                                     decoration: BoxDecoration(
-                                      color: Colors.grey[700],
+                                      color: ThemeConstants.getShimmerBaseColor(ThemeMode.dark),
                                       borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
                                     ),
                                   ),
@@ -540,7 +543,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   height: 16,
                                   margin: const EdgeInsets.all(4),
                                   decoration: BoxDecoration(
-                                    color: Colors.grey[700],
+                                    color: ThemeConstants.getShimmerBaseColor(ThemeMode.dark),
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                 ),
@@ -600,9 +603,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                               },
                                               placeholder: (ctx, url) {
                                                 return Shimmer.fromColors(
-                                                  baseColor: Colors.grey[800]!,
-                                                  highlightColor: Colors.grey[600]!,
-                                                  child: Container(color: Colors.grey[700]),
+                                                  baseColor: ThemeConstants.getShimmerBaseColor(Theme.of(context).brightness == Brightness.dark ? ThemeMode.dark : ThemeMode.light),
+                                                  highlightColor: ThemeConstants.getShimmerHighlightColor(Theme.of(context).brightness == Brightness.dark ? ThemeMode.dark : ThemeMode.light),
+                                                  child: Container(color: ThemeConstants.getShimmerBaseColor(Theme.of(context).brightness == Brightness.dark ? ThemeMode.dark : ThemeMode.light)),
                                                 );
                                               },
                                               errorWidget: (ctx, url, error) {
@@ -622,7 +625,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                             child: Container(
                                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                               decoration: BoxDecoration(
-                                                color: Colors.red.withOpacity(0.9),
+                                                color: ThemeConstants.getChapterBadgeColor(Theme.of(context).brightness == Brightness.dark ? ThemeMode.dark : ThemeMode.light),
                                                 borderRadius: BorderRadius.circular(10),
                                               ),
                                               child: Text(

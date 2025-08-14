@@ -98,6 +98,12 @@
 1. **Single Screen Approach**: Genre filtering stays on main screen
 2. **Cache-First Strategy**: Prioritize cached data over network
 3. **State Management**: Clean separation of concerns
+
+#### **Flutter Lessons Learned:**
+- **Theme System**: Netflix-inspired color palette with dynamic switching
+- **Provider Pattern**: Efficient state management with ChangeNotifierProvider
+- **Type Safety**: CardTheme vs CardThemeData deprecation handling
+- **Performance**: Optimized widget rebuilding and const constructors
 4. **Error Handling**: Graceful degradation for failures
 
 #### **Technical Choices:**
