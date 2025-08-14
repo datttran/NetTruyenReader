@@ -456,7 +456,7 @@ class NetTruyenService {
           views = viewsText.isNotEmpty ? viewsText : null;
         }
         
-        // Try to extract genres
+        // Try to extract genres - only from specific genre containers
         List<Genre> genres = [];
         
         // Try the specific structure first: <li class="kind row"> with genre links
@@ -474,11 +474,10 @@ class NetTruyenService {
               }
               return Genre(name: name, url: url);
             }).where((g) => g.name.isNotEmpty && g.url.isNotEmpty).toList();
-    
           }
         }
         
-        // Fallback to generic selectors if the specific structure doesn't work
+        // Fallback to generic genre selectors if the specific structure doesn't work
         if (genres.isEmpty) {
           final genreElements = document.querySelectorAll('.genres a, .the-loai a, .comic-genres a, .category a');
           if (genreElements.isNotEmpty) {
@@ -492,27 +491,11 @@ class NetTruyenService {
               }
               return Genre(name: name, url: url);
             }).where((g) => g.name.isNotEmpty && g.url.isNotEmpty).toList();
-    
           }
         }
         
-        // Additional fallback: look for any links that might contain genre information
-        if (genres.isEmpty) {
-          final allLinks = document.querySelectorAll('a[href*="/tim-truyen/"]');
-          if (allLinks.isNotEmpty) {
-            genres = allLinks.map((e) {
-              final name = e.text?.trim() ?? '';
-              String url = e.attributes['href'] ?? '';
-              // Normalize URL to always be relative (remove domain if present)
-              if (url.startsWith('http')) {
-                final uri = Uri.parse(url);
-                url = uri.path;
-              }
-              return Genre(name: name, url: url);
-            }).where((g) => g.name.isNotEmpty && g.url.isNotEmpty).toList();
-    
-          }
-        }
+        // Only show genres if we found them from specific genre containers
+        // Don't fall back to generic link searching as it can pick up navigation links
         
         // Try to extract update time
         String? updateTime;

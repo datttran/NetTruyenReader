@@ -5,7 +5,7 @@ class AppConstants {
   static const String APP_VERSION = '1.0.0';
   
   // Primary domain - DO NOT CHANGE: This is the fallback domain that ensures the app always works
-  static const String PRIMARY_DOMAIN = 'https://nettruyenvio.com';
+  static const String PRIMARY_DOMAIN = 'https://nettruyenvia.com';
   
   // HTTP headers for Cloudflare bypass - DO NOT CHANGE: These headers successfully bypass Cloudflare protection
   static const Map<String, String> DEFAULT_HEADERS = {

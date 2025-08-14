@@ -566,8 +566,6 @@ class _HomeScreenState extends State<HomeScreen> {
                           return const Center(child: CircularProgressIndicator());
                         }
                         final comic = _displayComics[index];
-                        // Debug: Print comic info when building UI
-                        print('🔍 Building UI for comic: ${comic.title} - Chapter Count: ${comic.chapterCount}, Chapter Info: ${comic.chapterInfo}');
                         return GestureDetector(
                           onTap: () => Navigator.push(
                             context,

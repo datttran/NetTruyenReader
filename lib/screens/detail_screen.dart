@@ -9,6 +9,7 @@ import '../services/database_helper.dart';
 import 'reader_screen.dart';
 import '../services/comic_search_delegate.dart';
 import '../constants/app_constants.dart';
+import '../constants/theme_constants.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'genre_comics_screen.dart';
 
@@ -136,7 +137,9 @@ class _DetailScreenState extends State<DetailScreen> {
                                     if (comic.views?.isNotEmpty == true) 
                                       _buildInfoRow('Lượt xem:', comic.views!),
                                     if (comic.genres.isNotEmpty)
-                                      _buildGenresRow('Thể loại:', comic.genres),
+                                      _buildGenresRow('Thể loại:', comic.genres)
+                                    else
+                                      _buildInfoRow('Thể loại:', 'Đang cập nhật'),
                                     
                                     // Show message if no details are available
                                     if ((comic.status?.isEmpty ?? true) && 
@@ -311,9 +314,8 @@ class _DetailScreenState extends State<DetailScreen> {
               spacing: 8.0,
               runSpacing: 4.0,
               children: genres.map((genre) {
-                return ActionChip(
-                  label: Text(genre.name),
-                  onPressed: () {
+                return GestureDetector(
+                  onTap: () {
                     // Navigate to genre page to show comics of this genre
                     Navigator.push(
                       context,
@@ -325,6 +327,19 @@ class _DetailScreenState extends State<DetailScreen> {
                       ),
                     );
                   },
+                  child: Container(
+                    margin: const EdgeInsets.only(right: 8, bottom: 4),
+                    child: Text(
+                      genre.name,
+                      style: TextStyle(
+                        color: ThemeConstants.netflixRed,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        decoration: TextDecoration.underline,
+                        decorationColor: ThemeConstants.netflixRed.withOpacity(0.7),
+                      ),
+                    ),
+                  ),
                 );
               }).toList(),
             ),
