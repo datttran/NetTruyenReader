@@ -10,6 +10,7 @@ import 'reader_screen.dart';
 import '../services/comic_search_delegate.dart';
 import '../constants/app_constants.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'genre_comics_screen.dart';
 
 class DetailScreen extends StatefulWidget {
   final Comic comic;
@@ -135,7 +136,23 @@ class _DetailScreenState extends State<DetailScreen> {
                                     if (comic.views?.isNotEmpty == true) 
                                       _buildInfoRow('Lượt xem:', comic.views!),
                                     if (comic.genres.isNotEmpty)
-                                      _buildInfoRow('Thể loại:', comic.genres.join(', ')),
+                                      _buildGenresRow('Thể loại:', comic.genres),
+                                    
+                                    // Show message if no details are available
+                                    if ((comic.status?.isEmpty ?? true) && 
+                                         (comic.author?.isEmpty ?? true) && 
+                                         (comic.views?.isEmpty ?? true) && 
+                                         comic.genres.isEmpty)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 8),
+                                        child: Text(
+                                          'Đang tải thông tin chi tiết...',
+                                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                            color: Colors.grey[600],
+                                            fontStyle: FontStyle.italic,
+                                          ),
+                                        ),
+                                      ),
                                     
                                     const SizedBox(height: 16),
                                     
@@ -162,27 +179,46 @@ class _DetailScreenState extends State<DetailScreen> {
                 future: _chaptersFuture,
                 builder: (context, snapshot) {
                   final chapters = snapshot.data ?? [];
-                  return Row(
+                  return Column(
                     children: [
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: chapters.isEmpty ? null : () => _openReader(chapters, 0),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Theme.of(context).primaryColor,
-                            foregroundColor: Colors.white,
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: chapters.isEmpty ? null : () => _openReader(chapters, 0),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Theme.of(context).primaryColor,
+                                foregroundColor: Colors.white,
+                              ),
+                              child: const Text('Đọc từ đầu'),
+                            ),
                           ),
-                          child: const Text('Đọc từ đầu'),
-                        ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: chapters.isEmpty ? null : () => _openReader(chapters, chapters.length - 1),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.orange,
+                                foregroundColor: Colors.white,
+                              ),
+                              child: const Text('Đọc mới nhất'),
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: chapters.isEmpty ? null : () => _openReader(chapters, chapters.length - 1),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.orange,
-                            foregroundColor: Colors.white,
-                          ),
-                          child: const Text('Đọc mới nhất'),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            showSearch(
+                              context: context,
+                              delegate: ComicSearchDelegate(),
+                              query: '',
+                            );
+                          },
+                          icon: const Icon(Icons.search),
+                          label: const Text('Tìm truyện tương tự'),
                         ),
                       ),
                     ],
@@ -250,6 +286,48 @@ class _DetailScreenState extends State<DetailScreen> {
           const SizedBox(width: 8),
           Expanded(
             child: Text(value),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGenresRow(String label, List<Genre> genres) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.grey,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Wrap(
+              spacing: 8.0,
+              runSpacing: 4.0,
+              children: genres.map((genre) {
+                return ActionChip(
+                  label: Text(genre.name),
+                  onPressed: () {
+                    // Navigate to genre page to show comics of this genre
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => GenreComicsScreen(
+                          genreName: genre.name,
+                          genreUrl: genre.url,
+                        ),
+                      ),
+                    );
+                  },
+                );
+              }).toList(),
+            ),
           ),
         ],
       ),

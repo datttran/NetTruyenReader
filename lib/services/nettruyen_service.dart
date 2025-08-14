@@ -1,9 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart'; // Needed for ImageProvider
 import 'package:http/http.dart' as http;
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
-import 'package:html/parser.dart';
+import 'package:html/parser.dart' as html;
 import '../models/comic.dart';
 import '../constants/app_constants.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -29,7 +30,14 @@ class NetTruyenService {
   /// the domain switching functionality to work properly.
   Future<String> getCurrentDomain() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('custom_domain') ?? AppConstants.PRIMARY_DOMAIN;
+    String domain = prefs.getString('custom_domain') ?? AppConstants.PRIMARY_DOMAIN;
+    
+    // Ensure domain ends with trailing slash for proper URL construction
+    if (!domain.endsWith('/')) {
+      domain = '$domain/';
+    }
+    
+    return domain;
   }
 
   /// CRITICAL: DO NOT CHANGE THIS METHOD! This method builds the base headers for all HTTP requests.
@@ -53,7 +61,9 @@ class NetTruyenService {
 
   // CRITICAL: DO NOT CHANGE THIS METHOD! HTTP approach works perfectly
   Future<List<Comic>> fetchComics() async {
-    final url = await getCurrentDomain();
+    final domain = await getCurrentDomain();
+    // Remove trailing slash for base URL
+    final url = domain.endsWith('/') ? domain.substring(0, domain.length - 1) : domain;
     print('🔍 Fetching comics from: $url');
     
     try {
@@ -96,7 +106,7 @@ class NetTruyenService {
   /// ⚠️ WARNING: The image attribute priority order is CRITICAL for proper thumbnail loading.
   /// Changing the order will break thumbnail display and show default images for all comics.
   List<Comic> _parseComicsFromHtml(String htmlContent, String baseUrl) {
-    final document = parse(htmlContent);
+    final document = html.parse(htmlContent);
     
     // Debug: Check what elements exist
     final allElements = document.querySelectorAll('*');
@@ -175,37 +185,77 @@ class NetTruyenService {
   }
 
   /// CRITICAL: DO NOT CHANGE THIS METHOD! This method fetches the chapter list for a specific comic.
-  /// It uses the comic slug to construct the API URL and handles the JSON response properly.
+  /// It parses the HTML content from the comic detail page to extract chapter information.
   /// The method is essential for the chapter navigation functionality.
-  Future<List<String>> fetchChapters(String comicSlug) async {
+  Future<List<String>> fetchChapters(String comicUrl) async {
     try {
-      final apiDomain = await getCurrentDomain();
-      final api = Uri.parse(
-        '$apiDomain/Comic/Services/ComicService.asmx/ChapterList?slug=$comicSlug',
-      );
+      print('🔍 Fetching chapters from: $comicUrl');
       
       final headers = await _getBaseHeaders();
-      final response = await http.get(api, headers: headers).timeout(
-        const Duration(seconds: 30),
-      );
+      final response = await http.get(
+        Uri.parse(comicUrl),
+        headers: headers,
+      ).timeout(const Duration(seconds: 30));
+
+      print('🔍 Chapter response status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
-        final jsonData = json.decode(response.body);
-        final data = jsonData['d'] as List;
+        final htmlContent = response.body;
+        print('🔍 Chapter HTML content length: ${htmlContent.length}');
         
-        final chapterDomain = await getCurrentDomain();
-        final chapters = data.map<String>((e) {
-          final slug = e['chapter_slug'] as String;
-          return '$chapterDomain/truyen-tranh/$comicSlug/$slug';
-        }).toList();
+        // Check if we got blocked by Cloudflare
+        if (htmlContent.contains('Just a moment') || htmlContent.contains('Checking your browser')) {
+          print('❌ Chapter fetch blocked by Cloudflare');
+          throw Exception('CloudflareException: Chapter fetch blocked');
+        }
         
+        final document = html.parse(htmlContent);
+        
+        // Try different selectors for chapter links
+        var chapterElements = document.querySelectorAll('.chapter a, .list-chapter a, .chapters a, a[href*="/chap-"]');
+        print('🔍 Found ${chapterElements.length} chapter elements');
+        
+        if (chapterElements.isEmpty) {
+          print('❌ No chapter elements found, trying alternative selectors');
+          // Try alternative selectors
+          final altElements = document.querySelectorAll('a[href*="truyen-tranh"][href*="chap"]');
+          print('🔍 Found ${altElements.length} alternative chapter elements');
+          if (altElements.isNotEmpty) {
+            chapterElements = altElements;
+          }
+        }
+        
+        final chapters = <String>[];
+        for (final element in chapterElements) {
+          final href = element.attributes['href'];
+          if (href != null && href.isNotEmpty) {
+            // Convert relative URLs to absolute URLs
+            String fullUrl;
+            if (href.startsWith('http')) {
+              fullUrl = href;
+            } else if (href.startsWith('/')) {
+              final baseDomain = await getCurrentDomain();
+              fullUrl = '$baseDomain$href';
+            } else {
+              final baseDomain = await getCurrentDomain();
+              fullUrl = '$baseDomain/$href';
+            }
+            chapters.add(fullUrl);
+          }
+        }
+        
+        print('🔍 Extracted ${chapters.length} chapter URLs');
         return chapters;
       } else {
+        print('❌ Chapter fetch failed with status: ${response.statusCode}');
         throw Exception('Failed to load chapters: HTTP ${response.statusCode}');
       }
     } catch (e) {
       print('❌ Error fetching chapters: $e');
-      throw Exception('Failed to load chapters');
+      if (e.toString().contains('CloudflareException')) {
+        rethrow; // Re-throw Cloudflare exceptions for proper handling
+      }
+      throw Exception('Failed to load chapters: $e');
     }
   }
 
@@ -222,7 +272,7 @@ class NetTruyenService {
 
       if (response.statusCode == 200) {
         final htmlContent = response.body;
-        final document = parse(htmlContent);
+        final document = html.parse(htmlContent);
         final imageElements = document.querySelectorAll('.page-chapter img');
         
         return imageElements
@@ -254,7 +304,7 @@ class NetTruyenService {
 
       if (response.statusCode == 200) {
         final htmlContent = response.body;
-        final document = parse(htmlContent);
+        final document = html.parse(htmlContent);
         final imageElements = document.querySelectorAll('.page-chapter img');
         
         final imageUrls = <String>[];
@@ -283,7 +333,9 @@ class NetTruyenService {
   Future<List<Comic>> searchComics(String keyword) async {
     try {
       final searchDomain = await getCurrentDomain();
-      final searchUrl = '${searchDomain}/tim-truyen?keyword=${Uri.encodeComponent(keyword)}';
+      // Remove trailing slash from domain since we're adding a path
+      final cleanDomain = searchDomain.endsWith('/') ? searchDomain.substring(0, searchDomain.length - 1) : searchDomain;
+      final searchUrl = '$cleanDomain/tim-truyen?keyword=${Uri.encodeComponent(keyword)}';
       
       print('🔍 Searching for: $keyword at $searchUrl');
       
@@ -326,30 +378,166 @@ class NetTruyenService {
   /// The method is essential for the comic information display functionality.
   Future<Map<String, dynamic>> fetchComicDetails(String comicUrl) async {
     try {
+      print('🔍 Fetching comic details from: $comicUrl');
+      
       final headers = await _getBaseHeaders();
       final response = await http.get(
         Uri.parse(comicUrl),
         headers: headers,
       ).timeout(const Duration(seconds: 30));
 
+      print('🔍 Comic details response status: ${response.statusCode}');
+
       if (response.statusCode == 200) {
         final htmlContent = response.body;
-        final document = parse(htmlContent);
+        print('🔍 Comic details HTML content length: ${htmlContent.length}');
         
-        final title = document.querySelector('.title-detail')?.text?.trim() ?? 'Unknown Title';
-        final description = document.querySelector('.detail-content')?.text?.trim() ?? 'No description available';
+        // Check if we got blocked by Cloudflare
+        if (htmlContent.contains('Just a moment') || htmlContent.contains('Checking your browser')) {
+          print('❌ Comic details fetch blocked by Cloudflare');
+          throw Exception('CloudflareException: Comic details fetch blocked');
+        }
+        
+        final document = html.parse(htmlContent);
+        
+        // Try multiple selectors for different HTML structures
+        final title = document.querySelector('.title-detail, .comic-title, h1.title, .name')?.text?.trim() ?? 'Unknown Title';
+        final description = document.querySelector('.detail-content, .comic-description, .description, .summary')?.text?.trim() ?? 'No description available';
+        
+        // Try to extract status
+        String? status;
+        final statusElement = document.querySelector('.status, .tinh-trang, .comic-status');
+        if (statusElement != null) {
+          // Extract only the value, not the label
+          String statusText = statusElement.text?.trim() ?? '';
+          // Remove common label prefixes
+          statusText = statusText.replaceAll(RegExp(r'^Tình trạng\s*'), '');
+          statusText = statusText.replaceAll(RegExp(r'^Status\s*'), '');
+          status = statusText.isNotEmpty ? statusText : null;
+        }
+        
+        // Try to extract author
+        String? author;
+        final authorElement = document.querySelector('.author, .tac-gia, .comic-author');
+        if (authorElement != null) {
+          // Extract only the value, not the label
+          String authorText = authorElement.text?.trim() ?? '';
+          // Remove common label prefixes
+          authorText = authorText.replaceAll(RegExp(r'^Tác giả\s*'), '');
+          authorText = authorText.replaceAll(RegExp(r'^Author\s*'), '');
+          author = authorText.isNotEmpty ? authorText : null;
+        }
+        
+        // Try to extract views
+        String? views;
+        final viewsElement = document.querySelector('.views, .luot-xem, .comic-views');
+        if (viewsElement != null) {
+          // Extract only the value, not the label
+          String viewsText = viewsElement.text?.trim() ?? '';
+          // Remove common label prefixes
+          viewsText = viewsText.replaceAll(RegExp(r'^Lượt xem\s*'), '');
+          viewsText = viewsText.replaceAll(RegExp(r'^Views\s*'), '');
+          views = viewsText.isNotEmpty ? viewsText : null;
+        }
+        
+        // Try to extract genres
+        List<Genre> genres = [];
+        
+        // Try the specific structure first: <li class="kind row"> with genre links
+        final genreContainer = document.querySelector('li.kind.row');
+        if (genreContainer != null) {
+          final genreLinks = genreContainer.querySelectorAll('a[href*="/tim-truyen/"]');
+          if (genreLinks.isNotEmpty) {
+            genres = genreLinks.map((e) {
+              final name = e.text?.trim() ?? '';
+              String url = e.attributes['href'] ?? '';
+              // Normalize URL to always be relative (remove domain if present)
+              if (url.startsWith('http')) {
+                final uri = Uri.parse(url);
+                url = uri.path;
+              }
+              return Genre(name: name, url: url);
+            }).where((g) => g.name.isNotEmpty && g.url.isNotEmpty).toList();
+            print('🔍 Found genres using li.kind.row selector: ${genres.map((g) => '${g.name}(${g.url})').join(', ')}');
+          }
+        }
+        
+        // Fallback to generic selectors if the specific structure doesn't work
+        if (genres.isEmpty) {
+          final genreElements = document.querySelectorAll('.genres a, .the-loai a, .comic-genres a, .category a');
+          if (genreElements.isNotEmpty) {
+            genres = genreElements.map((e) {
+              final name = e.text?.trim() ?? '';
+              String url = e.attributes['href'] ?? '';
+              // Normalize URL to always be relative (remove domain if present)
+              if (url.startsWith('http')) {
+                final uri = Uri.parse(url);
+                url = uri.path;
+              }
+              return Genre(name: name, url: url);
+            }).where((g) => g.name.isNotEmpty && g.url.isNotEmpty).toList();
+            print('🔍 Found genres using fallback selectors: ${genres.map((g) => '${g.name}(${g.url})').join(', ')}');
+          }
+        }
+        
+        // Additional fallback: look for any links that might contain genre information
+        if (genres.isEmpty) {
+          final allLinks = document.querySelectorAll('a[href*="/tim-truyen/"]');
+          if (allLinks.isNotEmpty) {
+            genres = allLinks.map((e) {
+              final name = e.text?.trim() ?? '';
+              String url = e.attributes['href'] ?? '';
+              // Normalize URL to always be relative (remove domain if present)
+              if (url.startsWith('http')) {
+                final uri = Uri.parse(url);
+                url = uri.path;
+              }
+              return Genre(name: name, url: url);
+            }).where((g) => g.name.isNotEmpty && g.url.isNotEmpty).toList();
+            print('🔍 Found genres using broad link search: ${genres.map((g) => '${g.name}(${g.url})').join(', ')}');
+          }
+        }
+        
+        // Try to extract update time
+        String? updateTime;
+        final timeElement = document.querySelector('.update-time, .cap-nhat, .comic-update-time');
+        if (timeElement != null) {
+          // Extract only the value, not the label
+          String timeText = timeElement.text?.trim() ?? '';
+          // Remove common label prefixes
+          timeText = timeText.replaceAll(RegExp(r'^Cập nhật\s*'), '');
+          timeText = timeText.replaceAll(RegExp(r'^Update\s*'), '');
+          updateTime = timeText.isNotEmpty ? timeText : null;
+        }
+        
+        print('🔍 Extracted comic details:');
+        print('  - Title: $title');
+        print('  - Status: $status');
+        print('  - Author: $author');
+        print('  - Views: $views');
+        print('  - Genres: ${genres.join(', ')}');
+        print('  - Update Time: $updateTime');
         
         return {
           'title': title,
           'description': description,
+          'status': status,
+          'author': author,
+          'views': views,
+          'genres': genres,
+          'updateTime': updateTime,
           'url': comicUrl,
         };
       } else {
+        print('❌ Comic details fetch failed with status: ${response.statusCode}');
         throw Exception('Failed to load comic details: HTTP ${response.statusCode}');
       }
     } catch (e) {
       print('❌ Error fetching comic details: $e');
-      throw Exception('Failed to load comic details');
+      if (e.toString().contains('CloudflareException')) {
+        rethrow; // Re-throw Cloudflare exceptions for proper handling
+      }
+      throw Exception('Failed to load comic details: $e');
     }
   }
 
@@ -358,15 +546,10 @@ class NetTruyenService {
   /// The method is essential for the caching and performance optimization functionality.
   Future<Comic> updateComicWithDetails(Comic comic) async {
     try {
-      // Try to get from database first
-      final cached = await DatabaseHelper.instance.getComic(comic.detailUrl);
-      if (cached != null) {
-        print('Using cached comic details for: ${comic.title}');
-        return cached;
-      }
-
-      // If not in database, fetch from network
+      // Always try to fetch fresh data first to ensure we have the latest information
+      print('🔍 Fetching fresh comic details for: ${comic.title}');
       final details = await fetchComicDetails(comic.detailUrl);
+      
       final updated = Comic(
         title: comic.title,
         imageUrl: comic.imageUrl,
@@ -374,18 +557,80 @@ class NetTruyenService {
         status: details['status'],
         author: details['author'],
         views: details['views'],
-        genres: List<String>.from(details['genres'] ?? []),
+        genres: details['genres'] ?? [],
         updateTime: details['updateTime'],
       );
 
-      // Save to database
-      final comicId = await DatabaseHelper.instance.insertComic(updated);
-      print('Saved comic to database with id: $comicId');
+      // Save to database (this will update existing records)
+      final helper = DatabaseHelper();
+      final comicId = await helper.insertComic(updated);
+      print('🔍 Saved/updated comic to database with id: $comicId');
+      print('🔍 Comic details:');
+      print('  - Status: ${updated.status}');
+      print('  - Author: ${updated.author}');
+      print('  - Views: ${updated.views}');
+      print('  - Genres: ${updated.genres.map((g) => g.name).join(', ')}');
 
       return updated;
     } catch (e) {
-      print('Error updating comic details: $e');
-      rethrow;
+      print('❌ Error updating comic details: $e');
+      // If fetching fails, return the original comic with empty details
+      // This ensures the UI doesn't crash
+      return Comic(
+        title: comic.title,
+        imageUrl: comic.imageUrl,
+        detailUrl: comic.detailUrl,
+        status: null,
+        author: null,
+        views: null,
+        genres: [],
+        updateTime: null,
+      );
+    }
+  }
+
+    /// Fetches comics by genre URL (e.g., /tim-truyen/action-95)
+  Future<List<Comic>> fetchComicsByGenre(String genreUrl) async {
+    try {
+      final currentDomain = await getCurrentDomain();
+      
+      // Handle both relative and absolute URLs
+      String fullUrl;
+      if (genreUrl.startsWith('http')) {
+        fullUrl = genreUrl; // Already a full URL
+      } else {
+        // Remove trailing slash from domain since we're adding a path
+        final cleanDomain = currentDomain.endsWith('/') ? currentDomain.substring(0, currentDomain.length - 1) : currentDomain;
+        fullUrl = '$cleanDomain$genreUrl'; // Construct full URL
+      }
+
+      print('🔍 Fetching comics by genre: $fullUrl');
+      
+      final headers = await _getBaseHeaders();
+      final response = await http.get(
+        Uri.parse(fullUrl),
+        headers: headers,
+      ).timeout(const Duration(seconds: 30));
+      
+      if (response.statusCode == 200) {
+        final htmlContent = response.body;
+        print('🔍 Genre page HTML content length: ${htmlContent.length}');
+        
+        // Parse the genre page HTML to extract comics
+        final document = html.parse(htmlContent);
+        
+        // Use the same parsing logic as the main page
+        return _parseComicsFromHtml(htmlContent, currentDomain);
+      } else {
+        print('❌ Genre page fetch failed with status: ${response.statusCode}');
+        throw Exception('Failed to load genre page: HTTP ${response.statusCode}');
+      }
+    } catch (e) {
+      print('❌ Error fetching comics by genre: $e');
+      if (e.toString().contains('CloudflareException')) {
+        rethrow; // Re-throw Cloudflare exceptions for proper handling
+      }
+      throw Exception('Failed to fetch comics by genre: $e');
     }
   }
 }

@@ -11,6 +11,7 @@ import 'detail_screen.dart';
 import 'settings_screen.dart';
 import 'cloudflare_bypass_screen.dart';
 import '../services/comic_search_delegate.dart';
+import 'genre_comics_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -209,91 +210,170 @@ class _HomeScreenState extends State<HomeScreen> {
             _hasMore = _allComics.length > _displayComics.length;
           });
         },
-        child: _displayComics.isEmpty
-            ? _buildShimmerGrid()
-            : GridView.builder(
-                controller: _scrollController,
-                cacheExtent: 200,
-                padding: const EdgeInsets.all(8),
-                itemCount: _displayComics.length + (_hasMore ? 1 : 0),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
-                  childAspectRatio: 0.65,
-                  crossAxisSpacing: 8,
-                  mainAxisSpacing: 8,
-                ),
-                itemBuilder: (context, index) {
-                  if (index >= _displayComics.length) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  final comic = _displayComics[index];
-                  return GestureDetector(
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => DetailScreen(comic: comic)),
+        child: Column(
+          children: [
+            // Popular Genres Section
+            Container(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Thể loại phổ biến',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
                     ),
-                    child: Card(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      elevation: 4,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Expanded(
-                            child: Hero(
-                              tag: comic.imageUrl,
-                              child: ClipRRect(
-                                borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
-                                child: CachedNetworkImage(
-                                  cacheManager: _thumbCacheManager,
-                                  imageUrl: comic.imageUrl,
-                                  httpHeaders: {'Referer': _getCurrentDomainForHeaders()},
-                                  imageBuilder: (ctx, provider) {
-                                    print('🔍 Thumbnail loaded successfully: ${comic.title}');
-                                    return Image(
-                                      image: provider,
-                                      fit: BoxFit.cover,
-                                    );
-                                  },
-                                  placeholder: (ctx, url) {
-                                    print('🔍 Loading thumbnail: $url');
-                                    print('🔍 Using Referer: ${_getCurrentDomainForHeaders()}');
-                                    return Shimmer.fromColors(
-                                      baseColor: Colors.grey[800]!,
-                                      highlightColor: Colors.grey[600]!,
-                                      child: Container(color: Colors.grey[700]),
-                                    );
-                                  },
-                                  errorWidget: (ctx, url, error) {
-                                    print('❌ Thumbnail failed to load: $url');
-                                    print('❌ Error: $error');
-                                    print('❌ Using Referer: ${_getCurrentDomainForHeaders()}');
-                                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                                      _onThumbnailFailed(url);
-                                    });
-                                    return const Center(child: Icon(Icons.broken_image, size: 40));
-                                  },
+                  ),
+                  const SizedBox(height: 12),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        {'name': 'Action', 'path': '/tim-truyen/action-95'},
+                        {'name': 'Comedy', 'path': '/tim-truyen/comedy-99'},
+                        {'name': 'Drama', 'path': '/tim-truyen/drama-103'},
+                        {'name': 'Romance', 'path': '/tim-truyen/romance-121'},
+                        {'name': 'Fantasy', 'path': '/tim-truyen/fantasy-100'},
+                        {'name': 'Adventure', 'path': '/tim-truyen/adventure-101'},
+                        {'name': 'Slice of Life', 'path': '/tim-truyen/slice-of-life'},
+                        {'name': 'Psychological', 'path': '/tim-truyen/psychological'},
+                      ].map((genre) {
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: ActionChip(
+                            label: Text(genre['name']!),
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => GenreComicsScreen(
+                                    genreName: genre['name']!,
+                                    genreUrl: genre['path']!,
+                                  ),
                                 ),
-                              ),
+                              );
+                            },
+                            backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
+                            labelStyle: TextStyle(
+                              color: Theme.of(context).primaryColor,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
-                          Padding(
-                            padding: const EdgeInsets.all(4),
-                            child: Text(
-                              comic.title,
-                              style: const TextStyle(fontSize: 12),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                        ],
-                      ),
+                        );
+                      }).toList(),
                     ),
-                  );
-                },
+                  ),
+                ],
               ),
+            ),
+            // Comics Grid
+            Expanded(
+              child: _displayComics.isEmpty
+                  ? _buildShimmerGrid()
+                  : GridView.builder(
+                      controller: _scrollController,
+                      cacheExtent: 200,
+                      padding: const EdgeInsets.all(8),
+                      itemCount: _displayComics.length + (_hasMore ? 1 : 0),
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 3,
+                        childAspectRatio: 0.65,
+                        crossAxisSpacing: 8,
+                        mainAxisSpacing: 8,
+                      ),
+                      itemBuilder: (context, index) {
+                        if (index >= _displayComics.length) {
+                          return const Center(child: CircularProgressIndicator());
+                        }
+                        final comic = _displayComics[index];
+                        return GestureDetector(
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => DetailScreen(comic: comic)),
+                          ),
+                          child: Card(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            elevation: 4,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Expanded(
+                                  child: Hero(
+                                    tag: comic.imageUrl,
+                                    child: ClipRRect(
+                                      borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                                      child: CachedNetworkImage(
+                                        cacheManager: _thumbCacheManager,
+                                        imageUrl: comic.imageUrl,
+                                        httpHeaders: {'Referer': _getCurrentDomainForHeaders()},
+                                        imageBuilder: (ctx, provider) {
+                                          print('🔍 Thumbnail loaded successfully: ${comic.title}');
+                                          return Image(
+                                            image: provider,
+                                            fit: BoxFit.cover,
+                                          );
+                                        },
+                                        placeholder: (ctx, url) {
+                                          print('🔍 Loading thumbnail: $url');
+                                          print('🔍 Using Referer: ${_getCurrentDomainForHeaders()}');
+                                          return Shimmer.fromColors(
+                                            baseColor: Colors.grey[800]!,
+                                            highlightColor: Colors.grey[600]!,
+                                            child: Container(color: Colors.grey[700]),
+                                          );
+                                        },
+                                        errorWidget: (ctx, url, error) {
+                                          print('❌ Thumbnail failed to load: $url');
+                                          print('❌ Error: $error');
+                                          print('❌ Using Referer: ${_getCurrentDomainForHeaders()}');
+                                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                                            _onThumbnailFailed(url);
+                                          });
+                                          return const Center(child: Icon(Icons.broken_image, size: 40));
+                                        },
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.all(4),
+                                  child: Text(
+                                    comic.title,
+                                    style: const TextStyle(fontSize: 12),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {
+          final comic = await showSearch(
+            context: context,
+            delegate: ComicSearchDelegate(),
+          );
+          if (comic != null) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => DetailScreen(comic: comic),
+              ),
+            );
+          }
+        },
+        child: const Icon(Icons.search),
+        tooltip: 'Tìm kiếm truyện',
       ),
     );
   }

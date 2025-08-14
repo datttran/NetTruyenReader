@@ -1,3 +1,15 @@
+class Genre {
+  final String name;
+  final String url;
+
+  Genre({required this.name, required this.url});
+
+  @override
+  String toString() {
+    return 'Genre{name: $name, url: $url}';
+  }
+}
+
 class Comic {
   final String title;
   final String imageUrl;
@@ -5,7 +17,7 @@ class Comic {
   final String? status;
   final String? author;
   final String? views;
-  final List<String> genres;
+  final List<Genre> genres;
   final String? updateTime;
 
   Comic({
@@ -15,12 +27,12 @@ class Comic {
     this.status,
     this.author,
     this.views,
-    List<String>? genres,
+    List<Genre>? genres,
     this.updateTime,
   }) : genres = genres ?? [];
 
   @override
   String toString() {
-    return 'Comic{title: $title, status: $status, author: $author, views: $views, genres: $genres, updateTime: $updateTime}';
+    return 'Comic{title: $title, status: $status, author: $author, views: $views, genres: ${genres.map((g) => g.name).join(', ')}, updateTime: $updateTime}';
   }
 }

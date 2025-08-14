@@ -4,25 +4,27 @@ import '../models/comic.dart';
 import 'dart:io'; // Added for File
 
 class DatabaseHelper {
-  static final DatabaseHelper instance = DatabaseHelper._init();
+  static final DatabaseHelper _instance = DatabaseHelper._internal();
   static Database? _database;
 
-  DatabaseHelper._init();
+  factory DatabaseHelper() => _instance;
+  DatabaseHelper._internal();
 
   Future<Database> get database async {
     if (_database != null) return _database!;
-    _database = await _initDB('nettruyen.db');
+    _database = await _initDatabase();
     return _database!;
   }
 
-  Future<Database> _initDB(String filePath) async {
+  Future<Database> _initDatabase() async {
     final dbPath = await getDatabasesPath();
-    final path = join(dbPath, filePath);
-
+    final path = join(dbPath, 'nettruyen.db');
+    
     return await openDatabase(
       path,
-      version: 1,
+      version: 2, // Updated version for new schema
       onCreate: _createDB,
+      onUpgrade: _upgradeDB,
     );
   }
 
@@ -47,7 +49,8 @@ class DatabaseHelper {
     await db.execute('''
       CREATE TABLE genres (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL UNIQUE
+        name TEXT NOT NULL UNIQUE,
+        url TEXT NOT NULL
       )
     ''');
 
@@ -76,6 +79,16 @@ class DatabaseHelper {
     ''');
   }
 
+  Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      // Add URL column to genres table
+      await db.execute('ALTER TABLE genres ADD COLUMN url TEXT NOT NULL DEFAULT ""');
+      
+      // Update existing genres with empty URLs (they will be updated when comics are refreshed)
+      await db.execute('UPDATE genres SET url = "" WHERE url IS NULL');
+    }
+  }
+
   // Comic operations
   Future<int> insertComic(Comic comic) async {
     final db = await database;
@@ -100,7 +113,10 @@ class DatabaseHelper {
     for (final genre in comic.genres ?? []) {
       final genreId = await db.insert(
         'genres',
-        {'name': genre},
+        {
+          'name': genre.name,
+          'url': genre.url,
+        },
         conflictAlgorithm: ConflictAlgorithm.ignore,
       );
       
@@ -131,7 +147,7 @@ class DatabaseHelper {
 
     // Get genres for this comic
     final genres = await db.rawQuery('''
-      SELECT g.name FROM genres g
+      SELECT g.name, g.url FROM genres g
       INNER JOIN comic_genres cg ON g.id = cg.genre_id
       WHERE cg.comic_id = ?
     ''', [maps.first['id']]);
@@ -143,7 +159,7 @@ class DatabaseHelper {
       status: maps.first['status'] as String?,
       author: maps.first['author'] as String?,
       views: maps.first['views'] as String?,
-      genres: genres.map((g) => g['name'] as String).toList(),
+      genres: genres.map((g) => Genre(name: g['name'] as String, url: g['url'] as String)).toList(),
       updateTime: maps.first['updateTime'] as String?,
     );
   }

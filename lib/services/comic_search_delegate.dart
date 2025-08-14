@@ -6,6 +6,7 @@ import '../screens/detail_screen.dart';
 import '../constants/app_constants.dart';
 import '../screens/cloudflare_bypass_screen.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
+import '../screens/genre_comics_screen.dart'; // Added import for GenreComicsScreen
 
 class ComicSearchDelegate extends SearchDelegate<Comic?> {
   final NetTruyenService _service = NetTruyenService();
@@ -35,8 +36,119 @@ class ComicSearchDelegate extends SearchDelegate<Comic?> {
 
   @override
   Widget buildSuggestions(BuildContext context) {
-    // no live suggestions—only on Enter
-    return const Center(child: Text('Type a title and hit Enter'));
+    // Show popular genres and search tips when no query
+    if (query.isEmpty) {
+      return _buildPopularGenres(context);
+    }
+    
+    // Show search tips when typing
+    return _buildSearchTips(context);
+  }
+
+  Widget _buildPopularGenres(BuildContext context) {
+    final popularGenres = [
+      {'name': 'Action', 'path': '/tim-truyen/action-95'},
+      {'name': 'Comedy', 'path': '/tim-truyen/comedy-99'},
+      {'name': 'Drama', 'path': '/tim-truyen/drama-103'},
+      {'name': 'Romance', 'path': '/tim-truyen/romance-121'},
+      {'name': 'Fantasy', 'path': '/tim-truyen/fantasy-100'},
+      {'name': 'Adventure', 'path': '/tim-truyen/adventure-101'},
+      {'name': 'Slice of Life', 'path': '/tim-truyen/slice-of-life'},
+      {'name': 'Psychological', 'path': '/tim-truyen/psychological'},
+      {'name': 'Mystery', 'path': '/tim-truyen/mystery'},
+      {'name': 'Horror', 'path': '/tim-truyen/horror'},
+      {'name': 'Sci-Fi', 'path': '/tim-truyen/sci-fi'},
+      {'name': 'Supernatural', 'path': '/tim-truyen/supernatural'},
+      {'name': 'Historical', 'path': '/tim-truyen/historical'},
+      {'name': 'Sports', 'path': '/tim-truyen/sports'},
+      {'name': 'Music', 'path': '/tim-truyen/music'},
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Thể loại phổ biến',
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: popularGenres.map((genre) {
+              return ActionChip(
+                label: Text(genre['name']!),
+                onPressed: () {
+                  // Navigate to genre page instead of search
+                  close(context, null);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => GenreComicsScreen(
+                        genreName: genre['name']!,
+                        genreUrl: genre['path']!,
+                      ),
+                    ),
+                  );
+                },
+                backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
+                labelStyle: TextStyle(
+                  color: Theme.of(context).primaryColor,
+                  fontWeight: FontWeight.w500,
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'Tìm kiếm nhanh',
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            '• Gõ tên truyện và nhấn Enter để tìm kiếm\n'
+            '• Nhấn vào thể loại để xem truyện cùng loại\n'
+            '• Sử dụng từ khóa tiếng Việt hoặc tiếng Anh',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Colors.grey[600],
+              height: 1.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchTips(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Tìm kiếm: "$query"',
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Nhấn Enter để tìm kiếm\n'
+            'Hoặc tiếp tục gõ để tinh chỉnh từ khóa',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Colors.grey[600],
+              height: 1.5,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override

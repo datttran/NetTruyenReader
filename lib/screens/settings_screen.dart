@@ -79,18 +79,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
   /// for display in the settings UI. It's essential for providing users with information
   /// about their local storage usage.
   Future<void> _calculateDatabaseSize() async {
-    setState(() => _isLoading = true);
-    
     try {
-      final size = await DatabaseHelper.instance.getDatabaseSize();
+      final helper = DatabaseHelper();
+      final size = await helper.getDatabaseSize();
       setState(() {
         _dbSize = size;
-        _isLoading = false;
       });
     } catch (e) {
       setState(() {
         _dbSize = 'Error calculating size';
-        _isLoading = false;
       });
     }
   }
@@ -120,11 +117,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     if (confirmed == true) {
       try {
-        await DatabaseHelper.instance.clearAllData();
+        final helper = DatabaseHelper();
+        await helper.clearAllData();
         await _calculateDatabaseSize();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Database cleared successfully')),
+            const SnackBar(content: Text('All data cleared successfully')),
           );
         }
       } catch (e) {
