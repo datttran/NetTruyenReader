@@ -623,6 +623,33 @@ class NetTruyenService {
       throw Exception('Failed to fetch comics by genre: $e');
     }
   }
+
+  /// Fetches comics from a specific URL (supports page parameters)
+  Future<List<Comic>> fetchComicsFromUrl(String url) async {
+    try {
+      final headers = await _getBaseHeaders();
+      final response = await http.get(
+        Uri.parse(url),
+        headers: headers,
+      ).timeout(const Duration(seconds: 30));
+      
+      if (response.statusCode == 200) {
+        final htmlContent = response.body;
+        
+        // Use the same parsing logic as the main page
+        final comics = _parseComicsFromHtml(htmlContent, url);
+        
+        return comics;
+      } else {
+        throw Exception('Failed to load page: HTTP ${response.statusCode}');
+      }
+    } catch (e) {
+      if (e.toString().contains('CloudflareException')) {
+        rethrow; // Re-throw Cloudflare exceptions for proper handling
+      }
+      throw Exception('Failed to fetch comics from URL: $e');
+    }
+  }
 }
 
 /// CRITICAL: DO NOT CHANGE THIS FUNCTION! This function fetches images with proper headers for display.

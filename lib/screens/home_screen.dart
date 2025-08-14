@@ -28,6 +28,7 @@ class _HomeScreenState extends State<HomeScreen> {
   static const int _pageSize = 12;
   bool _isLoading = false;
   bool _hasMore = true;
+  int _currentPage = 1;
   
   String? _lastUsedDomain;
   final _thumbCacheManager = DefaultCacheManager();
@@ -135,9 +136,21 @@ class _HomeScreenState extends State<HomeScreen> {
       _selectedGenre = genreName;
       _selectedGenrePath = genrePath;
       _isFilteringByGenre = true;
-      _displayComics.clear();
-      _hasMore = true;
+      _currentPage = 1; // Reset to first page when filtering
     });
+
+    // Auto-scroll to top when filtering (only if not already at top)
+    if (_scrollController.hasClients && _scrollController.offset > 100) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _scrollController.animateTo(
+            0,
+            duration: const Duration(milliseconds: 300), // Faster scroll
+            curve: Curves.easeOut, // Smoother curve
+          );
+        }
+      });
+    }
     
     try {
       // Check cache first
@@ -145,8 +158,11 @@ class _HomeScreenState extends State<HomeScreen> {
       if (cachedData != null) {
         _filteredComics = cachedData;
       } else {
+        final startTime = DateTime.now();
         _filteredComics = await NetTruyenService().fetchComicsByGenre(genrePath);
-        print('🔍 Loaded ${_filteredComics.length} comics for genre $genreName');
+        final endTime = DateTime.now();
+        final duration = endTime.difference(startTime);
+        print('🔍 Loaded ${_filteredComics.length} comics for genre $genreName in ${duration.inMilliseconds}ms');
         // Debug: Print first few comics with chapter info
         for (int i = 0; i < _filteredComics.length && i < 3; i++) {
           final comic = _filteredComics[i];
@@ -163,7 +179,7 @@ class _HomeScreenState extends State<HomeScreen> {
       // Apply deduplication to filtered comics
       _applyDeduplicationToFiltered();
       
-      // Show first page of filtered comics
+      // Show first page of filtered comics - simple and fast
       final newItems = _filteredComics.take(_pageSize).toList();
       setState(() {
         _displayComics = newItems;
@@ -187,10 +203,21 @@ class _HomeScreenState extends State<HomeScreen> {
       _isFilteringByGenre = false;
       _selectedGenre = 'Phổ biến';
       _selectedGenrePath = null;
-      _filteredComics.clear();
-      _displayComics.clear();
-      _hasMore = true;
+      _currentPage = 1; // Reset to first page when showing all comics
     });
+
+    // Auto-scroll to top when showing all comics (only if not already at top)
+    if (_scrollController.hasClients && _scrollController.offset > 100) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _scrollController.animateTo(
+            0,
+            duration: const Duration(milliseconds: 300), // Faster scroll
+            curve: Curves.easeOut, // Smoother curve
+          );
+        }
+      });
+    }
     
     // Check cache first for popular comics
     final cachedPopularData = _getCachedGenreData(_popularCacheKey);
@@ -204,7 +231,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _cacheGenreData(_popularCacheKey, _allComics);
     }
     
-    // Show first page of popular comics
+    // Show first page of popular comics - simple and fast
     final newItems = _allComics.take(_pageSize).toList();
     setState(() {
       _displayComics = newItems;
@@ -409,20 +436,20 @@ class _HomeScreenState extends State<HomeScreen> {
       padding: const EdgeInsets.only(right: 8),
       child: ActionChip(
         label: Text(genreName),
-        onPressed: () {
+        onPressed: _isLoading ? null : () { // Prevent taps while loading
           if (genreName == 'Phổ biến') {
             _showAllComics();
           } else {
             _filterByGenre(genreName, genrePath);
           }
         },
-              backgroundColor: isSelected 
+        backgroundColor: isSelected 
           ? ThemeConstants.netflixRed
-          : ThemeConstants.netflixRed.withOpacity(0.1),
-      labelStyle: TextStyle(
-        color: isSelected ? Colors.white : ThemeConstants.netflixRed,
-        fontWeight: FontWeight.w500,
-      ),
+          : ThemeConstants.netflixRed.withValues(alpha: 0.1), // Use withValues instead of withOpacity
+        labelStyle: TextStyle(
+          color: isSelected ? Colors.white : ThemeConstants.netflixRed,
+          fontWeight: FontWeight.w500,
+        ),
       ),
     );
   }
@@ -438,30 +465,80 @@ class _HomeScreenState extends State<HomeScreen> {
           slivers: [
             // App Bar that hides when scrolling up
             SliverAppBar(
-              title: Text(AppConstants.APP_NAME),
-              floating: true,
-              pinned: false,
-              snap: true,
-              actions: [
-                IconButton(
-                  icon: const Icon(Icons.search),
-                  onPressed: () async {
-                    final comic = await showSearch(
-                      context: context,
-                      delegate: ComicSearchDelegate(),
-                    );
-                    if (comic != null) {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => DetailScreen(comic: comic),
+              
+
+              stretch: true,
+
+                 // Always pinned - prevents image from disappearing
+              expandedHeight: _getAppBarHeight(), // 20% of screen height
+              backgroundColor: Colors.transparent, // Ensure no background color
+              // collapsedHeight: 56,  // Removed to use Flutter's default minimum
+              flexibleSpace: FlexibleSpaceBar(
+                title: Container(
+                  height: _getAppBarHeight()/5,
+                  decoration: BoxDecoration(color: Colors.transparent),
+                  child: Row(
+
+                    mainAxisAlignment: MainAxisAlignment.center, // Left align to match menu button
+                    crossAxisAlignment: CrossAxisAlignment.baseline, // Align text baselines
+                    textBaseline: TextBaseline.alphabetic, // Use alphabetic baseline
+                    children: [
+                      // Your logo image with transparent background
+                      ShaderMask(
+                        shaderCallback: (Rect bounds) {
+                          return const LinearGradient(
+                            colors: [Colors.white, Colors.white],
+                          ).createShader(bounds);
+                        },
+                        blendMode: BlendMode.dstIn,
+                        child: Image.asset(
+                          'assets/images/logo.png',
+                          height: 82, // Adjust size as needed
+                          width: 120, // Adjust width as needed
+                          fit: BoxFit.contain,
+                          errorBuilder: (context, error, stackTrace) {
+                            // Debug: Print error info
+                            print('Logo loading error: $error');
+                            print('Logo stack trace: $stackTrace');
+                            // Fallback to icon if logo fails to load
+                            return const Icon(
+                              Icons.auto_stories,
+                              color: Colors.white,
+                              size: 24,
+                            );
+                          },
+                          frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+                            print('Logo frame loaded: frame=$frame, sync=$wasSynchronouslyLoaded');
+                            return child;
+                          },
                         ),
-                      );
-                    }
-                  },
+                      ),
+                    ],
+                  ),
                 ),
+                background: Stack(
+                  children: [
+                    // Your WebP image as background - full coverage
+                    Image.asset(
+                      'assets/images/app_icon_collage.webp',
+                      fit: BoxFit.cover,  // Use cover to fill entire area
+                      width: double.infinity,  // Ensure full width
+                      height: double.infinity,  // Ensure full height
+                      errorBuilder: (context, error, stackTrace) {
+                        // WebP Image error - fallback to background
+                        return _buildFallbackBackground();
+                      },
+                      // frameBuilder removed - WebP loading confirmed working
+                    ),
+                    // Edge vignette overlay
+                    _buildGradientOverlay(),
+                  ],
+                ),
+              ),
+              actions: [
+
                 IconButton(
-                  icon: const Icon(Icons.settings),
+                  icon: const Icon(Icons.menu),
                   onPressed: () async {
                     final result = await Navigator.push(
                       context,
@@ -684,6 +761,11 @@ class _HomeScreenState extends State<HomeScreen> {
                       mainAxisSpacing: AppConstants.GRID_SPACING,
                     ),
                   ),
+                  
+                  // Pagination widget
+                  SliverToBoxAdapter(
+                    child: _buildPagination(),
+                  ),
           ],
         ),
       ),
@@ -750,6 +832,204 @@ class _HomeScreenState extends State<HomeScreen> {
       // Standard mobile portrait - use balanced aspect ratio
       return 0.65;
     }
+  }
+
+
+
+  /// Navigate to a specific page
+  void _goToPage(int page) async {
+    if (page < 1) return;
+    
+    setState(() {
+      _currentPage = page;
+      _isLoading = true;
+    });
+
+    // Auto-scroll to top when starting to load new page
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _scrollController.animateTo(
+          0,
+          duration: const Duration(milliseconds: 500),
+          curve: Curves.easeInOut,
+        );
+      }
+    });
+
+    try {
+      if (_isFilteringByGenre) {
+        // Fetch comics for specific genre with page parameter
+        final pageUrl = '${_selectedGenrePath}?page=$page';
+        final newComics = await NetTruyenService().fetchComicsByGenre(pageUrl);
+        
+        setState(() {
+          _filteredComics = newComics;
+          _displayComics = newComics;
+          _isLoading = false;
+        });
+      } else {
+        // Fetch popular comics with page parameter
+        final pageUrl = 'https://nettruyenvia.com/?page=$page';
+        final newComics = await NetTruyenService().fetchComicsFromUrl(pageUrl);
+        
+        setState(() {
+          _allComics = newComics;
+          _displayComics = newComics;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      // Handle error
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  /// Calculate app bar height as percentage of screen height
+  double _getAppBarHeight() {
+    return MediaQuery.of(context).size.height * 0.2; // 20% of screen height
+  }
+
+  /// Build edge vignette overlay for image
+  Widget _buildGradientOverlay() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: RadialGradient(
+          center: Alignment.center,
+          radius: 0.8,
+          colors: [
+            Colors.transparent,  // Center: transparent
+            Colors.black.withValues(alpha: 0.2),  // Middle: light darkening
+            Colors.black.withValues(alpha: 0.7),  // Edge: strong darkening
+            Colors.black.withValues(alpha: .95),  // Corner: very dark
+          ],
+          stops: const [0.0, 0.4, 0.7, 1.0],
+        ),
+      ),
+    );
+  }
+
+  /// Build fallback background when image fails to load
+  Widget _buildFallbackBackground() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Colors.grey[800]!,  // Dark gray instead of red
+            Colors.grey[900]!,  // Darker gray
+          ],
+        ),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.image_not_supported,  // Changed icon to indicate image issue
+              size: 80,
+              color: Colors.white,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Image Not Available',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Using Fallback Background',
+              style: TextStyle(
+                color: Colors.grey[300],
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Build pagination widget
+  Widget _buildPagination() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // Previous page button
+          if (_currentPage > 1)
+            IconButton(
+              onPressed: () => _goToPage(_currentPage - 1),
+              icon: const Icon(Icons.chevron_left),
+              tooltip: 'Trang trước',
+            ),
+          
+          // Page numbers - show current page and nearby pages
+          ...List.generate(10, (index) {
+            final pageNumber = index + 1;
+            final isCurrentPage = pageNumber == _currentPage;
+            
+            // Show current page, first page, and pages around current
+            if (pageNumber == 1 || 
+                (pageNumber >= _currentPage - 1 && pageNumber <= _currentPage + 1)) {
+              return Container(
+                margin: const EdgeInsets.symmetric(horizontal: 4),
+                child: InkWell(
+                  onTap: () => _goToPage(pageNumber),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: isCurrentPage ? ThemeConstants.netflixRed : Colors.transparent,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: isCurrentPage ? ThemeConstants.netflixRed : Colors.grey[300]!,
+                        width: 1,
+                      ),
+                    ),
+                    child: Text(
+                      '$pageNumber',
+                      style: TextStyle(
+                        color: isCurrentPage ? Colors.white : Colors.grey[700],
+                        fontWeight: isCurrentPage ? FontWeight.bold : FontWeight.normal,
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            } else if (pageNumber == _currentPage - 2 || pageNumber == _currentPage + 2) {
+              // Show ellipsis for skipped pages
+              return Container(
+                margin: const EdgeInsets.symmetric(horizontal: 4),
+                child: Text(
+                  '...',
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 16,
+                  ),
+                ),
+              );
+            } else {
+              // Hide other pages
+              return const SizedBox.shrink();
+            }
+          }),
+          
+          // Next page button (always show to allow forward navigation)
+          IconButton(
+            onPressed: () => _goToPage(_currentPage + 1),
+            icon: const Icon(Icons.chevron_right),
+            tooltip: 'Trang tiếp',
+          ),
+        ],
+      ),
+    );
   }
 
 
