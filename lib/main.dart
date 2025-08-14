@@ -15,13 +15,17 @@ class NetTruyenReaderApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: AppConstants.APP_NAME,
       theme: ThemeData(
-        // remove the standalone brightness:
-        // brightness: Brightness.dark,
         colorScheme: ColorScheme.fromSeed(
           seedColor: Colors.deepPurple,
-          brightness: Brightness.dark,   // ← force dark here
+          brightness: Brightness.dark,
         ),
-        useMaterial3: true,
+        useMaterial3: false, // Disable Material 3 to prevent unwanted color changes
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.deepPurple,
+          foregroundColor: Colors.white,
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+        ),
       ),
       home: const HomeScreen(),
     );

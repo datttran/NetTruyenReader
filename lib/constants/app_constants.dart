@@ -1,7 +1,7 @@
 // lib/constants/app_constants.dart
 
 class AppConstants {
-  static const String APP_NAME = 'NetTruyen Reader';
+  static const String APP_NAME = 'Comic Reader';
   static const String APP_VERSION = '1.0.0';
   
   // Primary domain - DO NOT CHANGE: This is the fallback domain that ensures the app always works

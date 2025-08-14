@@ -29,6 +29,11 @@ This document contains all the issues we've encountered and solved during develo
 - **Search Results**: 36+ comics per search (deduplicated)
 - **Cache Efficiency**: High (images cached locally after first load)
 
+### **📚 Documentation Available:**
+- **[📱 Screen Documentation](docs/home_screen.md)** - Detailed home screen implementation
+- **[🚀 Hiding App Bar Guide](docs/hiding_app_bar_implementation.md)** - Complete implementation guide
+- **[📋 Documentation Index](docs/README.md)** - Full documentation structure
+
 ---
 
 ## 🚨 Critical Issues & Solutions

@@ -164,43 +164,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(AppConstants.APP_NAME),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.search),
-            onPressed: () async {
-              final comic = await showSearch(
-                context: context,
-                delegate: ComicSearchDelegate(),
-              );
-              if (comic != null) {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => DetailScreen(comic: comic),
-                  ),
-                );
-              }
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () async {
-              final result = await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const SettingsScreen(),
-                ),
-              );
-              if (result == true) {
-                print('🔍 Returning from settings, checking for domain changes...');
-                await _checkAndReloadIfNeeded();
-              }
-            },
-          ),
-        ],
-      ),
+
       body: RefreshIndicator(
         onRefresh: () async {
           _allComics = await NetTruyenService().fetchComics();
@@ -210,78 +174,153 @@ class _HomeScreenState extends State<HomeScreen> {
             _hasMore = _allComics.length > _displayComics.length;
           });
         },
-        child: Column(
-          children: [
+        child: CustomScrollView(
+          controller: _scrollController,
+          slivers: [
+            // App Bar that hides when scrolling up
+            SliverAppBar(
+              title: Text(AppConstants.APP_NAME),
+              floating: true,
+              pinned: false,
+              snap: true,
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.search),
+                  onPressed: () async {
+                    final comic = await showSearch(
+                      context: context,
+                      delegate: ComicSearchDelegate(),
+                    );
+                    if (comic != null) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => DetailScreen(comic: comic),
+                        ),
+                      );
+                    }
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.settings),
+                  onPressed: () async {
+                    final result = await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const SettingsScreen(),
+                      ),
+                    );
+                    if (result == true) {
+                      print('🔍 Returning from settings, checking for domain changes...');
+                      await _checkAndReloadIfNeeded();
+                    }
+                  },
+                ),
+              ],
+            ),
             // Popular Genres Section
-            Container(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Thể loại phổ biến',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
+            SliverToBoxAdapter(
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Thể loại phổ biến',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        {'name': 'Action', 'path': '/tim-truyen/action-95'},
-                        {'name': 'Comedy', 'path': '/tim-truyen/comedy-99'},
-                        {'name': 'Drama', 'path': '/tim-truyen/drama-103'},
-                        {'name': 'Romance', 'path': '/tim-truyen/romance-121'},
-                        {'name': 'Fantasy', 'path': '/tim-truyen/fantasy-100'},
-                        {'name': 'Adventure', 'path': '/tim-truyen/adventure-101'},
-                        {'name': 'Slice of Life', 'path': '/tim-truyen/slice-of-life'},
-                        {'name': 'Psychological', 'path': '/tim-truyen/psychological'},
-                      ].map((genre) {
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: ActionChip(
-                            label: Text(genre['name']!),
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => GenreComicsScreen(
-                                    genreName: genre['name']!,
-                                    genreUrl: genre['path']!,
+                    const SizedBox(height: 12),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          {'name': 'Action', 'path': '/tim-truyen/action-95'},
+                          {'name': 'Comedy', 'path': '/tim-truyen/comedy-99'},
+                          {'name': 'Drama', 'path': '/tim-truyen/drama-103'},
+                          {'name': 'Romance', 'path': '/tim-truyen/romance-121'},
+                          {'name': 'Fantasy', 'path': '/tim-truyen/fantasy-100'},
+                          {'name': 'Adventure', 'path': '/tim-truyen/adventure-101'},
+                          {'name': 'Slice of Life', 'path': '/tim-truyen/slice-of-life'},
+                          {'name': 'Psychological', 'path': '/tim-truyen/psychological'},
+                        ].map((genre) {
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: ActionChip(
+                              label: Text(genre['name']!),
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => GenreComicsScreen(
+                                      genreName: genre['name']!,
+                                      genreUrl: genre['path']!,
+                                    ),
                                   ),
-                                ),
-                              );
-                            },
-                            backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
-                            labelStyle: TextStyle(
-                              color: Theme.of(context).primaryColor,
-                              fontWeight: FontWeight.w500,
+                                );
+                              },
+                              backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
+                              labelStyle: TextStyle(
+                                color: Theme.of(context).primaryColor,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
-                          ),
-                        );
-                      }).toList(),
+                          );
+                        }).toList(),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
             // Comics Grid
-            Expanded(
-              child: _displayComics.isEmpty
-                  ? _buildShimmerGrid()
-                  : GridView.builder(
-                      controller: _scrollController,
-                      cacheExtent: 200,
-                      padding: const EdgeInsets.all(8),
-                      itemCount: _displayComics.length + (_hasMore ? 1 : 0),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 3,
-                        childAspectRatio: 0.65,
-                        crossAxisSpacing: 8,
-                        mainAxisSpacing: 8,
-                      ),
-                      itemBuilder: (context, index) {
+            _displayComics.isEmpty
+                ? SliverGrid(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        return Card(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Shimmer.fromColors(
+                            baseColor: Colors.grey[800]!,
+                            highlightColor: Colors.grey[600]!,
+                            child: Column(
+                              children: [
+                                Expanded(
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey[700],
+                                      borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                                    ),
+                                  ),
+                                ),
+                                Container(
+                                  height: 16,
+                                  margin: const EdgeInsets.all(4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey[700],
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                      childCount: 12,
+                    ),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 3,
+                      childAspectRatio: 0.65,
+                      crossAxisSpacing: 8,
+                      mainAxisSpacing: 8,
+                    ),
+                  )
+                : SliverGrid(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
                         if (index >= _displayComics.length) {
                           return const Center(child: CircularProgressIndicator());
                         }
@@ -352,8 +391,15 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         );
                       },
+                      childCount: _displayComics.length + (_hasMore ? 1 : 0),
                     ),
-            ),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 3,
+                      childAspectRatio: 0.65,
+                      crossAxisSpacing: 8,
+                      mainAxisSpacing: 8,
+                    ),
+                  ),
           ],
         ),
       ),
@@ -378,47 +424,5 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildShimmerGrid() {
-    return GridView.builder(
-      padding: const EdgeInsets.all(8),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        childAspectRatio: 0.65,
-        crossAxisSpacing: 8,
-        mainAxisSpacing: 8,
-      ),
-      itemCount: 12,
-      itemBuilder: (context, index) {
-        return Card(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Shimmer.fromColors(
-            baseColor: Colors.grey[800]!,
-            highlightColor: Colors.grey[600]!,
-            child: Column(
-              children: [
-                Expanded(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.grey[700],
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
-                    ),
-                  ),
-                ),
-                Container(
-                  height: 16,
-                  margin: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[700],
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
+
 }
