@@ -44,10 +44,33 @@ class AppConstants {
   static const String USER_SETTINGS_KEY = 'user_settings';
   static const String LAST_UPDATE_KEY = 'last_update';
   
-  // UI constants
+  // UI constants - Responsive design using percentage-based sizing
   static const double CARD_ELEVATION = 4.0;
   static const double CARD_BORDER_RADIUS = 8.0;
   static const double GRID_SPACING = 8.0;
+  
+  // Responsive card sizing - percentage of screen width
+  static const double CARD_WIDTH_PERCENT = 0.28; // 28% of screen width for reasonable reading size
+  static const double CARD_HEIGHT_PERCENT = 0.45; // 45% of screen height for proper aspect ratio
+  static const double MIN_CARD_WIDTH = 120.0; // Minimum card width in pixels
+  static const double MAX_CARD_WIDTH = 200.0; // Maximum card width in pixels
+  
+  // Responsive breakpoints for different screen sizes
+  static const double MOBILE_BREAKPOINT = 600.0; // Mobile devices
+  static const double TABLET_BREAKPOINT = 900.0; // Tablet devices
+  static const double DESKTOP_BREAKPOINT = 1200.0; // Desktop devices
+  
+  // Card sizing for different breakpoints
+  static const double MOBILE_CARD_WIDTH_PERCENT = 0.42; // 42% for mobile (2 columns)
+  static const double TABLET_CARD_WIDTH_PERCENT = 0.28; // 28% for tablet (3-4 columns)
+  static const double DESKTOP_CARD_WIDTH_PERCENT = 0.22; // 22% for desktop (4-5 columns)
+  
+  // Card layout constants for proper image sizing
+  static const double TEXT_SECTION_HEIGHT = 60.0; // Fixed height for text section in pixels
+  static const double CARD_PADDING = 8.0; // Total padding (4px top + 4px bottom)
+  static const double IMAGE_ASPECT_RATIO = 0.65; // Standard comic thumbnail aspect ratio
+  
+  // Legacy constants (kept for backward compatibility)
   static const double THUMBNAIL_ASPECT_RATIO = 0.65;
   static const int GRID_CROSS_AXIS_COUNT = 3;
   

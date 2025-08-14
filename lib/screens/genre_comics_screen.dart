@@ -127,9 +127,9 @@ class _GenreComicsScreenState extends State<GenreComicsScreen> {
             },
             child: GridView.builder(
               padding: const EdgeInsets.all(8),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
-                childAspectRatio: 0.65,
+              gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+                maxCrossAxisExtent: _calculateOptimalCardWidth(),
+                childAspectRatio: _calculateOptimalAspectRatio(),
                 crossAxisSpacing: 8,
                 mainAxisSpacing: 8,
               ),
@@ -151,7 +151,9 @@ class _GenreComicsScreenState extends State<GenreComicsScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Expanded(
+                        // Image container that takes 80% of card height
+                        Flexible(
+                          flex: 8,
                           child: Hero(
                             tag: comic.imageUrl,
                             child: ClipRRect(
@@ -161,6 +163,8 @@ class _GenreComicsScreenState extends State<GenreComicsScreen> {
                                 builder: (context, snapshot) {
                                   if (snapshot.connectionState == ConnectionState.waiting) {
                                     return Container(
+                                      width: double.infinity,
+                                      height: double.infinity,
                                       color: Colors.grey[300],
                                       child: const Center(child: CircularProgressIndicator()),
                                     );
@@ -174,11 +178,20 @@ class _GenreComicsScreenState extends State<GenreComicsScreen> {
                                       cacheManager: _thumbCache,
                                       imageUrl: comic.imageUrl,
                                       fit: BoxFit.cover,
+                                      width: double.infinity,
+                                      height: double.infinity,
                                       placeholder: (_, __) => Container(
+                                        width: double.infinity,
+                                        height: double.infinity,
                                         color: Colors.grey[300],
                                         child: const Center(child: CircularProgressIndicator()),
                                       ),
-                                      errorWidget: (_, __, ___) => const Icon(Icons.broken_image, size: 40),
+                                      errorWidget: (_, __, ___) => Container(
+                                        width: double.infinity,
+                                        height: double.infinity,
+                                        color: Colors.grey[300],
+                                        child: const Center(child: Icon(Icons.broken_image, size: 40)),
+                                      ),
                                     );
                                   } else {
                                     // Load from web and cache it
@@ -186,11 +199,20 @@ class _GenreComicsScreenState extends State<GenreComicsScreen> {
                                       cacheManager: _thumbCache,
                                       imageUrl: comic.imageUrl,
                                       fit: BoxFit.cover,
+                                      width: double.infinity,
+                                      height: double.infinity,
                                       placeholder: (_, __) => Container(
-                                        color: Colors.grey[300],
+                                        width: double.infinity,
+                                        height: double.infinity,
+                                        color: Colors.grey[700],
                                         child: const Center(child: CircularProgressIndicator()),
                                       ),
-                                      errorWidget: (_, __, ___) => const Icon(Icons.broken_image, size: 40),
+                                      errorWidget: (_, __, ___) => Container(
+                                        width: double.infinity,
+                                        height: double.infinity,
+                                        color: Colors.grey[700],
+                                        child: const Center(child: Icon(Icons.broken_image, size: 40)),
+                                      ),
                                       httpHeaders: {
                                         'Referer': 'https://nettruyenvia.com',
                                       },
@@ -201,14 +223,23 @@ class _GenreComicsScreenState extends State<GenreComicsScreen> {
                             ),
                           ),
                         ),
-                        Padding(
-                          padding: const EdgeInsets.all(4),
-                          child: Text(
+                        // Text section that takes 20% of card height
+                        Flexible(
+                          flex: 2,
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                                                      child: Text(
                             comic.title,
-                            style: const TextStyle(fontSize: 12),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Theme.of(context).brightness == Brightness.dark 
+                                  ? Colors.white 
+                                  : Theme.of(context).colorScheme.onSurface,
+                            ),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             textAlign: TextAlign.center,
+                          ),
                           ),
                         ),
                       ],
@@ -222,4 +253,46 @@ class _GenreComicsScreenState extends State<GenreComicsScreen> {
       ),
     );
   }
+
+  /// Calculate optimal card width based on screen size and constraints
+  double _calculateOptimalCardWidth() {
+    final screenWidth = MediaQuery.of(context).size.width;
+    
+    // Use different percentages based on screen size breakpoints
+    double cardWidthPercent;
+    if (screenWidth < 600.0) {
+      cardWidthPercent = 0.42; // Mobile: 2 columns
+    } else if (screenWidth < 900.0) {
+      cardWidthPercent = 0.28; // Tablet: 3-4 columns
+    } else {
+      cardWidthPercent = 0.22; // Desktop: 4-5 columns
+    }
+    
+    final calculatedWidth = screenWidth * cardWidthPercent;
+    
+    // Apply min/max constraints
+    return calculatedWidth.clamp(120.0, 200.0);
+  }
+
+  /// Calculate optimal aspect ratio based on screen dimensions
+  double _calculateOptimalAspectRatio() {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    
+    // Calculate aspect ratio based on screen proportions
+    final widthRatio = screenWidth / screenHeight;
+    
+    // Adjust aspect ratio based on screen orientation and size
+    if (widthRatio > 1.0) {
+      // Landscape or wide screen - use wider cards
+      return 0.7;
+    } else if (widthRatio < 0.6) {
+      // Very narrow screen (mobile portrait) - use taller cards
+      return 0.6;
+    } else {
+      // Standard mobile portrait - use balanced aspect ratio
+      return 0.65;
+    }
+  }
+
 } 

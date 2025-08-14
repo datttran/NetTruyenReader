@@ -213,8 +213,6 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-
-
   /// Apply deduplication to filtered comics
   void _applyDeduplicationToFiltered() {
     final map = <String, Comic>{};
@@ -418,13 +416,13 @@ class _HomeScreenState extends State<HomeScreen> {
             _filterByGenre(genreName, genrePath);
           }
         },
-        backgroundColor: isSelected 
-            ? Theme.of(context).primaryColor
-            : Theme.of(context).primaryColor.withOpacity(0.1),
-        labelStyle: TextStyle(
-          color: isSelected ? Colors.white : Theme.of(context).primaryColor,
-          fontWeight: FontWeight.w500,
-        ),
+              backgroundColor: isSelected 
+          ? ThemeConstants.netflixRed
+          : ThemeConstants.netflixRed.withOpacity(0.1),
+      labelStyle: TextStyle(
+        color: isSelected ? Colors.white : ThemeConstants.netflixRed,
+        fontWeight: FontWeight.w500,
+      ),
       ),
     );
   }
@@ -527,14 +525,14 @@ class _HomeScreenState extends State<HomeScreen> {
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Shimmer.fromColors(
-                            baseColor: ThemeConstants.getShimmerBaseColor(ThemeMode.dark),
-                            highlightColor: ThemeConstants.getShimmerHighlightColor(ThemeMode.dark),
+                            baseColor: Colors.grey[800]!,
+                            highlightColor: Colors.grey[600]!,
                             child: Column(
                               children: [
                                 Expanded(
                                   child: Container(
                                     decoration: BoxDecoration(
-                                      color: ThemeConstants.getShimmerBaseColor(ThemeMode.dark),
+                                      color: Colors.grey[700],
                                       borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
                                     ),
                                   ),
@@ -543,7 +541,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   height: 16,
                                   margin: const EdgeInsets.all(4),
                                   decoration: BoxDecoration(
-                                    color: ThemeConstants.getShimmerBaseColor(ThemeMode.dark),
+                                    color: Colors.grey[700],
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                 ),
@@ -583,15 +581,17 @@ class _HomeScreenState extends State<HomeScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                                                  Expanded(
-                                    child: Stack(
-                                      children: [
-                                        // Main image
-                                        Hero(
-                                          tag: comic.imageUrl,
-                                          child: ClipRRect(
-                                            borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
-                                            child: CachedNetworkImage(
+                                // Image container that takes 80% of card height
+                                Flexible(
+                                  flex: 8,
+                                  child: Stack(
+                                    children: [
+                                      // Main image with fixed dimensions
+                                      Hero(
+                                        tag: comic.imageUrl,
+                                        child: ClipRRect(
+                                          borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                                                                                      child: CachedNetworkImage(
                                               cacheManager: _thumbCacheManager,
                                               imageUrl: comic.imageUrl,
                                               httpHeaders: {'Referer': _getCurrentDomainForHeaders()},
@@ -599,24 +599,36 @@ class _HomeScreenState extends State<HomeScreen> {
                                                 return Image(
                                                   image: provider,
                                                   fit: BoxFit.cover,
+                                                  width: double.infinity,
+                                                  height: double.infinity,
                                                 );
                                               },
                                               placeholder: (ctx, url) {
-                                                return Shimmer.fromColors(
-                                                  baseColor: ThemeConstants.getShimmerBaseColor(Theme.of(context).brightness == Brightness.dark ? ThemeMode.dark : ThemeMode.light),
-                                                  highlightColor: ThemeConstants.getShimmerHighlightColor(Theme.of(context).brightness == Brightness.dark ? ThemeMode.dark : ThemeMode.light),
-                                                  child: Container(color: ThemeConstants.getShimmerBaseColor(Theme.of(context).brightness == Brightness.dark ? ThemeMode.dark : ThemeMode.light)),
+                                                return Container(
+                                                  width: double.infinity,
+                                                  height: double.infinity,
+                                                  color: Colors.grey[700],
+                                                  child: Shimmer.fromColors(
+                                                    baseColor: Colors.grey[800]!,
+                                                    highlightColor: Colors.grey[600]!,
+                                                    child: Container(color: Colors.grey[700]),
+                                                  ),
                                                 );
                                               },
                                               errorWidget: (ctx, url, error) {
                                                 WidgetsBinding.instance.addPostFrameCallback((_) {
                                                   _onThumbnailFailed(url);
                                                 });
-                                                return const Center(child: Icon(Icons.broken_image, size: 40));
+                                                return Container(
+                                                  width: double.infinity,
+                                                  height: double.infinity,
+                                                  color: Colors.grey[700],
+                                                  child: const Center(child: Icon(Icons.broken_image, size: 40)),
+                                                );
                                               },
                                             ),
-                                          ),
                                         ),
+                                      ),
                                         // Chapter number badge on top left (shows Ch. prefix)
                                         if (comic.chapterCount != null)
                                           Positioned(
@@ -625,7 +637,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                             child: Container(
                                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                               decoration: BoxDecoration(
-                                                color: ThemeConstants.getChapterBadgeColor(Theme.of(context).brightness == Brightness.dark ? ThemeMode.dark : ThemeMode.light),
+                                                color: Colors.red.withOpacity(0.9),
                                                 borderRadius: BorderRadius.circular(10),
                                               ),
                                               child: Text(
@@ -641,14 +653,23 @@ class _HomeScreenState extends State<HomeScreen> {
                                       ],
                                     ),
                                   ),
-                                Padding(
-                                  padding: const EdgeInsets.all(4),
-                                  child: Text(
-                                    comic.title,
-                                    style: const TextStyle(fontSize: 12),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    textAlign: TextAlign.center,
+                                // Text section that takes 20% of card height
+                                Flexible(
+                                  flex: 2,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(4),
+                                    child: Text(
+                                      comic.title,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Theme.of(context).brightness == Brightness.dark 
+                                            ? Colors.white 
+                                            : Theme.of(context).colorScheme.onSurface,
+                                      ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      textAlign: TextAlign.center,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -658,11 +679,11 @@ class _HomeScreenState extends State<HomeScreen> {
                       },
                       childCount: _displayComics.length + (_hasMore ? 1 : 0),
                     ),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 3,
-                      childAspectRatio: 0.65,
-                      crossAxisSpacing: 8,
-                      mainAxisSpacing: 8,
+                    gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+                      maxCrossAxisExtent: _calculateOptimalCardWidth(),
+                      childAspectRatio: _calculateOptimalAspectRatio(),
+                      crossAxisSpacing: AppConstants.GRID_SPACING,
+                      mainAxisSpacing: AppConstants.GRID_SPACING,
                     ),
                   ),
           ],
@@ -687,6 +708,50 @@ class _HomeScreenState extends State<HomeScreen> {
         tooltip: 'Tìm kiếm truyện',
       ),
     );
+  }
+
+  /// Calculate optimal card width based on screen size and constraints
+  double _calculateOptimalCardWidth() {
+    final screenWidth = MediaQuery.of(context).size.width;
+    
+    // Use different percentages based on screen size breakpoints
+    double cardWidthPercent;
+    if (screenWidth < AppConstants.MOBILE_BREAKPOINT) {
+      cardWidthPercent = AppConstants.MOBILE_CARD_WIDTH_PERCENT; // Mobile: 2 columns
+    } else if (screenWidth < AppConstants.TABLET_BREAKPOINT) {
+      cardWidthPercent = AppConstants.TABLET_CARD_WIDTH_PERCENT; // Tablet: 3-4 columns
+    } else {
+      cardWidthPercent = AppConstants.DESKTOP_CARD_WIDTH_PERCENT; // Desktop: 4-5 columns
+    }
+    
+    final calculatedWidth = screenWidth * cardWidthPercent;
+    
+    // Apply min/max constraints
+    return calculatedWidth.clamp(
+      AppConstants.MIN_CARD_WIDTH,
+      AppConstants.MAX_CARD_WIDTH,
+    );
+  }
+
+  /// Calculate optimal aspect ratio based on screen dimensions
+  double _calculateOptimalAspectRatio() {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    
+    // Calculate aspect ratio based on screen proportions
+    final widthRatio = screenWidth / screenHeight;
+    
+    // Adjust aspect ratio based on screen orientation and size
+    if (widthRatio > 1.0) {
+      // Landscape or wide screen - use wider cards
+      return 0.7;
+    } else if (widthRatio < 0.6) {
+      // Very narrow screen (mobile portrait) - use taller cards
+      return 0.6;
+    } else {
+      // Standard mobile portrait - use balanced aspect ratio
+      return 0.65;
+    }
   }
 
 
