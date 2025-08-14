@@ -74,9 +74,19 @@ class NetTruyenService {
 
       if (response.statusCode == 200) {
         final htmlContent = response.body;
+        print('🔍 fetchComics: Got response, parsing HTML...');
         
+        final comics = _parseComicsFromHtml(htmlContent, url);
+        print('🔍 fetchComics: Parsed ${comics.length} comics');
         
-        return _parseComicsFromHtml(htmlContent, url);
+        // Debug: Print first few comics with chapter info
+        for (int i = 0; i < comics.length && i < 3; i++) {
+          final comic = comics[i];
+          print('🔍 Main Comic ${i + 1}: ${comic.title} - Chapter Count: ${comic.chapterCount}, Chapter Info: ${comic.chapterInfo}');
+        }
+        
+        print('🔍 Returning ${comics.length} comics from fetchComics');
+        return comics;
       } else {
         throw Exception('HTTP ${response.statusCode}: ${response.reasonPhrase}');
       }
@@ -136,7 +146,59 @@ class NetTruyenService {
                           imageElement.attributes['data-src'] ??
                           imageElement.attributes['src'];
           
-
+          // Try to extract chapter information from the comic element
+          String? chapterInfo;
+          int? chapterCount;
+          
+          print('🔍 Parsing comic: $title');
+          print('🔍 Looking for chapter elements...');
+          
+          // Look for chapter-related elements
+          final chapterElement = element.querySelector('.chapter, .chap, .episode, .latest-chapter');
+          if (chapterElement != null) {
+            final chapterText = chapterElement.text?.trim();
+            print('🔍 Found chapter element: $chapterText');
+            if (chapterText != null && chapterText.isNotEmpty) {
+              chapterInfo = chapterText;
+              // Try to extract chapter number from text like "Chapter 123" or "Chap 123"
+              final chapterMatch = RegExp(r'[Cc]hapter?\s*(\d+)').firstMatch(chapterText);
+              if (chapterMatch != null) {
+                chapterCount = int.tryParse(chapterMatch.group(1) ?? '');
+                print('🔍 Extracted chapter count: $chapterCount');
+              }
+            }
+          } else {
+            print('🔍 No chapter element found, trying alternative selectors...');
+            // Try more selectors
+            final altChapterElement = element.querySelector('[class*="chapter"], [class*="chap"], [class*="episode"]');
+            if (altChapterElement != null) {
+              final altChapterText = altChapterElement.text?.trim();
+              print('🔍 Found alt chapter element: $altChapterText');
+              if (altChapterText != null && altChapterText.isNotEmpty) {
+                chapterInfo = altChapterText;
+                final chapterMatch = RegExp(r'[Cc]hapter?\s*(\d+)').firstMatch(altChapterText);
+                if (chapterMatch != null) {
+                  chapterCount = int.tryParse(chapterMatch.group(1) ?? '');
+                  print('🔍 Extracted alt chapter count: $chapterCount');
+                }
+              }
+            }
+          }
+          
+          // Also try to find chapter count in the title or other attributes
+          if (chapterCount == null) {
+            print('🔍 Checking title for chapter info: $title');
+            final titleMatch = RegExp(r'[Cc]hapter?\s*(\d+)').firstMatch(title);
+            if (titleMatch != null) {
+              chapterCount = int.tryParse(titleMatch.group(1) ?? '');
+              print('🔍 Extracted chapter count from title: $chapterCount');
+            }
+          }
+          
+          // Debug: Print all available classes and text in the element
+          print('🔍 Element classes: ${element.className}');
+          print('🔍 Element text content: ${element.text?.trim()}');
+          print('🔍 Final chapter info: $chapterInfo, chapter count: $chapterCount');
           
           if (href != null && imageUrl != null) {
             final fullUrl = href.startsWith('http') ? href : '$baseUrl$href';
@@ -146,8 +208,12 @@ class NetTruyenService {
               title: title.trim(),
               imageUrl: fullImageUrl,
               detailUrl: fullUrl,
+              chapterInfo: chapterInfo,
+              chapterCount: chapterCount,
             );
             
+            print('🔍 Created comic: ${comic.title} with chapter count: ${comic.chapterCount}');
+            print('🔍 Comic object details: chapterInfo=${comic.chapterInfo}, chapterCount=${comic.chapterCount}');
             comics.add(comic);
 
           }
@@ -585,7 +651,20 @@ class NetTruyenService {
         final document = html.parse(htmlContent);
         
         // Use the same parsing logic as the main page
-        return _parseComicsFromHtml(htmlContent, currentDomain);
+        final comics = _parseComicsFromHtml(htmlContent, currentDomain);
+        print('🔍 fetchComicsByGenre: Parsed ${comics.length} comics');
+        // Debug: Print first few comics with chapter info
+        for (int i = 0; i < comics.length && i < 3; i++) {
+          final comic = comics[i];
+          print('🔍 Genre Comic ${i + 1}: ${comic.title} - Chapter Count: ${comic.chapterCount}, Chapter Info: ${comic.chapterInfo}');
+        }
+        print('🔍 Returning ${comics.length} comics from fetchComicsByGenre');
+        // Debug: Print final comics being returned
+        for (int i = 0; i < comics.length && i < 3; i++) {
+          final comic = comics[i];
+          print('🔍 Final Comic ${i + 1}: ${comic.title} - Chapter Count: ${comic.chapterCount}, Chapter Info: ${comic.chapterInfo}');
+        }
+        return comics;
       } else {
 
         throw Exception('Failed to load genre page: HTTP ${response.statusCode}');

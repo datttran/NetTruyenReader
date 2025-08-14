@@ -145,6 +145,15 @@ class _HomeScreenState extends State<HomeScreen> {
         _filteredComics = cachedData;
       } else {
         _filteredComics = await NetTruyenService().fetchComicsByGenre(genrePath);
+        print('🔍 Loaded ${_filteredComics.length} comics for genre $genreName');
+        // Debug: Print first few comics with chapter info
+        for (int i = 0; i < _filteredComics.length && i < 3; i++) {
+          final comic = _filteredComics[i];
+          print('🔍 Genre Comic ${i + 1}: ${comic.title} - Chapter Count: ${comic.chapterCount}, Chapter Info: ${comic.chapterInfo}');
+        }
+        
+        // Debug: Check if chapter data is preserved after assignment
+        print('🔍 After assignment - First comic chapter data: ${_filteredComics.isNotEmpty ? _filteredComics.first.chapterCount : 'No comics'}');
         
         // Cache the fetched data
         _cacheGenreData(genrePath, _filteredComics);
@@ -213,6 +222,13 @@ class _HomeScreenState extends State<HomeScreen> {
           title: key,
           imageUrl: comic.imageUrl,
           detailUrl: comic.detailUrl,
+          status: comic.status,
+          author: comic.author,
+          views: comic.views,
+          genres: comic.genres,
+          updateTime: comic.updateTime,
+          chapterInfo: comic.chapterInfo,
+          chapterCount: comic.chapterCount,
         );
       }
     }
@@ -248,6 +264,12 @@ class _HomeScreenState extends State<HomeScreen> {
             _allComics = cachedPopularData;
           } else {
             _allComics = await NetTruyenService().fetchComics();
+            print('🔍 Loaded ${_allComics.length} comics from service');
+            // Debug: Print first few comics with chapter info
+            for (int i = 0; i < _allComics.length && i < 3; i++) {
+              final comic = _allComics[i];
+              print('🔍 Comic ${i + 1}: ${comic.title} - Chapter Count: ${comic.chapterCount}, Chapter Info: ${comic.chapterInfo}');
+            }
             _applyDeduplication();
             
             // Cache the popular comics
@@ -291,6 +313,13 @@ class _HomeScreenState extends State<HomeScreen> {
           title: key,
           imageUrl: comic.imageUrl,
           detailUrl: comic.detailUrl,
+          status: comic.status,
+          author: comic.author,
+          views: comic.views,
+          genres: comic.genres,
+          updateTime: comic.updateTime,
+          chapterInfo: comic.chapterInfo,
+          chapterCount: comic.chapterCount,
         );
       }
     }
@@ -536,6 +565,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           return const Center(child: CircularProgressIndicator());
                         }
                         final comic = _displayComics[index];
+                        // Debug: Print comic info when building UI
+                        print('🔍 Building UI for comic: ${comic.title} - Chapter Count: ${comic.chapterCount}, Chapter Info: ${comic.chapterInfo}');
                         return GestureDetector(
                           onTap: () => Navigator.push(
                             context,
@@ -549,38 +580,64 @@ class _HomeScreenState extends State<HomeScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                Expanded(
-                                  child: Hero(
-                                    tag: comic.imageUrl,
-                                    child: ClipRRect(
-                                      borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
-                                      child: CachedNetworkImage(
-                                        cacheManager: _thumbCacheManager,
-                                        imageUrl: comic.imageUrl,
-                                        httpHeaders: {'Referer': _getCurrentDomainForHeaders()},
-                                                                                 imageBuilder: (ctx, provider) {
-                                           return Image(
-                                             image: provider,
-                                             fit: BoxFit.cover,
-                                           );
-                                         },
-                                                                                 placeholder: (ctx, url) {
-                                           return Shimmer.fromColors(
-                                             baseColor: Colors.grey[800]!,
-                                             highlightColor: Colors.grey[600]!,
-                                             child: Container(color: Colors.grey[700]),
-                                           );
-                                         },
-                                                                                 errorWidget: (ctx, url, error) {
-                                           WidgetsBinding.instance.addPostFrameCallback((_) {
-                                             _onThumbnailFailed(url);
-                                           });
-                                           return const Center(child: Icon(Icons.broken_image, size: 40));
-                                         },
-                                      ),
+                                                                  Expanded(
+                                    child: Stack(
+                                      children: [
+                                        // Main image
+                                        Hero(
+                                          tag: comic.imageUrl,
+                                          child: ClipRRect(
+                                            borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                                            child: CachedNetworkImage(
+                                              cacheManager: _thumbCacheManager,
+                                              imageUrl: comic.imageUrl,
+                                              httpHeaders: {'Referer': _getCurrentDomainForHeaders()},
+                                              imageBuilder: (ctx, provider) {
+                                                return Image(
+                                                  image: provider,
+                                                  fit: BoxFit.cover,
+                                                );
+                                              },
+                                              placeholder: (ctx, url) {
+                                                return Shimmer.fromColors(
+                                                  baseColor: Colors.grey[800]!,
+                                                  highlightColor: Colors.grey[600]!,
+                                                  child: Container(color: Colors.grey[700]),
+                                                );
+                                              },
+                                              errorWidget: (ctx, url, error) {
+                                                WidgetsBinding.instance.addPostFrameCallback((_) {
+                                                  _onThumbnailFailed(url);
+                                                });
+                                                return const Center(child: Icon(Icons.broken_image, size: 40));
+                                              },
+                                            ),
+                                          ),
+                                        ),
+                                        // Chapter number badge on top left (shows Ch. prefix)
+                                        if (comic.chapterCount != null)
+                                          Positioned(
+                                            top: 8,
+                                            left: 8,
+                                            child: Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: Colors.red.withOpacity(0.9),
+                                                borderRadius: BorderRadius.circular(10),
+                                              ),
+                                              child: Text(
+                                                'Ch.${comic.chapterCount}',
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 8,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                      ],
                                     ),
                                   ),
-                                ),
                                 Padding(
                                   padding: const EdgeInsets.all(4),
                                   child: Text(
