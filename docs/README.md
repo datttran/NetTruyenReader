@@ -17,6 +17,7 @@ This folder contains comprehensive documentation for the NetTruyen Reader Flutte
 - **[nettruyen_service.md](nettruyen_service.md)** - Core API service and data fetching ✅
 - **[database_helper.md](database_helper.md)** - Local database operations and caching ✅
 - **[comic_search_delegate.md](comic_search_delegate.md)** - Search implementation
+- **[caching_testing_guide.md](caching_testing_guide.md)** - How to test and verify caching functionality
 
 ### 🏗️ Architecture Documentation
 - **[app_architecture.md](app_architecture.md)** - Overall app structure and design patterns

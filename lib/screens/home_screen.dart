@@ -9,9 +9,7 @@ import '../services/nettruyen_service.dart';
 import '../constants/app_constants.dart';
 import 'detail_screen.dart';
 import 'settings_screen.dart';
-import 'cloudflare_bypass_screen.dart';
 import '../services/comic_search_delegate.dart';
-import 'genre_comics_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -23,6 +21,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   List<Comic> _allComics = []; // Changed from final
   List<Comic> _displayComics = []; // Changed from final
+  List<Comic> _filteredComics = []; // Comics filtered by selected genre
   final ScrollController _scrollController = ScrollController();
   
   static const int _pageSize = 12;
@@ -31,6 +30,19 @@ class _HomeScreenState extends State<HomeScreen> {
   
   String? _lastUsedDomain;
   final _thumbCacheManager = DefaultCacheManager();
+  
+  // Genre filtering state
+  String _selectedGenre = 'Phổ biến'; // Default to popular
+  String? _selectedGenrePath;
+  bool _isFilteringByGenre = false;
+  
+  // Genre caching
+  final Map<String, List<Comic>> _genreCache = {};
+  final Map<String, DateTime> _genreCacheTimestamps = {};
+  static const Duration _cacheExpiry = Duration(minutes: 10); // Cache for 10 minutes
+  
+  // Popular comics caching
+  static const String _popularCacheKey = 'popular';
 
   @override
   void initState() {
@@ -47,6 +59,9 @@ class _HomeScreenState extends State<HomeScreen> {
     });
     
     _initializeLastUsedDomain();
+    
+    // Clear expired cache entries on app start
+    _clearExpiredCache();
   }
 
   /// CRITICAL: DO NOT CHANGE THIS METHOD! This method initializes the last used domain
@@ -54,7 +69,6 @@ class _HomeScreenState extends State<HomeScreen> {
   /// functionality to work properly.
   Future<void> _initializeLastUsedDomain() async {
     _lastUsedDomain = await NetTruyenService().getCurrentDomain();
-    print('🔍 Initialized last used domain: $_lastUsedDomain');
   }
 
   /// CRITICAL: DO NOT CHANGE THIS METHOD! This method gets the current domain for use in headers.
@@ -74,10 +88,8 @@ class _HomeScreenState extends State<HomeScreen> {
   /// the automatic content refresh functionality when returning from settings.
   Future<void> _checkAndReloadIfNeeded() async {
     final currentDomain = await NetTruyenService().getCurrentDomain();
-    print('🔍 Checking domain change: $_lastUsedDomain -> $currentDomain');
     
     if (_lastUsedDomain != null && _lastUsedDomain != currentDomain) {
-      print('🔍 Domain changed from $_lastUsedDomain to $currentDomain, reloading content...');
       _reloadContent();
     }
     _lastUsedDomain = currentDomain;
@@ -109,6 +121,103 @@ class _HomeScreenState extends State<HomeScreen> {
   String _cleanTitle(String title) {
     return title.replaceFirst(RegExp(r'^[Tt]ruyện tranh\s*'), '').trim();
   }
+  
+  /// Filter comics by selected genre
+  Future<void> _filterByGenre(String genreName, String genrePath) async {
+    if (_selectedGenre == genreName && _isFilteringByGenre) {
+      // Same genre selected, do nothing
+      return;
+    }
+    
+    setState(() {
+      _isLoading = true;
+      _selectedGenre = genreName;
+      _selectedGenrePath = genrePath;
+      _isFilteringByGenre = true;
+      _displayComics.clear();
+      _hasMore = true;
+    });
+    
+    try {
+      // Check cache first
+      final cachedData = _getCachedGenreData(genrePath);
+      if (cachedData != null) {
+        _filteredComics = cachedData;
+      } else {
+        _filteredComics = await NetTruyenService().fetchComicsByGenre(genrePath);
+        
+        // Cache the fetched data
+        _cacheGenreData(genrePath, _filteredComics);
+      }
+      
+      // Apply deduplication to filtered comics
+      _applyDeduplicationToFiltered();
+      
+      // Show first page of filtered comics
+      final newItems = _filteredComics.take(_pageSize).toList();
+      setState(() {
+        _displayComics = newItems;
+        _hasMore = _filteredComics.length > _pageSize;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _isFilteringByGenre = false;
+        _selectedGenre = 'Phổ biến';
+        _selectedGenrePath = null;
+      });
+    }
+  }
+  
+  /// Show all comics (clear genre filter)
+  Future<void> _showAllComics() async {
+    setState(() {
+      _isLoading = true;
+      _isFilteringByGenre = false;
+      _selectedGenre = 'Phổ biến';
+      _selectedGenrePath = null;
+      _filteredComics.clear();
+      _displayComics.clear();
+      _hasMore = true;
+    });
+    
+    // Check cache first for popular comics
+    final cachedPopularData = _getCachedGenreData(_popularCacheKey);
+    if (cachedPopularData != null) {
+      _allComics = cachedPopularData;
+    } else {
+      _allComics = await NetTruyenService().fetchComics();
+      _applyDeduplication();
+      
+      // Cache the popular comics
+      _cacheGenreData(_popularCacheKey, _allComics);
+    }
+    
+    // Show first page of popular comics
+    final newItems = _allComics.take(_pageSize).toList();
+    setState(() {
+      _displayComics = newItems;
+      _hasMore = _allComics.length > _pageSize;
+      _isLoading = false;
+    });
+  }
+
+  /// Apply deduplication to filtered comics
+  void _applyDeduplicationToFiltered() {
+    final map = <String, Comic>{};
+    for (var comic in _filteredComics) {
+      final key = _cleanTitle(comic.title);
+      if (!map.containsKey(key)) {
+        map[key] = Comic(
+          title: key,
+          imageUrl: comic.imageUrl,
+          detailUrl: comic.detailUrl,
+        );
+      }
+    }
+    _filteredComics = map.values.toList();
+  }
 
   Future<void> _loadMore() async {
     if (_isLoading || !_hasMore) return;
@@ -116,12 +225,45 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() => _isLoading = true);
 
     try {
-      if (_allComics.isEmpty) {
-        print('🔍 Loading comics from home screen...');
-        _allComics = await NetTruyenService().fetchComics();
-        print('🔍 Loaded ${_allComics.length} comics');
-        _applyDeduplication();
-        print('🔍 After deduplication: ${_allComics.length} comics');
+      if (_isFilteringByGenre) {
+        // Loading more filtered comics
+        if (_filteredComics.isEmpty) return;
+        
+        final currentCount = _displayComics.length;
+        final newItems = _filteredComics
+            .skip(currentCount)
+            .take(_pageSize)
+            .toList();
+            
+        setState(() {
+          _displayComics.addAll(newItems);
+          _hasMore = _displayComics.length < _filteredComics.length;
+        });
+      } else {
+        // Loading more all comics
+        if (_allComics.isEmpty) {
+          // Check cache first for popular comics
+          final cachedPopularData = _getCachedGenreData(_popularCacheKey);
+          if (cachedPopularData != null) {
+            _allComics = cachedPopularData;
+          } else {
+            _allComics = await NetTruyenService().fetchComics();
+            _applyDeduplication();
+            
+            // Cache the popular comics
+            _cacheGenreData(_popularCacheKey, _allComics);
+          }
+        }
+
+        final newItems = _allComics
+            .skip(_displayComics.length)
+            .take(_pageSize)
+            .toList();
+
+        setState(() {
+          _displayComics.addAll(newItems);
+          _hasMore = _displayComics.length < _allComics.length;
+        });
       }
 
       final newItems = _allComics
@@ -134,7 +276,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _hasMore = _displayComics.length < _allComics.length;
       });
     } catch (e) {
-      print('❌ Error loading comics: $e');
+      // Error loading comics
     } finally {
       setState(() => _isLoading = false);
     }
@@ -154,6 +296,75 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     _allComics = map.values.toList();
   }
+  
+  /// Check if cached genre data is still valid
+  bool _isGenreCacheValid(String genrePath) {
+    if (!_genreCache.containsKey(genrePath)) return false;
+    
+    final timestamp = _genreCacheTimestamps[genrePath];
+    if (timestamp == null) return false;
+    
+    return DateTime.now().difference(timestamp) < _cacheExpiry;
+  }
+
+  /// Get cached genre data if available and valid
+  List<Comic>? _getCachedGenreData(String genrePath) {
+    if (_isGenreCacheValid(genrePath)) {
+      return _genreCache[genrePath];
+    }
+    return null;
+  }
+
+  /// Cache genre data with timestamp
+  void _cacheGenreData(String genrePath, List<Comic> comics) {
+    _genreCache[genrePath] = comics;
+    _genreCacheTimestamps[genrePath] = DateTime.now();
+  }
+
+  /// Clear cache for a specific genre
+  void _clearGenreCache(String genrePath) {
+    _genreCache.remove(genrePath);
+    _genreCacheTimestamps.remove(genrePath);
+  }
+
+  /// Clear all expired cache entries
+  void _clearExpiredCache() {
+    final now = DateTime.now();
+    final expiredKeys = <String>[];
+    
+    for (final entry in _genreCacheTimestamps.entries) {
+      if (now.difference(entry.value) >= _cacheExpiry) {
+        expiredKeys.add(entry.key);
+      }
+    }
+    
+    for (final key in expiredKeys) {
+      _genreCache.remove(key);
+      _genreCacheTimestamps.remove(key);
+    }
+  }
+  
+  /// Refresh content (pull to refresh)
+  Future<void> _onRefresh() async {
+    if (_isFilteringByGenre) {
+      // Refresh filtered comics (clear cache and re-fetch)
+      _clearGenreCache(_selectedGenrePath!);
+      await _filterByGenre(_selectedGenre!, _selectedGenrePath!);
+    } else {
+      // Refresh popular comics (clear cache and re-fetch)
+      _clearGenreCache(_popularCacheKey);
+      _allComics = await NetTruyenService().fetchComics();
+      _applyDeduplication();
+      
+      // Cache the fresh popular comics
+      _cacheGenreData(_popularCacheKey, _allComics);
+      
+      setState(() {
+        _displayComics = _allComics.take(_pageSize).toList();
+        _hasMore = _allComics.length > _pageSize;
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -161,19 +372,37 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
+  /// Build a genre chip with proper styling
+  Widget _buildGenreChip(String genreName, String genrePath) {
+    final isSelected = _selectedGenre == genreName;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: ActionChip(
+        label: Text(genreName),
+        onPressed: () {
+          if (genreName == 'Phổ biến') {
+            _showAllComics();
+          } else {
+            _filterByGenre(genreName, genrePath);
+          }
+        },
+        backgroundColor: isSelected 
+            ? Theme.of(context).primaryColor
+            : Theme.of(context).primaryColor.withOpacity(0.1),
+        labelStyle: TextStyle(
+          color: isSelected ? Colors.white : Theme.of(context).primaryColor,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
 
       body: RefreshIndicator(
-        onRefresh: () async {
-          _allComics = await NetTruyenService().fetchComics();
-          _applyDeduplication();
-          setState(() {
-            _displayComics = _allComics.take(_pageSize).toList();
-            _hasMore = _allComics.length > _displayComics.length;
-          });
-        },
+        onRefresh: _onRefresh,
         child: CustomScrollView(
           controller: _scrollController,
           slivers: [
@@ -210,10 +439,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         builder: (_) => const SettingsScreen(),
                       ),
                     );
-                    if (result == true) {
-                      print('🔍 Returning from settings, checking for domain changes...');
-                      await _checkAndReloadIfNeeded();
-                    }
+                                          if (result == true) {
+                        await _checkAndReloadIfNeeded();
+                      }
                   },
                 ),
               ],
@@ -225,49 +453,32 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Thể loại phổ biến',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Thể loại: $_selectedGenre',
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 12),
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: Row(
                         children: [
-                          {'name': 'Action', 'path': '/tim-truyen/action-95'},
-                          {'name': 'Comedy', 'path': '/tim-truyen/comedy-99'},
-                          {'name': 'Drama', 'path': '/tim-truyen/drama-103'},
-                          {'name': 'Romance', 'path': '/tim-truyen/romance-121'},
-                          {'name': 'Fantasy', 'path': '/tim-truyen/fantasy-100'},
-                          {'name': 'Adventure', 'path': '/tim-truyen/adventure-101'},
-                          {'name': 'Slice of Life', 'path': '/tim-truyen/slice-of-life'},
-                          {'name': 'Psychological', 'path': '/tim-truyen/psychological'},
-                        ].map((genre) {
-                          return Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: ActionChip(
-                              label: Text(genre['name']!),
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => GenreComicsScreen(
-                                      genreName: genre['name']!,
-                                      genreUrl: genre['path']!,
-                                    ),
-                                  ),
-                                );
-                              },
-                              backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
-                              labelStyle: TextStyle(
-                                color: Theme.of(context).primaryColor,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          );
-                        }).toList(),
+                          _buildGenreChip('Phổ biến', ''), // Popular tab - shows all comics
+                          _buildGenreChip('Action', '/tim-truyen/action-95'),
+                          _buildGenreChip('Comedy', '/tim-truyen/comedy-99'),
+                          _buildGenreChip('Drama', '/tim-truyen/drama-103'),
+                          _buildGenreChip('Romance', '/tim-truyen/romance-121'),
+                          _buildGenreChip('Fantasy', '/tim-truyen/fantasy-100'),
+                          _buildGenreChip('Adventure', '/tim-truyen/adventure-101'),
+                          _buildGenreChip('Slice of Life', '/tim-truyen/slice-of-life'),
+                          _buildGenreChip('Psychological', '/tim-truyen/psychological'),
+                        ],
                       ),
                     ),
                   ],
@@ -347,31 +558,25 @@ class _HomeScreenState extends State<HomeScreen> {
                                         cacheManager: _thumbCacheManager,
                                         imageUrl: comic.imageUrl,
                                         httpHeaders: {'Referer': _getCurrentDomainForHeaders()},
-                                        imageBuilder: (ctx, provider) {
-                                          print('🔍 Thumbnail loaded successfully: ${comic.title}');
-                                          return Image(
-                                            image: provider,
-                                            fit: BoxFit.cover,
-                                          );
-                                        },
-                                        placeholder: (ctx, url) {
-                                          print('🔍 Loading thumbnail: $url');
-                                          print('🔍 Using Referer: ${_getCurrentDomainForHeaders()}');
-                                          return Shimmer.fromColors(
-                                            baseColor: Colors.grey[800]!,
-                                            highlightColor: Colors.grey[600]!,
-                                            child: Container(color: Colors.grey[700]),
-                                          );
-                                        },
-                                        errorWidget: (ctx, url, error) {
-                                          print('❌ Thumbnail failed to load: $url');
-                                          print('❌ Error: $error');
-                                          print('❌ Using Referer: ${_getCurrentDomainForHeaders()}');
-                                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                                            _onThumbnailFailed(url);
-                                          });
-                                          return const Center(child: Icon(Icons.broken_image, size: 40));
-                                        },
+                                                                                 imageBuilder: (ctx, provider) {
+                                           return Image(
+                                             image: provider,
+                                             fit: BoxFit.cover,
+                                           );
+                                         },
+                                                                                 placeholder: (ctx, url) {
+                                           return Shimmer.fromColors(
+                                             baseColor: Colors.grey[800]!,
+                                             highlightColor: Colors.grey[600]!,
+                                             child: Container(color: Colors.grey[700]),
+                                           );
+                                         },
+                                                                                 errorWidget: (ctx, url, error) {
+                                           WidgetsBinding.instance.addPostFrameCallback((_) {
+                                             _onThumbnailFailed(url);
+                                           });
+                                           return const Center(child: Icon(Icons.broken_image, size: 40));
+                                         },
                                       ),
                                     ),
                                   ),

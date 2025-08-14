@@ -1,9 +1,6 @@
 import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/material.dart'; // Needed for ImageProvider
 import 'package:http/http.dart' as http;
-import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:html/parser.dart' as html;
 import '../models/comic.dart';
 import '../constants/app_constants.dart';
@@ -64,7 +61,7 @@ class NetTruyenService {
     final domain = await getCurrentDomain();
     // Remove trailing slash for base URL
     final url = domain.endsWith('/') ? domain.substring(0, domain.length - 1) : domain;
-    print('🔍 Fetching comics from: $url');
+
     
     try {
       final headers = await _getBaseHeaders();
@@ -73,13 +70,11 @@ class NetTruyenService {
         headers: headers,
       ).timeout(const Duration(seconds: 30));
 
-      print('🔍 Response status: ${response.statusCode}');
-      print('🔍 Response headers: ${response.headers}');
+      
 
       if (response.statusCode == 200) {
         final htmlContent = response.body;
-        print('🔍 HTML content length: ${htmlContent.length}');
-        print('🔍 HTML preview: ${htmlContent.substring(0, 200)}...');
+        
         
         return _parseComicsFromHtml(htmlContent, url);
       } else {
@@ -87,13 +82,10 @@ class NetTruyenService {
       }
     } catch (e) {
       if (e.toString().contains('SocketException')) {
-        print('❌ Network error: $e');
         throw Exception('Network connection failed. Please check your internet connection.');
       } else if (e.toString().contains('TimeoutException')) {
-        print('❌ Timeout error: $e');
         throw Exception('Request timed out. Please try again.');
       } else {
-        print('❌ Error loading comics: $e');
         throw Exception('Failed to load homepage');
       }
     }
@@ -108,28 +100,17 @@ class NetTruyenService {
   List<Comic> _parseComicsFromHtml(String htmlContent, String baseUrl) {
     final document = html.parse(htmlContent);
     
-    // Debug: Check what elements exist
-    final allElements = document.querySelectorAll('*');
-    print('🔍 Total HTML elements found: ${allElements.length}');
-    
     // Try different selectors
     final itemElements = document.querySelectorAll('.item');
     final itemsElements = document.querySelectorAll('.items .item');
     final comicItemElements = document.querySelectorAll('.comic-item');
     final cardElements = document.querySelectorAll('.card');
     
-    print('🔍 .item elements: ${itemElements.length}');
-    print('🔍 .items .item elements: ${itemsElements.length}');
-    print('🔍 .comic-item elements: ${comicItemElements.length}');
-    print('🔍 .card elements: ${cardElements.length}');
-    
     // Use the selector that finds the most elements
     final comicElements = itemsElements.isNotEmpty ? itemsElements : 
                          itemElements.isNotEmpty ? itemElements :
                          comicItemElements.isNotEmpty ? comicItemElements :
                          cardElements.isNotEmpty ? cardElements : [];
-    
-    print('🔍 Using selector that found ${comicElements.length} comic items');
     
     final comics = <Comic>[];
     
@@ -155,10 +136,7 @@ class NetTruyenService {
                           imageElement.attributes['data-src'] ??
                           imageElement.attributes['src'];
           
-          print('🔍 Raw href: $href');
-          print('🔍 Raw title: $title');
-          print('🔍 Raw imageUrl: $imageUrl');
-          print('🔍 All image attributes: ${imageElement.attributes}');
+
           
           if (href != null && imageUrl != null) {
             final fullUrl = href.startsWith('http') ? href : '$baseUrl$href';
@@ -171,12 +149,10 @@ class NetTruyenService {
             );
             
             comics.add(comic);
-            print('🔍 Comic: "$title" -> $fullUrl');
-            print('🔍 Image: $fullImageUrl');
+
           }
         }
       } catch (e) {
-        print('⚠️ Error parsing comic element: $e');
         continue;
       }
     }
@@ -189,7 +165,7 @@ class NetTruyenService {
   /// The method is essential for the chapter navigation functionality.
   Future<List<String>> fetchChapters(String comicUrl) async {
     try {
-      print('🔍 Fetching chapters from: $comicUrl');
+  
       
       final headers = await _getBaseHeaders();
       final response = await http.get(
@@ -197,15 +173,15 @@ class NetTruyenService {
         headers: headers,
       ).timeout(const Duration(seconds: 30));
 
-      print('🔍 Chapter response status: ${response.statusCode}');
+
 
       if (response.statusCode == 200) {
         final htmlContent = response.body;
-        print('🔍 Chapter HTML content length: ${htmlContent.length}');
+
         
         // Check if we got blocked by Cloudflare
         if (htmlContent.contains('Just a moment') || htmlContent.contains('Checking your browser')) {
-          print('❌ Chapter fetch blocked by Cloudflare');
+
           throw Exception('CloudflareException: Chapter fetch blocked');
         }
         
@@ -213,13 +189,13 @@ class NetTruyenService {
         
         // Try different selectors for chapter links
         var chapterElements = document.querySelectorAll('.chapter a, .list-chapter a, .chapters a, a[href*="/chap-"]');
-        print('🔍 Found ${chapterElements.length} chapter elements');
+
         
         if (chapterElements.isEmpty) {
-          print('❌ No chapter elements found, trying alternative selectors');
+
           // Try alternative selectors
           final altElements = document.querySelectorAll('a[href*="truyen-tranh"][href*="chap"]');
-          print('🔍 Found ${altElements.length} alternative chapter elements');
+
           if (altElements.isNotEmpty) {
             chapterElements = altElements;
           }
@@ -244,14 +220,14 @@ class NetTruyenService {
           }
         }
         
-        print('🔍 Extracted ${chapters.length} chapter URLs');
+
         return chapters;
       } else {
-        print('❌ Chapter fetch failed with status: ${response.statusCode}');
+
         throw Exception('Failed to load chapters: HTTP ${response.statusCode}');
       }
     } catch (e) {
-      print('❌ Error fetching chapters: $e');
+
       if (e.toString().contains('CloudflareException')) {
         rethrow; // Re-throw Cloudflare exceptions for proper handling
       }
@@ -283,7 +259,7 @@ class NetTruyenService {
         throw Exception('Failed to load chapter: HTTP ${response.statusCode}');
       }
     } catch (e) {
-      print('❌ Error fetching chapter pages: $e');
+
       throw Exception('Failed to load chapter pages');
     }
   }
@@ -322,7 +298,7 @@ class NetTruyenService {
         throw Exception('Failed to load chapter: HTTP ${response.statusCode}');
       }
     } catch (e) {
-      print('❌ Error fetching chapter pages: $e');
+
       throw Exception('Failed to load chapter pages');
     }
   }
@@ -337,7 +313,7 @@ class NetTruyenService {
       final cleanDomain = searchDomain.endsWith('/') ? searchDomain.substring(0, searchDomain.length - 1) : searchDomain;
       final searchUrl = '$cleanDomain/tim-truyen?keyword=${Uri.encodeComponent(keyword)}';
       
-      print('🔍 Searching for: $keyword at $searchUrl');
+  
       
       final headers = await _getBaseHeaders();
       final response = await http.get(
@@ -345,27 +321,27 @@ class NetTruyenService {
         headers: headers,
       ).timeout(const Duration(seconds: 30));
 
-      print('🔍 Search response status: ${response.statusCode}');
+
 
       if (response.statusCode == 200) {
         final htmlContent = response.body;
-        print('🔍 Search HTML content length: ${htmlContent.length}');
+
         
         // Check if we got blocked by Cloudflare
         if (htmlContent.contains('Just a moment') || htmlContent.contains('Checking your browser')) {
-          print('❌ Search blocked by Cloudflare');
+
           throw Exception('CloudflareException: Search blocked');
         }
         
         final comics = _parseComicsFromHtml(htmlContent, searchDomain);
-        print('🔍 Found ${comics.length} search results for: $keyword');
+
         return comics;
       } else {
-        print('❌ Search failed with status: ${response.statusCode}');
+
         throw Exception('Search failed: HTTP ${response.statusCode}');
       }
     } catch (e) {
-      print('❌ Error in search: $e');
+
       if (e.toString().contains('CloudflareException')) {
         rethrow; // Re-throw Cloudflare exceptions for proper handling
       }
@@ -378,7 +354,7 @@ class NetTruyenService {
   /// The method is essential for the comic information display functionality.
   Future<Map<String, dynamic>> fetchComicDetails(String comicUrl) async {
     try {
-      print('🔍 Fetching comic details from: $comicUrl');
+
       
       final headers = await _getBaseHeaders();
       final response = await http.get(
@@ -386,15 +362,15 @@ class NetTruyenService {
         headers: headers,
       ).timeout(const Duration(seconds: 30));
 
-      print('🔍 Comic details response status: ${response.statusCode}');
+
 
       if (response.statusCode == 200) {
         final htmlContent = response.body;
-        print('🔍 Comic details HTML content length: ${htmlContent.length}');
+
         
         // Check if we got blocked by Cloudflare
         if (htmlContent.contains('Just a moment') || htmlContent.contains('Checking your browser')) {
-          print('❌ Comic details fetch blocked by Cloudflare');
+
           throw Exception('CloudflareException: Comic details fetch blocked');
         }
         
@@ -458,7 +434,7 @@ class NetTruyenService {
               }
               return Genre(name: name, url: url);
             }).where((g) => g.name.isNotEmpty && g.url.isNotEmpty).toList();
-            print('🔍 Found genres using li.kind.row selector: ${genres.map((g) => '${g.name}(${g.url})').join(', ')}');
+    
           }
         }
         
@@ -476,7 +452,7 @@ class NetTruyenService {
               }
               return Genre(name: name, url: url);
             }).where((g) => g.name.isNotEmpty && g.url.isNotEmpty).toList();
-            print('🔍 Found genres using fallback selectors: ${genres.map((g) => '${g.name}(${g.url})').join(', ')}');
+    
           }
         }
         
@@ -494,7 +470,7 @@ class NetTruyenService {
               }
               return Genre(name: name, url: url);
             }).where((g) => g.name.isNotEmpty && g.url.isNotEmpty).toList();
-            print('🔍 Found genres using broad link search: ${genres.map((g) => '${g.name}(${g.url})').join(', ')}');
+    
           }
         }
         
@@ -510,13 +486,7 @@ class NetTruyenService {
           updateTime = timeText.isNotEmpty ? timeText : null;
         }
         
-        print('🔍 Extracted comic details:');
-        print('  - Title: $title');
-        print('  - Status: $status');
-        print('  - Author: $author');
-        print('  - Views: $views');
-        print('  - Genres: ${genres.join(', ')}');
-        print('  - Update Time: $updateTime');
+
         
         return {
           'title': title,
@@ -529,11 +499,11 @@ class NetTruyenService {
           'url': comicUrl,
         };
       } else {
-        print('❌ Comic details fetch failed with status: ${response.statusCode}');
+
         throw Exception('Failed to load comic details: HTTP ${response.statusCode}');
       }
     } catch (e) {
-      print('❌ Error fetching comic details: $e');
+
       if (e.toString().contains('CloudflareException')) {
         rethrow; // Re-throw Cloudflare exceptions for proper handling
       }
@@ -547,7 +517,7 @@ class NetTruyenService {
   Future<Comic> updateComicWithDetails(Comic comic) async {
     try {
       // Always try to fetch fresh data first to ensure we have the latest information
-      print('🔍 Fetching fresh comic details for: ${comic.title}');
+
       final details = await fetchComicDetails(comic.detailUrl);
       
       final updated = Comic(
@@ -564,16 +534,11 @@ class NetTruyenService {
       // Save to database (this will update existing records)
       final helper = DatabaseHelper();
       final comicId = await helper.insertComic(updated);
-      print('🔍 Saved/updated comic to database with id: $comicId');
-      print('🔍 Comic details:');
-      print('  - Status: ${updated.status}');
-      print('  - Author: ${updated.author}');
-      print('  - Views: ${updated.views}');
-      print('  - Genres: ${updated.genres.map((g) => g.name).join(', ')}');
+      
 
       return updated;
     } catch (e) {
-      print('❌ Error updating comic details: $e');
+
       // If fetching fails, return the original comic with empty details
       // This ensures the UI doesn't crash
       return Comic(
@@ -604,7 +569,7 @@ class NetTruyenService {
         fullUrl = '$cleanDomain$genreUrl'; // Construct full URL
       }
 
-      print('🔍 Fetching comics by genre: $fullUrl');
+  
       
       final headers = await _getBaseHeaders();
       final response = await http.get(
@@ -614,7 +579,7 @@ class NetTruyenService {
       
       if (response.statusCode == 200) {
         final htmlContent = response.body;
-        print('🔍 Genre page HTML content length: ${htmlContent.length}');
+
         
         // Parse the genre page HTML to extract comics
         final document = html.parse(htmlContent);
@@ -622,11 +587,11 @@ class NetTruyenService {
         // Use the same parsing logic as the main page
         return _parseComicsFromHtml(htmlContent, currentDomain);
       } else {
-        print('❌ Genre page fetch failed with status: ${response.statusCode}');
+
         throw Exception('Failed to load genre page: HTTP ${response.statusCode}');
       }
     } catch (e) {
-      print('❌ Error fetching comics by genre: $e');
+
       if (e.toString().contains('CloudflareException')) {
         rethrow; // Re-throw Cloudflare exceptions for proper handling
       }
@@ -657,7 +622,7 @@ Future<ImageProvider> fetchImageWithHeaders(String url) async {
       throw Exception('Failed to load image: HTTP ${response.statusCode}');
     }
   } catch (e) {
-    print('❌ Error fetching image: $e');
+    
     throw Exception('Failed to load image');
   }
 }
