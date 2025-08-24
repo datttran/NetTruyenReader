@@ -538,9 +538,18 @@ class NetTruyenService {
   /// The method is essential for the caching and performance optimization functionality.
   Future<Comic> updateComicWithDetails(Comic comic) async {
     try {
+      print('🔄 Checking cache for: ${comic.title}');
+      
       // First, check if we have cached data in the database
       final helper = DatabaseHelper();
       final cachedComic = await helper.getComic(comic.detailUrl);
+      
+      print('🔄 Cached comic found: ${cachedComic != null}');
+      if (cachedComic != null) {
+        print('🔄 Cached status: ${cachedComic.status}');
+        print('🔄 Cached author: ${cachedComic.author}');
+        print('🔄 Cached genres count: ${cachedComic.genres.length}');
+      }
       
       // If we have cached data and it's recent (less than 1 hour old), use it
       if (cachedComic != null && 
@@ -555,13 +564,21 @@ class NetTruyenService {
           )
         );
         
+        print('🔄 Cache age: ${cacheAge.inMinutes} minutes');
+        
         if (cacheAge.inHours < 1) {
           // Use cached data - it's recent enough
+          print('✅ Using cached data (age: ${cacheAge.inMinutes} minutes)');
           return cachedComic;
+        } else {
+          print('⏰ Cache expired (age: ${cacheAge.inHours} hours)');
         }
+      } else {
+        print('❌ No valid cached data available');
       }
       
       // No recent cached data, fetch from network
+      print('🌐 Fetching fresh data from network');
       final details = await fetchComicDetails(comic.detailUrl);
       
       final updated = Comic(

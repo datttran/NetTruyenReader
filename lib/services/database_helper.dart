@@ -147,12 +147,15 @@ class DatabaseHelper {
   Future<Comic?> getComic(String detailUrl) async {
     final db = await database;
     
+    print('🔍 Database: Looking for comic with URL: $detailUrl');
+    
     final maps = await db.query(
       'comics',
       where: 'detailUrl = ?',
       whereArgs: [detailUrl],
     );
 
+    print('🔍 Database: Found ${maps.length} comic records');
     if (maps.isEmpty) return null;
 
     // Get genres for this comic
