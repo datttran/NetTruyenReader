@@ -533,12 +533,35 @@ class NetTruyenService {
     }
   }
 
-  /// CRITICAL: DO NOT CHANGE THIS METHOD! This method updates a comic with its full details from the database.
+    /// CRITICAL: DO NOT CHANGE THIS METHOD! This method updates a comic with its full details from the database.
   /// It first checks the local cache, then fetches from the network if needed, and finally saves to the database.
   /// The method is essential for the caching and performance optimization functionality.
   Future<Comic> updateComicWithDetails(Comic comic) async {
     try {
-      // Always try to fetch fresh data first to ensure we have the latest information
+      // First, check if we have cached data in the database
+      final helper = DatabaseHelper();
+      final cachedComic = await helper.getComic(comic.detailUrl);
+      
+      // If we have cached data and it's recent (less than 1 hour old), use it
+      if (cachedComic != null && 
+          cachedComic.status != null && 
+          cachedComic.author != null && 
+          cachedComic.genres.isNotEmpty) {
+        
+        // Check if cache is recent (less than 1 hour old)
+        final cacheAge = DateTime.now().difference(
+          DateTime.fromMillisecondsSinceEpoch(
+            await helper.getComicCacheAge(comic.detailUrl) ?? 0
+          )
+        );
+        
+        if (cacheAge.inHours < 1) {
+          // Use cached data - it's recent enough
+          return cachedComic;
+        }
+      }
+      
+      // No recent cached data, fetch from network
       final details = await fetchComicDetails(comic.detailUrl);
       
       final updated = Comic(
@@ -551,10 +574,9 @@ class NetTruyenService {
         genres: details['genres'] ?? [],
         updateTime: details['updateTime'],
       );
-
+      
       // Save to database (this will update existing records)
       try {
-        final helper = DatabaseHelper();
         final comicId = await helper.insertComic(updated);
       } catch (dbError) {
         // Continue even if database save fails - the data is still valid
@@ -562,7 +584,21 @@ class NetTruyenService {
 
       return updated;
     } catch (e) {
-      // If fetching fails, return the original comic with empty details
+      // If fetching fails, try to return cached data as fallback
+      try {
+        final helper = DatabaseHelper();
+        final cachedComic = await helper.getComic(comic.detailUrl);
+        if (cachedComic != null && 
+            cachedComic.status != null && 
+            cachedComic.author != null && 
+            cachedComic.genres.isNotEmpty) {
+          return cachedComic;
+        }
+      } catch (dbError) {
+        // Database error, continue to fallback
+      }
+      
+      // If no cached data available, return the original comic with empty details
       // This ensures the UI doesn't crash
       return Comic(
         title: comic.title,
@@ -577,7 +613,63 @@ class NetTruyenService {
     }
   }
 
-    /// Fetches comics by genre URL (e.g., /tim-truyen/action-95)
+  /// Force refresh comic details from network (ignores cache)
+  /// Useful for pull-to-refresh or manual refresh
+  Future<Comic> forceRefreshComicDetails(Comic comic) async {
+    try {
+      // Always fetch fresh data from network
+      final details = await fetchComicDetails(comic.detailUrl);
+      
+      final updated = Comic(
+        title: comic.title,
+        imageUrl: comic.imageUrl,
+        detailUrl: comic.detailUrl,
+        status: details['status'],
+        author: details['author'],
+        views: details['views'],
+        genres: details['genres'] ?? [],
+        updateTime: details['updateTime'],
+      );
+      
+      // Save to database
+      try {
+        final helper = DatabaseHelper();
+        final comicId = await helper.insertComic(updated);
+      } catch (dbError) {
+        // Continue even if database save fails
+      }
+
+      return updated;
+    } catch (e) {
+      // If fetching fails, try to return cached data as fallback
+      try {
+        final helper = DatabaseHelper();
+        final cachedComic = await helper.getComic(comic.detailUrl);
+        if (cachedComic != null && 
+            cachedComic.status != null && 
+            cachedComic.author != null && 
+            cachedComic.genres.isNotEmpty) {
+          return cachedComic;
+        }
+      } catch (dbError) {
+        // Database error, continue to fallback
+      }
+      
+      // Return original comic with empty details if all else fails
+      return Comic(
+        title: comic.title,
+        imageUrl: comic.imageUrl,
+        detailUrl: comic.detailUrl,
+        status: null,
+        author: null,
+        views: null,
+        genres: [],
+        updateTime: null,
+      );
+    }
+  }
+
+  /// Fetches comics by genre URL (e.g., /tim-truyen/action-95)
   Future<List<Comic>> fetchComicsByGenre(String genreUrl) async {
     try {
       final currentDomain = await getCurrentDomain();

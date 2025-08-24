@@ -5,7 +5,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import '../models/comic.dart';
 import '../services/nettruyen_service.dart';
-import '../services/database_helper.dart';
+
 import 'reader_screen.dart';
 import '../services/comic_search_delegate.dart';
 import '../constants/app_constants.dart';
@@ -18,10 +18,10 @@ class DetailScreen extends StatefulWidget {
   const DetailScreen({Key? key, required this.comic}) : super(key: key);
 
   @override
-  _DetailScreenState createState() => _DetailScreenState();
+  DetailScreenState createState() => DetailScreenState();
 }
 
-class _DetailScreenState extends State<DetailScreen> {
+class DetailScreenState extends State<DetailScreen> {
   late Future<List<String>> _chaptersFuture;
   late Future<Comic> _comicFuture;
 
@@ -58,9 +58,32 @@ class _DetailScreenState extends State<DetailScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.comic.title)),
-      body: SingleChildScrollView(
-        child: Column(
+      appBar: AppBar(
+        title: Text(widget.comic.title),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () {
+              // Force refresh both comic details and chapters
+              setState(() {
+                _comicFuture = NetTruyenService().forceRefreshComicDetails(widget.comic);
+                _chaptersFuture = NetTruyenService().fetchChapters(widget.comic.detailUrl);
+              });
+            },
+            tooltip: 'Làm mới thông tin',
+          ),
+        ],
+      ),
+      body: RefreshIndicator(
+        onRefresh: () async {
+          // Force refresh both comic details and chapters
+          setState(() {
+            _comicFuture = NetTruyenService().forceRefreshComicDetails(widget.comic);
+            _chaptersFuture = NetTruyenService().fetchChapters(widget.comic.detailUrl);
+          });
+        },
+        child: SingleChildScrollView(
+          child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // Header section with image and details
@@ -272,6 +295,7 @@ class _DetailScreenState extends State<DetailScreen> {
           ],
         ),
       ),
+      ),
     );
   }
 
@@ -338,7 +362,7 @@ class _DetailScreenState extends State<DetailScreen> {
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
                         decoration: TextDecoration.underline,
-                        decorationColor: ThemeConstants.netflixRed.withOpacity(0.7),
+                        decorationColor: ThemeConstants.netflixRed.withValues(alpha: 0.7),
                       ),
                     ),
                   ),

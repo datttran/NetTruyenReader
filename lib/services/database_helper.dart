@@ -174,6 +174,42 @@ class DatabaseHelper {
     );
   }
 
+  /// Get the cache age (timestamp) for a comic
+  Future<int?> getComicCacheAge(String detailUrl) async {
+    final db = await database;
+    
+    final maps = await db.query(
+      'comics',
+      columns: ['cached_at'],
+      where: 'detailUrl = ?',
+      whereArgs: [detailUrl],
+    );
+
+    if (maps.isEmpty) return null;
+    return maps.first['cached_at'] as int?;
+  }
+
+  /// Clear old cache entries (older than specified hours)
+  Future<void> clearOldCache(int maxAgeHours) async {
+    final db = await database;
+    final cutoffTime = DateTime.now().subtract(Duration(hours: maxAgeHours)).millisecondsSinceEpoch;
+    
+    // Delete old comics
+    await db.delete(
+      'comics',
+      where: 'cached_at < ?',
+      whereArgs: [cutoffTime],
+    );
+    
+    // Delete orphaned genres (no comics reference them)
+    await db.rawDelete('''
+      DELETE FROM genres 
+      WHERE id NOT IN (
+        SELECT DISTINCT genre_id FROM comic_genres
+      )
+    ''');
+  }
+
   // Chapter operations
   Future<void> insertChapters(int comicId, List<String> chapterUrls) async {
     final db = await database;
