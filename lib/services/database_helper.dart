@@ -81,11 +81,21 @@ class DatabaseHelper {
 
   Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 2) {
-      // Add URL column to genres table
-      await db.execute('ALTER TABLE genres ADD COLUMN url TEXT NOT NULL DEFAULT ""');
-      
-      // Update existing genres with empty URLs (they will be updated when comics are refreshed)
-      await db.execute('UPDATE genres SET url = "" WHERE url IS NULL');
+      try {
+        // Check if url column already exists before adding it
+        final columns = await db.rawQuery('PRAGMA table_info(genres)');
+        final hasUrlColumn = columns.any((col) => col['name'] == 'url');
+        
+        if (!hasUrlColumn) {
+          // Add URL column to genres table only if it doesn't exist
+          await db.execute('ALTER TABLE genres ADD COLUMN url TEXT NOT NULL DEFAULT ""');
+        }
+        
+        // Update existing genres with empty URLs (they will be updated when comics are refreshed)
+        await db.execute('UPDATE genres SET url = "" WHERE url IS NULL');
+      } catch (e) {
+        // Continue with the upgrade even if there's an error
+      }
     }
   }
 

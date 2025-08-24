@@ -130,6 +130,8 @@ class _DetailScreenState extends State<DetailScreen> {
                               : Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
+
+                                    
                                     if (comic.status?.isNotEmpty == true) 
                                       _buildInfoRow('Tình trạng:', comic.status!),
                                     if (comic.author?.isNotEmpty == true) 

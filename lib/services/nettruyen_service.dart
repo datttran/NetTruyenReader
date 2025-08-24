@@ -394,9 +394,8 @@ class NetTruyenService {
   /// The method is essential for the comic information display functionality.
   Future<Map<String, dynamic>> fetchComicDetails(String comicUrl) async {
     try {
-
-      
       final headers = await _getBaseHeaders();
+      
       final response = await http.get(
         Uri.parse(comicUrl),
         headers: headers,
@@ -540,7 +539,6 @@ class NetTruyenService {
   Future<Comic> updateComicWithDetails(Comic comic) async {
     try {
       // Always try to fetch fresh data first to ensure we have the latest information
-
       final details = await fetchComicDetails(comic.detailUrl);
       
       final updated = Comic(
@@ -555,13 +553,15 @@ class NetTruyenService {
       );
 
       // Save to database (this will update existing records)
-      final helper = DatabaseHelper();
-      final comicId = await helper.insertComic(updated);
-      
+      try {
+        final helper = DatabaseHelper();
+        final comicId = await helper.insertComic(updated);
+      } catch (dbError) {
+        // Continue even if database save fails - the data is still valid
+      }
 
       return updated;
     } catch (e) {
-
       // If fetching fails, return the original comic with empty details
       // This ensures the UI doesn't crash
       return Comic(
