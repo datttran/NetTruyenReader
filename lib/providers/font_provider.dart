@@ -63,6 +63,11 @@ class FontProvider extends ChangeNotifier {
   TextTheme getTextTheme(ThemeData baseTheme) {
     final baseTextTheme = _getBaseTextTheme(baseTheme);
     
+    // Apply font scaling to all text styles, but only if scale is not 1.0
+    if (_fontScale == 1.0) {
+      return baseTextTheme;
+    }
+    
     // Apply font scaling to all text styles
     return baseTextTheme.apply(
       fontSizeFactor: _fontScale,
@@ -110,6 +115,11 @@ class FontProvider extends ChangeNotifier {
   /// Get app bar title style for the selected font with scaling applied
   TextStyle getAppBarTitleStyle() {
     final baseStyle = _getBaseAppBarTitleStyle();
+    
+    // Apply font scaling only if scale is not 1.0
+    if (_fontScale == 1.0) {
+      return baseStyle;
+    }
     
     // Apply font scaling
     return baseStyle.copyWith(
@@ -206,6 +216,11 @@ class FontProvider extends ChangeNotifier {
   /// Get chip label style for the selected font with scaling applied
   TextStyle getChipLabelStyle(Color color) {
     final baseStyle = _getBaseChipLabelStyle(color);
+    
+    // Apply font scaling only if scale is not 1.0
+    if (_fontScale == 1.0) {
+      return baseStyle;
+    }
     
     // Apply font scaling
     return baseStyle.copyWith(
