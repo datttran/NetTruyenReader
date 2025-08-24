@@ -23,8 +23,8 @@ class Comic {
   final int? chapterCount;
 
   Comic({
-    required this.title, 
-    required this.imageUrl, 
+    required this.title,
+    required this.imageUrl,
     required this.detailUrl,
     this.status,
     this.author,

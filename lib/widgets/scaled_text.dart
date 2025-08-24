@@ -13,13 +13,12 @@ class ScaledText extends StatelessWidget {
   final Locale? locale;
   final bool? softWrap;
   final TextOverflow? overflow;
-  final double? textScaleFactor;
+  final TextScaler? textScaler;
   final int? maxLines;
   final String? semanticsLabel;
   final TextWidthBasis? textWidthBasis;
   final TextHeightBehavior? textHeightBehavior;
   final Color? selectionColor;
-  final bool? enableInteractiveSelection;
 
   const ScaledText(
     this.data, {
@@ -31,13 +30,12 @@ class ScaledText extends StatelessWidget {
     this.locale,
     this.softWrap,
     this.overflow,
-    this.textScaleFactor,
+    this.textScaler,
     this.maxLines,
     this.semanticsLabel,
     this.textWidthBasis,
     this.textHeightBehavior,
     this.selectionColor,
-    this.enableInteractiveSelection,
   });
 
   @override
@@ -55,19 +53,18 @@ class ScaledText extends StatelessWidget {
             locale: locale,
             softWrap: softWrap,
             overflow: overflow,
-            textScaleFactor: textScaleFactor,
+            textScaler: textScaler,
             maxLines: maxLines,
             semanticsLabel: semanticsLabel,
             textWidthBasis: textWidthBasis,
             textHeightBehavior: textHeightBehavior,
             selectionColor: selectionColor,
-            enableInteractiveSelection: enableInteractiveSelection,
           );
         }
 
         // If custom style is provided, apply font scaling to it
         final scaledStyle = fontProvider.scaleTextStyle(style!);
-        
+
         return Text(
           data,
           key: key,
@@ -78,13 +75,12 @@ class ScaledText extends StatelessWidget {
           locale: locale,
           softWrap: softWrap,
           overflow: overflow,
-          textScaleFactor: textScaleFactor,
+          textScaler: textScaler,
           maxLines: maxLines,
           semanticsLabel: semanticsLabel,
           textWidthBasis: textWidthBasis,
           textHeightBehavior: textHeightBehavior,
           selectionColor: selectionColor,
-          enableInteractiveSelection: enableInteractiveSelection,
         );
       },
     );
@@ -101,13 +97,12 @@ class ScaledTextRich extends StatelessWidget {
   final Locale? locale;
   final bool? softWrap;
   final TextOverflow? overflow;
-  final double? textScaleFactor;
+  final TextScaler? textScaler;
   final int? maxLines;
   final String? semanticsLabel;
   final TextWidthBasis? textWidthBasis;
   final TextHeightBehavior? textHeightBehavior;
   final Color? selectionColor;
-  final bool? enableInteractiveSelection;
 
   const ScaledTextRich(
     this.textSpan, {
@@ -119,13 +114,12 @@ class ScaledTextRich extends StatelessWidget {
     this.locale,
     this.softWrap,
     this.overflow,
-    this.textScaleFactor,
+    this.textScaler,
     this.maxLines,
     this.semanticsLabel,
     this.textWidthBasis,
     this.textHeightBehavior,
     this.selectionColor,
-    this.enableInteractiveSelection,
   });
 
   @override
@@ -143,19 +137,18 @@ class ScaledTextRich extends StatelessWidget {
             locale: locale,
             softWrap: softWrap,
             overflow: overflow,
-            textScaleFactor: textScaleFactor,
+            textScaler: textScaler,
             maxLines: maxLines,
             semanticsLabel: semanticsLabel,
             textWidthBasis: textWidthBasis,
             textHeightBehavior: textHeightBehavior,
             selectionColor: selectionColor,
-            enableInteractiveSelection: enableInteractiveSelection,
           );
         }
 
         // If custom style is provided, apply font scaling to it
         final scaledStyle = fontProvider.scaleTextStyle(style!);
-        
+
         return Text.rich(
           textSpan,
           key: key,
@@ -166,13 +159,12 @@ class ScaledTextRich extends StatelessWidget {
           locale: locale,
           softWrap: softWrap,
           overflow: overflow,
-          textScaleFactor: textScaleFactor,
+          textScaler: textScaler,
           maxLines: maxLines,
           semanticsLabel: semanticsLabel,
           textWidthBasis: textWidthBasis,
           textHeightBehavior: textHeightBehavior,
           selectionColor: selectionColor,
-          enableInteractiveSelection: enableInteractiveSelection,
         );
       },
     );

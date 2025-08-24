@@ -19,7 +19,7 @@ class DatabaseHelper {
   Future<Database> _initDatabase() async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, 'nettruyen.db');
-    
+
     return await openDatabase(
       path,
       version: 2, // Updated version for new schema
@@ -85,15 +85,15 @@ class DatabaseHelper {
         // Check if url column already exists before adding it
         final columns = await db.rawQuery('PRAGMA table_info(genres)');
         final hasUrlColumn = columns.any((col) => col['name'] == 'url');
-        
+
         if (!hasUrlColumn) {
           // Add URL column to genres table only if it doesn't exist
-          await db.execute('ALTER TABLE genres ADD COLUMN url TEXT NOT NULL DEFAULT ""');
+          await db.execute(
+              'ALTER TABLE genres ADD COLUMN url TEXT NOT NULL DEFAULT ""');
         }
-        
+
         // Update existing genres with empty URLs (they will be updated when comics are refreshed)
         await db.execute('UPDATE genres SET url = "" WHERE url IS NULL');
-        
       } catch (e) {
         // Continue with the upgrade even if there's an error
       }
@@ -103,7 +103,7 @@ class DatabaseHelper {
   // Comic operations
   Future<int> insertComic(Comic comic) async {
     final db = await database;
-    
+
     // Insert or update comic
     final comicId = await db.insert(
       'comics',
@@ -121,14 +121,14 @@ class DatabaseHelper {
     );
 
     // Insert genres
-    for (final genre in comic.genres ?? []) {
+    for (final genre in comic.genres ?? <Genre>[]) {
       // First check if genre already exists
       final existingGenres = await db.query(
         'genres',
         where: 'name = ?',
         whereArgs: [genre.name],
       );
-      
+
       int genreId;
       if (existingGenres.isNotEmpty) {
         // Use existing genre ID
@@ -143,14 +143,14 @@ class DatabaseHelper {
           },
         );
       }
-      
+
       // Check if comic-genre relationship already exists
       final existingLinks = await db.query(
         'comic_genres',
         where: 'comic_id = ? AND genre_id = ?',
         whereArgs: [comicId, genreId],
       );
-      
+
       if (existingLinks.isEmpty) {
         // Link comic and genre
         await db.insert(
@@ -168,7 +168,7 @@ class DatabaseHelper {
 
   Future<Comic?> getComic(String detailUrl) async {
     final db = await database;
-    
+
     final maps = await db.query(
       'comics',
       where: 'detailUrl = ?',
@@ -191,7 +191,9 @@ class DatabaseHelper {
       status: maps.first['status'] as String?,
       author: maps.first['author'] as String?,
       views: maps.first['views'] as String?,
-      genres: genres.map((g) => Genre(name: g['name'] as String, url: g['url'] as String)).toList(),
+      genres: genres
+          .map((g) => Genre(name: g['name'] as String, url: g['url'] as String))
+          .toList(),
       updateTime: maps.first['updateTime'] as String?,
     );
   }
@@ -199,7 +201,7 @@ class DatabaseHelper {
   /// Get the cache age (timestamp) for a comic
   Future<int?> getComicCacheAge(String detailUrl) async {
     final db = await database;
-    
+
     final maps = await db.query(
       'comics',
       columns: ['cached_at'],
@@ -214,15 +216,17 @@ class DatabaseHelper {
   /// Clear old cache entries (older than specified hours)
   Future<void> clearOldCache(int maxAgeHours) async {
     final db = await database;
-    final cutoffTime = DateTime.now().subtract(Duration(hours: maxAgeHours)).millisecondsSinceEpoch;
-    
+    final cutoffTime = DateTime.now()
+        .subtract(Duration(hours: maxAgeHours))
+        .millisecondsSinceEpoch;
+
     // Delete old comics
     await db.delete(
       'comics',
       where: 'cached_at < ?',
       whereArgs: [cutoffTime],
     );
-    
+
     // Delete orphaned genres (no comics reference them)
     await db.rawDelete('''
       DELETE FROM genres 
@@ -235,27 +239,27 @@ class DatabaseHelper {
   /// Clear all cache data (useful for debugging or resetting)
   Future<void> clearAllCache() async {
     final db = await database;
-    
+
     print('🗑️ Clearing all cache data...');
-    
+
     // Clear all tables
     await db.delete('comic_genres');
     await db.delete('genres');
     await db.delete('comics');
     await db.delete('chapters');
-    
+
     print('🗑️ All cache data cleared');
   }
 
   /// Force database recreation (useful for fixing schema issues)
   Future<void> forceRecreateDatabase() async {
     final db = await database;
-    
+
     print('🔄 Force recreating database...');
-    
+
     // Close current database
     await db.close();
-    
+
     // Delete database file
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, 'nettruyen.db');
@@ -264,7 +268,7 @@ class DatabaseHelper {
       await file.delete();
       print('🗑️ Old database file deleted');
     }
-    
+
     // Reopen database (this will trigger onCreate)
     await database;
     print('🔄 Database recreated successfully');
@@ -293,7 +297,7 @@ class DatabaseHelper {
 
   Future<List<String>> getChapters(int comicId) async {
     final db = await database;
-    
+
     final chapters = await db.query(
       'chapters',
       where: 'comic_id = ?',
@@ -340,7 +344,7 @@ class DatabaseHelper {
       final db = await database;
       final dbPath = await getDatabasesPath();
       final path = join(dbPath, 'nettruyen.db');
-      
+
       final file = File(path);
       if (await file.exists()) {
         final size = await file.length();
@@ -352,4 +356,4 @@ class DatabaseHelper {
       return 'Error calculating size';
     }
   }
-} 
+}

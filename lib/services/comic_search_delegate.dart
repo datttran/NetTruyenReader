@@ -24,7 +24,9 @@ class ComicSearchDelegate extends SearchDelegate<Comic?> {
 
   @override
   Widget? buildLeading(BuildContext context) {
-    return IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => close(context, null));
+    return IconButton(
+        icon: const Icon(Icons.arrow_back),
+        onPressed: () => close(context, null));
   }
 
   // Only trigger a search when user hits Enter
@@ -40,7 +42,7 @@ class ComicSearchDelegate extends SearchDelegate<Comic?> {
     if (query.isEmpty) {
       return _buildPopularGenres(context);
     }
-    
+
     // Show search tips when typing
     return _buildSearchTips(context);
   }
@@ -72,8 +74,8 @@ class ComicSearchDelegate extends SearchDelegate<Comic?> {
           Text(
             'Thể loại phổ biến',
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
+                  fontWeight: FontWeight.bold,
+                ),
           ),
           const SizedBox(height: 16),
           Wrap(
@@ -95,7 +97,8 @@ class ComicSearchDelegate extends SearchDelegate<Comic?> {
                     ),
                   );
                 },
-                backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
+                backgroundColor:
+                    Theme.of(context).primaryColor.withValues(alpha: 0.1),
                 labelStyle: TextStyle(
                   color: Theme.of(context).primaryColor,
                   fontWeight: FontWeight.w500,
@@ -107,8 +110,8 @@ class ComicSearchDelegate extends SearchDelegate<Comic?> {
           Text(
             'Tìm kiếm nhanh',
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
+                  fontWeight: FontWeight.bold,
+                ),
           ),
           const SizedBox(height: 16),
           Text(
@@ -116,9 +119,9 @@ class ComicSearchDelegate extends SearchDelegate<Comic?> {
             '• Nhấn vào thể loại để xem truyện cùng loại\n'
             '• Sử dụng từ khóa tiếng Việt hoặc tiếng Anh',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.grey[600],
-              height: 1.5,
-            ),
+                  color: Colors.grey[600],
+                  height: 1.5,
+                ),
           ),
         ],
       ),
@@ -134,17 +137,17 @@ class ComicSearchDelegate extends SearchDelegate<Comic?> {
           Text(
             'Tìm kiếm: "$query"',
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
+                  fontWeight: FontWeight.bold,
+                ),
           ),
           const SizedBox(height: 16),
           Text(
             'Nhấn Enter để tìm kiếm\n'
             'Hoặc tiếp tục gõ để tinh chỉnh từ khóa',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.grey[600],
-              height: 1.5,
-            ),
+                  color: Colors.grey[600],
+                  height: 1.5,
+                ),
           ),
         ],
       ),
@@ -171,10 +174,11 @@ class ComicSearchDelegate extends SearchDelegate<Comic?> {
                   final ok = await Navigator.push<bool>(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => CloudflareBypassScreen(url: err.toString()),
+                      builder: (_) =>
+                          CloudflareBypassScreen(url: err.toString()),
                     ),
                   );
-                  if (ok == true) {
+                  if (ok == true && context.mounted) {
                     // retry
                     showResults(context);
                   }
@@ -186,7 +190,9 @@ class ComicSearchDelegate extends SearchDelegate<Comic?> {
         }
 
         final results = snap.data!;
-        if (results.isEmpty) return const Center(child: Text('No results found.'));
+        if (results.isEmpty) {
+          return const Center(child: Text('No results found.'));
+        }
         return GridView.builder(
           padding: const EdgeInsets.all(8),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -201,33 +207,42 @@ class ComicSearchDelegate extends SearchDelegate<Comic?> {
             return GestureDetector(
               onTap: () {
                 close(context, comic);
-                Navigator.push(context, MaterialPageRoute(builder: (_) => DetailScreen(comic: comic)));
+                Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => DetailScreen(comic: comic)));
               },
               child: Card(
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Expanded(
                       child: ClipRRect(
-                        borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                        borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(8)),
                         child: FutureBuilder<String>(
                           future: _service.getCurrentDomain(),
                           builder: (context, domainSnapshot) {
                             if (!domainSnapshot.hasData) {
                               return Container(
                                 color: Colors.grey[300],
-                                child: const Center(child: CircularProgressIndicator()),
+                                child: const Center(
+                                    child: CircularProgressIndicator()),
                               );
                             }
-                            
+
                             return CachedNetworkImage(
-                              cacheManager: CacheManager(Config(AppConstants.THUMB_CACHE_KEY)),
+                              cacheManager: CacheManager(
+                                  Config(AppConstants.THUMB_CACHE_KEY)),
                               imageUrl: comic.imageUrl,
                               httpHeaders: {'Referer': domainSnapshot.data!},
                               fit: BoxFit.cover,
-                              placeholder: (_, __) => const Center(child: CircularProgressIndicator()),
-                              errorWidget: (_, __, ___) => const Icon(Icons.broken_image),
+                              placeholder: (_, __) => const Center(
+                                  child: CircularProgressIndicator()),
+                              errorWidget: (_, __, ___) =>
+                                  const Icon(Icons.broken_image),
                             );
                           },
                         ),

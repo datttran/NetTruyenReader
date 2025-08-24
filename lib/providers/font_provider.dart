@@ -5,10 +5,10 @@ import 'package:google_fonts/google_fonts.dart';
 class FontProvider extends ChangeNotifier {
   String _selectedFont = 'Inconsolata';
   double _fontScale = 1.0;
-  
+
   String get selectedFont => _selectedFont;
   double get fontScale => _fontScale;
-  
+
   /// Get font scale as a percentage string for display
   String get fontScalePercentage => '${(_fontScale * 100).round()}%';
 
@@ -17,6 +17,11 @@ class FontProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     _selectedFont = prefs.getString('selected_font') ?? 'Inconsolata';
     _fontScale = prefs.getDouble('font_scale') ?? 1.0;
+    // Ensure font scale is within the new range
+    if (_fontScale < 1.0 || _fontScale > 2.0) {
+      _fontScale = 1.0;
+      await prefs.setDouble('font_scale', 1.0);
+    }
     notifyListeners();
   }
 
@@ -24,25 +29,27 @@ class FontProvider extends ChangeNotifier {
   Future<void> setFont(String fontName) async {
     if (_selectedFont != fontName) {
       _selectedFont = fontName;
-      
+
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('selected_font', fontName);
-      
+
       notifyListeners();
     }
   }
 
   /// Change the font scale and save to preferences
   Future<void> setFontScale(double scale) async {
-    // Limit scale between 0.5 and 3.0 for usability
-    final clampedScale = scale.clamp(0.5, 3.0);
-    
+    // Limit scale between 1.0 and 2.0 for usability
+    // Round to nearest 0.5 increment (1.0, 1.5, 2.0)
+    final roundedScale = (scale * 2).round() / 2;
+    final clampedScale = roundedScale.clamp(1.0, 2.0);
+
     if (_fontScale != clampedScale) {
       _fontScale = clampedScale;
-      
+
       final prefs = await SharedPreferences.getInstance();
       await prefs.setDouble('font_scale', clampedScale);
-      
+
       notifyListeners();
     }
   }
@@ -51,10 +58,10 @@ class FontProvider extends ChangeNotifier {
   Future<void> resetFontScale() async {
     if (_fontScale != 1.0) {
       _fontScale = 1.0;
-      
+
       final prefs = await SharedPreferences.getInstance();
       await prefs.setDouble('font_scale', 1.0);
-      
+
       notifyListeners();
     }
   }
@@ -62,12 +69,12 @@ class FontProvider extends ChangeNotifier {
   /// Get the text theme for the selected font with scaling applied
   TextTheme getTextTheme(ThemeData baseTheme) {
     final baseTextTheme = _getBaseTextTheme(baseTheme);
-    
+
     // Apply font scaling to all text styles, but only if scale is not 1.0
     if (_fontScale == 1.0) {
       return baseTextTheme;
     }
-    
+
     // Manually scale each text style to avoid assertion errors
     return TextTheme(
       displayLarge: _scaleTextStyle(baseTextTheme.displayLarge),
@@ -91,10 +98,10 @@ class FontProvider extends ChangeNotifier {
   /// Safely scale a text style, handling null cases
   TextStyle? _scaleTextStyle(TextStyle? style) {
     if (style == null) return null;
-    
+
     // If the style has no fontSize, return it unchanged
     if (style.fontSize == null) return style;
-    
+
     // Scale the fontSize safely
     return style.copyWith(
       fontSize: style.fontSize! * _fontScale,
@@ -142,12 +149,12 @@ class FontProvider extends ChangeNotifier {
   /// Get app bar title style for the selected font with scaling applied
   TextStyle getAppBarTitleStyle() {
     final baseStyle = _getBaseAppBarTitleStyle();
-    
+
     // Apply font scaling only if scale is not 1.0
     if (_fontScale == 1.0) {
       return baseStyle;
     }
-    
+
     // Apply font scaling
     return baseStyle.copyWith(
       fontSize: baseStyle.fontSize! * _fontScale,
@@ -243,12 +250,12 @@ class FontProvider extends ChangeNotifier {
   /// Get chip label style for the selected font with scaling applied
   TextStyle getChipLabelStyle(Color color) {
     final baseStyle = _getBaseChipLabelStyle(color);
-    
+
     // Apply font scaling only if scale is not 1.0
     if (_fontScale == 1.0) {
       return baseStyle;
     }
-    
+
     // Apply font scaling
     return baseStyle.copyWith(
       fontSize: (baseStyle.fontSize ?? 14) * _fontScale,
@@ -299,7 +306,7 @@ class FontProvider extends ChangeNotifier {
     if (_fontScale == 1.0 || style.fontSize == null) {
       return style;
     }
-    
+
     return style.copyWith(
       fontSize: style.fontSize! * _fontScale,
     );
@@ -321,7 +328,7 @@ class FontProvider extends ChangeNotifier {
   }) {
     final baseFontSize = fontSize ?? 16.0;
     final scaledFontSize = scaleFontSize(baseFontSize);
-    
+
     return TextStyle(
       fontSize: scaledFontSize,
       fontWeight: fontWeight,

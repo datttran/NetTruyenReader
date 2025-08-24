@@ -32,8 +32,8 @@ class NetworkErrorWidget extends StatelessWidget {
               message,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: Colors.grey[600],
-              ),
+                    color: Colors.grey[600],
+                  ),
             ),
             if (onRetry != null) ...[
               const SizedBox(height: 16),
@@ -55,7 +55,8 @@ class NetworkErrorWidget extends StatelessWidget {
 }
 
 class NetworkErrorSnackBar {
-  static void show(BuildContext context, String message, {VoidCallback? onRetry}) {
+  static void show(BuildContext context, String message,
+      {VoidCallback? onRetry}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
@@ -69,12 +70,14 @@ class NetworkErrorSnackBar {
         ),
         backgroundColor: Colors.red,
         duration: const Duration(seconds: 4),
-        action: onRetry != null ? SnackBarAction(
-          label: 'Retry',
-          textColor: Colors.white,
-          onPressed: onRetry,
-        ) : null,
+        action: onRetry != null
+            ? SnackBarAction(
+                label: 'Retry',
+                textColor: Colors.white,
+                onPressed: onRetry,
+              )
+            : null,
       ),
     );
   }
-} 
+}

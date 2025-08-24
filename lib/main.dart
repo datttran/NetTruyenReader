@@ -8,12 +8,12 @@ import 'package:nettruyen_reader/providers/font_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Initialize providers
   final themeProvider = ThemeProvider();
   final fontProvider = FontProvider();
   await fontProvider.initialize();
-  
+
   runApp(
     MultiProvider(
       providers: [

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../models/comic.dart';
+import '../providers/font_provider.dart';
 
 /// A placeholder screen for searching comics.
 class SearchScreen extends StatefulWidget {
@@ -34,31 +36,48 @@ class _SearchScreenState extends State<SearchScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: TextField(
-          controller: _searchController,
-          decoration: const InputDecoration(
-            hintText: 'Search comics...',
-            border: InputBorder.none,
-          ),
-          textInputAction: TextInputAction.search,
-          onSubmitted: _performSearch,
+        title: Consumer<FontProvider>(
+          builder: (context, fontProvider, child) {
+            return TextField(
+              controller: _searchController,
+              style: fontProvider.getScaledTextStyle(fontSize: 16),
+              decoration: InputDecoration(
+                hintText: 'Search comics...',
+                hintStyle: fontProvider.getScaledTextStyle(
+                  fontSize: 16,
+                  color: Colors.grey,
+                ),
+                border: InputBorder.none,
+              ),
+              textInputAction: TextInputAction.search,
+              onSubmitted: _performSearch,
+            );
+          },
         ),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : ListView.builder(
-        itemCount: _searchResults.length,
-        itemBuilder: (context, index) {
-          final comic = _searchResults[index];
-          return ListTile(
-            leading: Image.network(comic.imageUrl, width: 40, height: 60, fit: BoxFit.cover),
-            title: Text(comic.title),
-            onTap: () {
-              // TODO: Navigate to detail page
-            },
-          );
-        },
-      ),
+              itemCount: _searchResults.length,
+                              itemBuilder: (context, index) {
+                  final comic = _searchResults[index];
+                  return Consumer<FontProvider>(
+                    builder: (context, fontProvider, child) {
+                      return ListTile(
+                        leading: Image.network(comic.imageUrl,
+                            width: 40, height: 60, fit: BoxFit.cover),
+                        title: Text(
+                          comic.title,
+                          style: fontProvider.getScaledTextStyle(fontSize: 16),
+                        ),
+                        onTap: () {
+                          // TODO: Navigate to detail page
+                        },
+                      );
+                    },
+                  );
+                },
+            ),
     );
   }
 

@@ -27,13 +27,14 @@ class DetailScreenState extends State<DetailScreen> {
 
   // reuse the same thumbnail cache as HomeScreen
   final _thumbCache = CacheManager(
-    Config(AppConstants.THUMB_CACHE_KEY, maxNrOfCacheObjects: AppConstants.CACHE_MAX_OBJECTS),
+    Config(AppConstants.THUMB_CACHE_KEY,
+        maxNrOfCacheObjects: AppConstants.CACHE_MAX_OBJECTS),
   );
 
   @override
   void initState() {
     super.initState();
-    
+
     // fetch the full chapter list (including "Xem thêm" expansion)
     _chaptersFuture = NetTruyenService().fetchChapters(widget.comic.detailUrl);
     // fetch the full-size image URL
@@ -48,12 +49,14 @@ class DetailScreenState extends State<DetailScreen> {
   }
 
   void _openReader(List<String> chapters, int index) {
-    Navigator.push(context, MaterialPageRoute(
-      builder: (_) => ReaderScreen(
-        chapters: chapters,
-        initialIndex: index,
-      ),
-    ));
+    Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ReaderScreen(
+            chapters: chapters,
+            initialIndex: index,
+          ),
+        ));
   }
 
   @override
@@ -67,8 +70,10 @@ class DetailScreenState extends State<DetailScreen> {
             onPressed: () {
               // Force refresh both comic details and chapters
               setState(() {
-                _comicFuture = NetTruyenService().forceRefreshComicDetails(widget.comic);
-                _chaptersFuture = NetTruyenService().fetchChapters(widget.comic.detailUrl);
+                _comicFuture =
+                    NetTruyenService().forceRefreshComicDetails(widget.comic);
+                _chaptersFuture =
+                    NetTruyenService().fetchChapters(widget.comic.detailUrl);
               });
             },
             tooltip: 'Làm mới thông tin',
@@ -79,223 +84,248 @@ class DetailScreenState extends State<DetailScreen> {
         onRefresh: () async {
           // Force refresh both comic details and chapters
           setState(() {
-            _comicFuture = NetTruyenService().forceRefreshComicDetails(widget.comic);
-            _chaptersFuture = NetTruyenService().fetchChapters(widget.comic.detailUrl);
+            _comicFuture =
+                NetTruyenService().forceRefreshComicDetails(widget.comic);
+            _chaptersFuture =
+                NetTruyenService().fetchChapters(widget.comic.detailUrl);
           });
         },
         child: SingleChildScrollView(
           child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Header section with image and details
-            Container(
-              padding: const EdgeInsets.all(16),
-              child: FutureBuilder<Comic>(
-                future: _comicFuture,
-                builder: (context, snapshot) {
-                  final comic = snapshot.data ?? widget.comic;
-                  
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Header section with image and details
+              Container(
+                padding: const EdgeInsets.all(16),
+                child: FutureBuilder<Comic>(
+                  future: _comicFuture,
+                  builder: (context, snapshot) {
+                    final comic = snapshot.data ?? widget.comic;
 
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 16),
 
-                      
-                      const SizedBox(height: 16),
-                      
-                      // Image and info side by side
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SizedBox(width: 10,),
-                          // Cover image
-                          Hero(
-                            tag: comic.imageUrl,
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: FutureBuilder<String>(
-                                future: _getCurrentDomainForHeaders(),
-                                builder: (context, domainSnapshot) {
-                                  if (!domainSnapshot.hasData) {
-                                    return Container(
-                                      width: 150,
-                                      height: 200,
-                                      color: Colors.grey[300],
-                                      child: const Center(child: CircularProgressIndicator()),
-                                    );
-                                  }
-                                  
-                                  return CachedNetworkImage(
-                                    cacheManager: _thumbCache,
-                                    imageUrl: comic.imageUrl,
-                                    width: 150,
-                                    height: 200,
-                                    fit: BoxFit.cover,
-                                    httpHeaders: {'Referer': domainSnapshot.data!},
-                                    placeholder: (_, __) => Container(
-                                      width: 150,
-                                      height: 200,
-                                      color: Colors.grey[300],
-                                      child: const Center(child: CircularProgressIndicator()),
-                                    ),
-                                    errorWidget: (_, __, ___) => const Icon(Icons.broken_image, size: 80),
-                                  );
-                                },
-                              ),
+                        // Image and info side by side
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(
+                              width: 10,
                             ),
-                          ),
-                          
-                          const SizedBox(width: 16),
-                          
-                          // Details
-                          Expanded(
-                            child: snapshot.connectionState != ConnectionState.done
-                              ? const Center(child: CircularProgressIndicator())
-                              : Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
+                            // Cover image
+                            Hero(
+                              tag: comic.imageUrl,
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: FutureBuilder<String>(
+                                  future: _getCurrentDomainForHeaders(),
+                                  builder: (context, domainSnapshot) {
+                                    if (!domainSnapshot.hasData) {
+                                      return Container(
+                                        width: 150,
+                                        height: 200,
+                                        color: Colors.grey[300],
+                                        child: const Center(
+                                            child: CircularProgressIndicator()),
+                                      );
+                                    }
 
-                                    
-                                    if (comic.status?.isNotEmpty == true) 
-                                      _buildInfoRow('Tình trạng:', comic.status!),
-                                    if (comic.author?.isNotEmpty == true) 
-                                      _buildInfoRow('Tác giả:', comic.author!),
-                                    if (comic.views?.isNotEmpty == true) 
-                                      _buildInfoRow('Lượt xem:', comic.views!),
-                                    if (comic.genres.isNotEmpty)
-                                      _buildGenresRow('Thể loại:', comic.genres)
-                                    else
-                                      _buildInfoRow('Thể loại:', 'Đang cập nhật'),
-                                    
-                                    // Show message if no details are available
-                                    if ((comic.status?.isEmpty ?? true) && 
-                                         (comic.author?.isEmpty ?? true) && 
-                                         (comic.views?.isEmpty ?? true) && 
-                                         comic.genres.isEmpty)
-                                      Padding(
-                                        padding: const EdgeInsets.only(top: 8),
-                                        child: Text(
-                                          'Đang tải thông tin chi tiết...',
-                                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                            color: Colors.grey[600],
-                                            fontStyle: FontStyle.italic,
-                                          ),
-                                        ),
+                                    return CachedNetworkImage(
+                                      cacheManager: _thumbCache,
+                                      imageUrl: comic.imageUrl,
+                                      width: 150,
+                                      height: 200,
+                                      fit: BoxFit.cover,
+                                      httpHeaders: {
+                                        'Referer': domainSnapshot.data!
+                                      },
+                                      placeholder: (_, __) => Container(
+                                        width: 150,
+                                        height: 200,
+                                        color: Colors.grey[300],
+                                        child: const Center(
+                                            child: CircularProgressIndicator()),
                                       ),
-                                    
-                                    const SizedBox(height: 16),
-                                    
-                                    // Last updated time
-                                    Text(
-                                      'Cập nhật lúc: ${DateTime.now().toString().substring(0, 16)}',
-                                      style: Theme.of(context).textTheme.bodySmall,
-                                    ),
-                                  ],
+                                      errorWidget: (_, __, ___) => const Icon(
+                                          Icons.broken_image,
+                                          size: 80),
+                                    );
+                                  },
                                 ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  );
-                },
-              ),
-            ),
+                              ),
+                            ),
 
-            // Action buttons
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: FutureBuilder<List<String>>(
-                future: _chaptersFuture,
-                builder: (context, snapshot) {
-                  final chapters = snapshot.data ?? [];
-                  return Column(
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: chapters.isEmpty ? null : () => _openReader(chapters, 0),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Theme.of(context).primaryColor,
-                                foregroundColor: Colors.white,
-                              ),
-                              child: const Text('Đọc từ đầu'),
+                            const SizedBox(width: 16),
+
+                            // Details
+                            Expanded(
+                              child: snapshot.connectionState !=
+                                      ConnectionState.done
+                                  ? const Center(
+                                      child: CircularProgressIndicator())
+                                  : Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        if (comic.status?.isNotEmpty == true)
+                                          _buildInfoRow(
+                                              'Tình trạng:', comic.status!),
+                                        if (comic.author?.isNotEmpty == true)
+                                          _buildInfoRow(
+                                              'Tác giả:', comic.author!),
+                                        if (comic.views?.isNotEmpty == true)
+                                          _buildInfoRow(
+                                              'Lượt xem:', comic.views!),
+                                        if (comic.genres.isNotEmpty)
+                                          _buildGenresRow(
+                                              'Thể loại:', comic.genres)
+                                        else
+                                          _buildInfoRow(
+                                              'Thể loại:', 'Đang cập nhật'),
+
+                                        // Show message if no details are available
+                                        if ((comic.status?.isEmpty ?? true) &&
+                                            (comic.author?.isEmpty ?? true) &&
+                                            (comic.views?.isEmpty ?? true) &&
+                                            comic.genres.isEmpty)
+                                          Padding(
+                                            padding:
+                                                const EdgeInsets.only(top: 8),
+                                            child: Text(
+                                              'Đang tải thông tin chi tiết...',
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .bodySmall
+                                                  ?.copyWith(
+                                                    color: Colors.grey[600],
+                                                    fontStyle: FontStyle.italic,
+                                                  ),
+                                            ),
+                                          ),
+
+                                        const SizedBox(height: 16),
+
+                                        // Last updated time
+                                        Text(
+                                          'Cập nhật lúc: ${DateTime.now().toString().substring(0, 16)}',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall,
+                                        ),
+                                      ],
+                                    ),
                             ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: chapters.isEmpty ? null : () => _openReader(chapters, chapters.length - 1),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.orange,
-                                foregroundColor: Colors.white,
-                              ),
-                              child: const Text('Đọc mới nhất'),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          onPressed: () {
-                            showSearch(
-                              context: context,
-                              delegate: ComicSearchDelegate(),
-                              query: '',
-                            );
-                          },
-                          icon: const Icon(Icons.search),
-                          label: const Text('Tìm truyện tương tự'),
+                          ],
                         ),
-                      ),
-                    ],
-                  );
-                },
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // Chapter list
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: FutureBuilder<List<String>>(
-                future: _chaptersFuture,
-                builder: (ctx, snap) {
-                  if (snap.connectionState != ConnectionState.done) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  if (snap.hasError) {
-                    return Center(
-                      child: Text('Error loading chapters:\n${snap.error}'),
+                      ],
                     );
-                  }
-
-                  final chapters = snap.data ?? [];
-                  if (chapters.isEmpty) {
-                    return const Center(child: Text('No chapters found.'));
-                  }
-
-                  return ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: chapters.length,
-                    itemBuilder: (context, index) {
-                      return ListTile(
-                        title: Text('Chapter ${chapters.length - index}'),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: () => _openReader(chapters, index),
-                      );
-                    },
-                  );
-                },
+                  },
+                ),
               ),
-            ),
-          ],
+
+              // Action buttons
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: FutureBuilder<List<String>>(
+                  future: _chaptersFuture,
+                  builder: (context, snapshot) {
+                    final chapters = snapshot.data ?? [];
+                    return Column(
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: chapters.isEmpty
+                                    ? null
+                                    : () => _openReader(chapters, 0),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor:
+                                      Theme.of(context).primaryColor,
+                                  foregroundColor: Colors.white,
+                                ),
+                                child: const Text('Đọc từ đầu'),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: chapters.isEmpty
+                                    ? null
+                                    : () => _openReader(
+                                        chapters, chapters.length - 1),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.orange,
+                                  foregroundColor: Colors.white,
+                                ),
+                                child: const Text('Đọc mới nhất'),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: () {
+                              showSearch(
+                                context: context,
+                                delegate: ComicSearchDelegate(),
+                                query: '',
+                              );
+                            },
+                            icon: const Icon(Icons.search),
+                            label: const Text('Tìm truyện tương tự'),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // Chapter list
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: FutureBuilder<List<String>>(
+                  future: _chaptersFuture,
+                  builder: (ctx, snap) {
+                    if (snap.connectionState != ConnectionState.done) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    if (snap.hasError) {
+                      return Center(
+                        child: Text('Error loading chapters:\n${snap.error}'),
+                      );
+                    }
+
+                    final chapters = snap.data ?? [];
+                    if (chapters.isEmpty) {
+                      return const Center(child: Text('No chapters found.'));
+                    }
+
+                    return ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: chapters.length,
+                      itemBuilder: (context, index) {
+                        return ListTile(
+                          title: Text('Chapter ${chapters.length - index}'),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () => _openReader(chapters, index),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
       ),
     );
   }
@@ -363,7 +393,8 @@ class DetailScreenState extends State<DetailScreen> {
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
                         decoration: TextDecoration.underline,
-                        decorationColor: ThemeConstants.netflixRed.withValues(alpha: 0.7),
+                        decorationColor:
+                            ThemeConstants.netflixRed.withValues(alpha: 0.7),
                       ),
                     ),
                   ),

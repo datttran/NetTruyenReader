@@ -20,10 +20,10 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   final TextEditingController _domainController = TextEditingController();
   String _currentDomain = '';
-  
+
   String _dbSize = 'Calculating...';
-  bool _isLoading = false;
-  
+  final bool _isLoading = false;
+
   // Popular Google Fonts list
   static const List<Map<String, String>> _popularFonts = [
     {'name': 'Inconsolata', 'family': 'Inconsolata'},
@@ -42,6 +42,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     {'name': 'Josefin Sans', 'family': 'Josefin Sans'},
     {'name': 'Sono', 'family': 'Sono'},
   ];
+
   @override
   void initState() {
     super.initState();
@@ -61,7 +62,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _loadCurrentDomain() async {
     final prefs = await SharedPreferences.getInstance();
     final customDomain = prefs.getString('custom_domain');
-    
+
     setState(() {
       _currentDomain = customDomain ?? AppConstants.PRIMARY_DOMAIN;
       _domainController.text = _currentDomain.replaceFirst('https://', '');
@@ -74,7 +75,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   /// the domain persistence and auto-save functionality.
   Future<void> _saveDomain() async {
     String newDomain = _domainController.text.trim();
-    
+
     if (!newDomain.startsWith('http://') && !newDomain.startsWith('https://')) {
       newDomain = 'https://$newDomain';
     }
@@ -82,7 +83,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (newDomain.isNotEmpty && newDomain != _currentDomain) {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('custom_domain', newDomain);
-      
+
       setState(() {
         _currentDomain = newDomain;
       });
@@ -90,7 +91,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } else if (newDomain.isEmpty) {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('custom_domain');
-      
+
       setState(() {
         _currentDomain = AppConstants.PRIMARY_DOMAIN;
       });
@@ -161,7 +162,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Clear Database'),
-        content: const Text('Are you sure you want to clear all saved data? This action cannot be undone.'),
+        content: const Text(
+            'Are you sure you want to clear all saved data? This action cannot be undone.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -169,8 +171,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Clear'),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Clear'),
           ),
         ],
       ),
@@ -206,7 +208,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Settings'),
+          title: Consumer<FontProvider>(
+            builder: (context, fontProvider, child) {
+              return Text(
+                'Settings',
+                style: fontProvider.getScaledTextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                ),
+              );
+            },
+          ),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
             onPressed: () {
@@ -246,24 +258,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     },
                   ),
                   const SizedBox(height: 8),
-                  TextField(
-                    controller: _domainController,
-                    decoration: InputDecoration(
-                      hintText: 'Enter domain URL (e.g., nettruyenvio.com)',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      suffixIcon: IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          _domainController.clear();
+                  Consumer<FontProvider>(
+                    builder: (context, fontProvider, child) {
+                      return TextField(
+                        controller: _domainController,
+                        style: fontProvider.getScaledTextStyle(fontSize: 14),
+                        decoration: InputDecoration(
+                          hintText: 'Enter domain URL (e.g., nettruyenvio.com)',
+                          hintStyle: fontProvider.getScaledTextStyle(
+                            fontSize: 14,
+                            color: Colors.grey,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          suffixIcon: IconButton(
+                            icon: const Icon(Icons.clear),
+                            onPressed: () {
+                              _domainController.clear();
+                              _saveDomain();
+                            },
+                            tooltip: 'Clear text',
+                          ),
+                        ),
+                        onChanged: (value) {
                           _saveDomain();
                         },
-                        tooltip: 'Clear text',
-                      ),
-                    ),
-                    onChanged: (value) {
-                      _saveDomain();
+                      );
                     },
                   ),
                   const SizedBox(height: 8),
@@ -307,7 +328,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
             const Divider(),
-            
+
             Consumer<FontProvider>(
               builder: (context, fontProvider, child) {
                 return ListTile(
@@ -323,31 +344,55 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             Consumer<ThemeProvider>(
               builder: (context, themeProvider, child) {
-                return ListTile(
-                  title: const Text('Theme'),
-                  subtitle: Text(themeProvider.themeModeDescription),
-                  trailing: DropdownButton<ThemeMode>(
-                    value: themeProvider.themeMode,
-                    onChanged: (ThemeMode? newValue) {
-                      if (newValue != null) {
-                        themeProvider.setThemeMode(newValue);
-                      }
-                    },
-                    items: ThemeMode.values.map<DropdownMenuItem<ThemeMode>>((ThemeMode themeMode) {
-                      return DropdownMenuItem<ThemeMode>(
-                        value: themeMode,
-                        child: Text(themeMode.name),
-                      );
-                    }).toList(),
-                  ),
+                return Consumer<FontProvider>(
+                  builder: (context, fontProvider, child) {
+                    return ListTile(
+                      title: Text(
+                        'Theme',
+                        style: fontProvider.getScaledTextStyle(fontSize: 16),
+                      ),
+                      subtitle: Text(
+                        themeProvider.themeModeDescription,
+                        style: fontProvider.getScaledTextStyle(fontSize: 14),
+                      ),
+                      trailing: DropdownButton<ThemeMode>(
+                        value: themeProvider.themeMode,
+                        onChanged: (ThemeMode? newValue) {
+                          if (newValue != null) {
+                            themeProvider.setThemeMode(newValue);
+                          }
+                        },
+                        items: ThemeMode.values.map<DropdownMenuItem<ThemeMode>>(
+                            (ThemeMode themeMode) {
+                          return DropdownMenuItem<ThemeMode>(
+                            value: themeMode,
+                            child: Consumer<FontProvider>(
+                              builder: (context, fontProvider, child) {
+                                return Text(
+                                  themeMode.name,
+                                  style: fontProvider.getScaledTextStyle(fontSize: 14),
+                                );
+                              },
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    );
+                  },
                 );
               },
             ),
             Consumer<FontProvider>(
               builder: (context, fontProvider, child) {
                 return ListTile(
-                  title: const Text('Font Family'),
-                  subtitle: Text(fontProvider.selectedFont),
+                  title: Text(
+                    'Font Family',
+                    style: fontProvider.getScaledTextStyle(fontSize: 16),
+                  ),
+                  subtitle: Text(
+                    fontProvider.selectedFont,
+                    style: fontProvider.getScaledTextStyle(fontSize: 14),
+                  ),
                   trailing: DropdownButton<String>(
                     value: fontProvider.selectedFont,
                     onChanged: (String? newValue) {
@@ -368,7 +413,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 );
               },
             ),
-            
+
             // Font Scale Slider
             Consumer<FontProvider>(
               builder: (context, fontProvider, child) {
@@ -376,31 +421,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     ListTile(
-                      title: const Text('Font Size'),
-                      subtitle: Text('${fontProvider.fontScalePercentage} (${fontProvider.fontScale.toStringAsFixed(1)}x)'),
+                      title: Text(
+                        'App Scaling',
+                        style: fontProvider.getScaledTextStyle(fontSize: 16),
+                      ),
+                      subtitle: Text(
+                        '${fontProvider.fontScalePercentage} (${fontProvider.fontScale.toStringAsFixed(1)}x)',
+                        style: fontProvider.getScaledTextStyle(fontSize: 14),
+                      ),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           IconButton(
                             icon: const Icon(Icons.remove),
                             onPressed: () {
-                              final newScale = (fontProvider.fontScale - 0.1).clamp(0.5, 3.0);
+                              final newScale = (fontProvider.fontScale - 0.5)
+                                  .clamp(1.0, 2.0);
                               fontProvider.setFontScale(newScale);
                             },
-                            tooltip: 'Decrease font size',
+                            tooltip: 'Decrease app scaling',
                           ),
                           IconButton(
                             icon: const Icon(Icons.refresh),
                             onPressed: () => fontProvider.resetFontScale(),
-                            tooltip: 'Reset to default size',
+                            tooltip: 'Reset to default scaling',
                           ),
                           IconButton(
                             icon: const Icon(Icons.add),
                             onPressed: () {
-                              final newScale = (fontProvider.fontScale + 0.1).clamp(0.5, 3.0);
+                              final newScale = (fontProvider.fontScale + 0.5)
+                                  .clamp(1.0, 2.0);
                               fontProvider.setFontScale(newScale);
                             },
-                            tooltip: 'Increase font size',
+                            tooltip: 'Increase app scaling',
                           ),
                         ],
                       ),
@@ -409,12 +462,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 16.0),
                       child: Slider(
                         value: fontProvider.fontScale,
-                        min: 0.5,
-                        max: 3.0,
-                        divisions: 25, // 0.1 increments
+                        min: 1.0,
+                        max: 2.0,
+                        divisions: 2, // 0.5 increments (1.0, 1.5, 2.0)
                         label: fontProvider.fontScalePercentage,
                         onChanged: (value) {
-                          fontProvider.setFontScale(value);
+                          // Snap to nearest 0.5 increment
+                          final snappedValue = (value * 2).round() / 2;
+                          fontProvider.setFontScale(snappedValue);
                         },
                       ),
                     ),
@@ -424,7 +479,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               },
             ),
             const Divider(),
-            
+
             Consumer<FontProvider>(
               builder: (context, fontProvider, child) {
                 return ListTile(
@@ -438,18 +493,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 );
               },
             ),
-            ListTile(
-              title: const Text('Database Size'),
-              subtitle: Text(_dbSize),
-              trailing: _isLoading
-                  ? const CircularProgressIndicator()
-                  : IconButton(
-                      icon: const Icon(Icons.delete),
-                      onPressed: _clearDatabase,
-                    ),
+            Consumer<FontProvider>(
+              builder: (context, fontProvider, child) {
+                return ListTile(
+                  title: Text(
+                    'Database Size',
+                    style: fontProvider.getScaledTextStyle(fontSize: 16),
+                  ),
+                  subtitle: Text(
+                    _dbSize,
+                    style: fontProvider.getScaledTextStyle(fontSize: 14),
+                  ),
+                  trailing: _isLoading
+                      ? const CircularProgressIndicator()
+                      : IconButton(
+                          icon: const Icon(Icons.delete),
+                          onPressed: _clearDatabase,
+                        ),
+                );
+              },
             ),
             const Divider(),
-            
+
             Consumer<FontProvider>(
               builder: (context, fontProvider, child) {
                 return ListTile(
@@ -463,15 +528,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 );
               },
             ),
-            ListTile(
-              title: const Text('About'),
-              subtitle: const Text('NetTruyen Reader v1.0.0'),
-              onTap: () {
-                showAboutDialog(
-                  context: context,
-                  applicationName: 'NetTruyen Reader',
-                  applicationVersion: '1.0.0',
-                  applicationLegalese: '© 2024',
+            Consumer<FontProvider>(
+              builder: (context, fontProvider, child) {
+                return ListTile(
+                  title: Text(
+                    'About',
+                    style: fontProvider.getScaledTextStyle(fontSize: 16),
+                  ),
+                  subtitle: Text(
+                    'NetTruyen Reader v1.0.0',
+                    style: fontProvider.getScaledTextStyle(fontSize: 14),
+                  ),
+                  onTap: () {
+                    showAboutDialog(
+                      context: context,
+                      applicationName: 'NetTruyen Reader',
+                      applicationVersion: '1.0.0',
+                      applicationLegalese: '© 2024',
+                    );
+                  },
                 );
               },
             ),
@@ -480,4 +555,4 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
   }
-} 
+}

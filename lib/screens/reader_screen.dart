@@ -1,7 +1,6 @@
 // lib/screens/reader_screen.dart
 
 import 'package:flutter/material.dart';
-import '../models/comic.dart';
 import '../services/nettruyen_service.dart';
 import '../constants/app_constants.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -23,13 +22,13 @@ class ReaderScreen extends StatefulWidget {
 class _ReaderScreenState extends State<ReaderScreen> {
   // Packed chapters for memory management
   final Map<int, List<PageItem>> _chapterImages = {};
-  
+
   // Currently loading chapter images
   final List<PageItem> _currentLoadingChapter = [];
-  
+
   // Preloaded next chapter
   List<PageItem>? _nextChapterImages;
-  
+
   int _currentChapter = 0;
   bool _isInitialLoading = true;
   bool _isAppending = false;
@@ -39,7 +38,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
   final Map<int, int> _chapterStartIndices = {};
 
   final ScrollController _scrollCtrl = ScrollController();
-  
+
   /// CRITICAL: DO NOT CHANGE THIS METHOD! This method gets the current domain for use in headers.
   /// It ensures that chapter pages are loaded with the correct Referer header.
   Future<String> _getCurrentDomainForHeaders() async {
@@ -81,7 +80,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
       widget.chapters[chapterIndex],
       onImageFound: (imageUrl) {
         // Add each image as it's found for progressive display
-        final pageItem = PageItem(imageUrl: imageUrl, chapterIndex: chapterIndex);
+        final pageItem =
+            PageItem(imageUrl: imageUrl, chapterIndex: chapterIndex);
         setState(() {
           _currentLoadingChapter.add(pageItem);
         });
@@ -90,7 +90,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
     // After all images are loaded, pack them
     setState(() {
-      _chapterImages[chapterIndex] = List<PageItem>.from(_currentLoadingChapter);
+      _chapterImages[chapterIndex] =
+          List<PageItem>.from(_currentLoadingChapter);
       _currentLoadingChapter.clear();
       _isInitialLoading = false;
     });
@@ -104,8 +105,12 @@ class _ReaderScreenState extends State<ReaderScreen> {
   }
 
   void _preloadNextChapter(int nextIndex) async {
-    if (_isPreloadingNext || nextIndex >= widget.chapters.length || _chapterImages.containsKey(nextIndex)) return;
-    
+    if (_isPreloadingNext ||
+        nextIndex >= widget.chapters.length ||
+        _chapterImages.containsKey(nextIndex)) {
+      return;
+    }
+
     setState(() {
       _isPreloadingNext = true;
     });
@@ -115,12 +120,13 @@ class _ReaderScreenState extends State<ReaderScreen> {
         widget.chapters[nextIndex],
         onImageFound: (imageUrl) {
           // Progressive loading for preloaded chapters
-          final pageItem = PageItem(imageUrl: imageUrl, chapterIndex: nextIndex);
           // Note: We don't update state here since this is preloading
         },
       );
-      final pageItems = imageUrls.map((url) => PageItem(imageUrl: url, chapterIndex: nextIndex)).toList();
-      
+      final pageItems = imageUrls
+          .map((url) => PageItem(imageUrl: url, chapterIndex: nextIndex))
+          .toList();
+
       setState(() {
         _nextChapterImages = pageItems;
         _isPreloadingNext = false;
@@ -136,26 +142,27 @@ class _ReaderScreenState extends State<ReaderScreen> {
     // Keep only previous, current, and next chapter in memory
     // But be more conservative about removing chapters to prevent scroll jumps
     final keysToKeep = <int>{current - 1, current, current + 1};
-    
+
     // Only remove chapters that are far from the current chapter
     final keysToRemove = <int>[];
     for (final key in _chapterImages.keys) {
-      if (!keysToKeep.contains(key) && (key < current - 2 || key > current + 2)) {
+      if (!keysToKeep.contains(key) &&
+          (key < current - 2 || key > current + 2)) {
         keysToRemove.add(key);
       }
     }
-    
+
     for (final key in keysToRemove) {
       _chapterImages.remove(key);
     }
-    
+
     _updateChapterBoundaries();
   }
 
   void _updateChapterBoundaries() {
     _chapterStartIndices.clear();
     int currentIndex = 0;
-    
+
     final keys = _chapterImages.keys.toList()..sort();
     for (final chapterIndex in keys) {
       _chapterStartIndices[chapterIndex] = currentIndex;
@@ -188,16 +195,17 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
   void _updateCurrentChapterFromVisible() {
     if (_displayPages.isEmpty) return;
-    
+
     // Get the first visible item index using a more accurate method
     final firstVisibleIndex = _getFirstVisibleIndex();
     if (firstVisibleIndex == -1) return;
-    
+
     // Find which chapter this index belongs to
     final newChapter = _getChapterForIndex(firstVisibleIndex);
     if (_currentChapter != newChapter) {
-      print('Chapter changed from $_currentChapter to $newChapter at index $firstVisibleIndex');
-      
+      print(
+          'Chapter changed from $_currentChapter to $newChapter at index $firstVisibleIndex');
+
       // If we're moving to a chapter that's not loaded, load it without resetting scroll
       if (!_chapterImages.containsKey(newChapter)) {
         _loadChapterWithoutReset(newChapter);
@@ -223,7 +231,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
       widget.chapters[chapterIndex],
       onImageFound: (imageUrl) {
         // Add each image as it's found for progressive display
-        final pageItem = PageItem(imageUrl: imageUrl, chapterIndex: chapterIndex);
+        final pageItem =
+            PageItem(imageUrl: imageUrl, chapterIndex: chapterIndex);
         setState(() {
           _currentLoadingChapter.add(pageItem);
         });
@@ -232,7 +241,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
     // After all images are loaded, pack them
     setState(() {
-      _chapterImages[chapterIndex] = List<PageItem>.from(_currentLoadingChapter);
+      _chapterImages[chapterIndex] =
+          List<PageItem>.from(_currentLoadingChapter);
       _currentLoadingChapter.clear();
       _isInitialLoading = false;
       _currentChapter = chapterIndex; // Update current chapter after loading
@@ -248,39 +258,40 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
   int _getFirstVisibleIndex() {
     if (_scrollCtrl.position.pixels <= 0) return 0;
-    
+
     // Use a more accurate method to find the first visible item
     final scrollOffset = _scrollCtrl.position.pixels;
-    
+
     // Estimate based on average item height (including padding)
     const estimatedItemHeight = 400.0; // Reduced from 500 to be more responsive
     final estimatedIndex = (scrollOffset / estimatedItemHeight).floor();
-    
+
     return estimatedIndex.clamp(0, _displayPages.length - 1);
   }
 
   int _getChapterForIndex(int index) {
     // Find the chapter that contains this index
     final keys = _chapterStartIndices.keys.toList()..sort();
-    
+
     for (int i = keys.length - 1; i >= 0; i--) {
       final chapterIndex = keys[i];
       final startIndex = _chapterStartIndices[chapterIndex]!;
       final chapterLength = _chapterImages[chapterIndex]!.length;
-      
+
       if (index >= startIndex && index < startIndex + chapterLength) {
         return chapterIndex;
       }
     }
-    
+
     // If not found in packed chapters, check if it's in the loading chapter
     if (_currentLoadingChapter.isNotEmpty) {
-      final loadingStartIndex = _displayPages.length - _currentLoadingChapter.length;
+      final loadingStartIndex =
+          _displayPages.length - _currentLoadingChapter.length;
       if (index >= loadingStartIndex) {
         return _currentLoadingChapter.first.chapterIndex;
       }
     }
-    
+
     return _currentChapter; // Fallback
   }
 
@@ -296,7 +307,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
   // Build the list of widgets for ListView
   List<Widget> _buildPageWidgets() {
     final widgets = <Widget>[];
-    
+
     // Add all page images
     for (final page in _displayPages) {
       widgets.add(
@@ -310,7 +321,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                 child: const Center(child: CircularProgressIndicator()),
               );
             }
-            
+
             return Image.network(
               page.imageUrl,
               headers: {'Referer': domainSnapshot.data!},
@@ -335,7 +346,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
         ),
       );
     }
-    
+
     // Add loading indicator if appending
     if (_isAppending) {
       widgets.add(
@@ -345,7 +356,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
         ),
       );
     }
-    
+
     return widgets;
   }
 

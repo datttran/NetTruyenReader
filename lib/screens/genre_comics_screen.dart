@@ -25,7 +25,8 @@ class GenreComicsScreen extends StatefulWidget {
 class _GenreComicsScreenState extends State<GenreComicsScreen> {
   late Future<List<Comic>> _comicsFuture;
   final _thumbCache = CacheManager(
-    Config('genre_thumb_cache_${DateTime.now().millisecondsSinceEpoch}', maxNrOfCacheObjects: AppConstants.CACHE_MAX_OBJECTS),
+    Config('genre_thumb_cache_${DateTime.now().millisecondsSinceEpoch}',
+        maxNrOfCacheObjects: AppConstants.CACHE_MAX_OBJECTS),
   );
 
   @override
@@ -58,7 +59,7 @@ class _GenreComicsScreenState extends State<GenreComicsScreen> {
           if (snapshot.connectionState != ConnectionState.done) {
             return const Center(child: CircularProgressIndicator());
           }
-          
+
           if (snapshot.hasError) {
             return Center(
               child: Column(
@@ -74,15 +75,16 @@ class _GenreComicsScreenState extends State<GenreComicsScreen> {
                   Text(
                     '${snapshot.error}',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.grey[600],
-                    ),
+                          color: Colors.grey[600],
+                        ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 16),
                   ElevatedButton(
                     onPressed: () {
                       setState(() {
-                        _comicsFuture = NetTruyenService().fetchComicsByGenre(widget.genreUrl);
+                        _comicsFuture = NetTruyenService()
+                            .fetchComicsByGenre(widget.genreUrl);
                       });
                     },
                     child: const Text('Retry'),
@@ -108,8 +110,8 @@ class _GenreComicsScreenState extends State<GenreComicsScreen> {
                   Text(
                     'Try a different genre or check back later',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.grey[600],
-                    ),
+                          color: Colors.grey[600],
+                        ),
                     textAlign: TextAlign.center,
                   ),
                 ],
@@ -122,7 +124,8 @@ class _GenreComicsScreenState extends State<GenreComicsScreen> {
               await _thumbCache.emptyCache();
               print('🔍 Cleared genre thumbnail cache for fresh loading');
               setState(() {
-                _comicsFuture = NetTruyenService().fetchComicsByGenre(widget.genreUrl);
+                _comicsFuture =
+                    NetTruyenService().fetchComicsByGenre(widget.genreUrl);
               });
             },
             child: GridView.builder(
@@ -157,21 +160,24 @@ class _GenreComicsScreenState extends State<GenreComicsScreen> {
                           child: Hero(
                             tag: comic.imageUrl,
                             child: ClipRRect(
-                              borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                              borderRadius: const BorderRadius.vertical(
+                                  top: Radius.circular(8)),
                               child: FutureBuilder<bool>(
                                 future: _isImageCached(comic.imageUrl),
                                 builder: (context, snapshot) {
-                                  if (snapshot.connectionState == ConnectionState.waiting) {
+                                  if (snapshot.connectionState ==
+                                      ConnectionState.waiting) {
                                     return Container(
                                       width: double.infinity,
                                       height: double.infinity,
                                       color: Colors.grey[300],
-                                      child: const Center(child: CircularProgressIndicator()),
+                                      child: const Center(
+                                          child: CircularProgressIndicator()),
                                     );
                                   }
-                                  
+
                                   final isCached = snapshot.data ?? false;
-                                  
+
                                   if (isCached) {
                                     // Use cached image
                                     return CachedNetworkImage(
@@ -184,13 +190,16 @@ class _GenreComicsScreenState extends State<GenreComicsScreen> {
                                         width: double.infinity,
                                         height: double.infinity,
                                         color: Colors.grey[300],
-                                        child: const Center(child: CircularProgressIndicator()),
+                                        child: const Center(
+                                            child: CircularProgressIndicator()),
                                       ),
                                       errorWidget: (_, __, ___) => Container(
                                         width: double.infinity,
                                         height: double.infinity,
                                         color: Colors.grey[300],
-                                        child: const Center(child: Icon(Icons.broken_image, size: 40)),
+                                        child: const Center(
+                                            child: Icon(Icons.broken_image,
+                                                size: 40)),
                                       ),
                                     );
                                   } else {
@@ -205,15 +214,18 @@ class _GenreComicsScreenState extends State<GenreComicsScreen> {
                                         width: double.infinity,
                                         height: double.infinity,
                                         color: Colors.grey[700],
-                                        child: const Center(child: CircularProgressIndicator()),
+                                        child: const Center(
+                                            child: CircularProgressIndicator()),
                                       ),
                                       errorWidget: (_, __, ___) => Container(
                                         width: double.infinity,
                                         height: double.infinity,
                                         color: Colors.grey[700],
-                                        child: const Center(child: Icon(Icons.broken_image, size: 40)),
+                                        child: const Center(
+                                            child: Icon(Icons.broken_image,
+                                                size: 40)),
                                       ),
-                                      httpHeaders: {
+                                      httpHeaders: const {
                                         'Referer': 'https://nettruyenvia.com',
                                       },
                                     );
@@ -228,18 +240,19 @@ class _GenreComicsScreenState extends State<GenreComicsScreen> {
                           flex: 2,
                           child: Container(
                             padding: const EdgeInsets.all(4),
-                                                      child: Text(
-                            comic.title,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Theme.of(context).brightness == Brightness.dark 
-                                  ? Colors.white 
-                                  : Theme.of(context).colorScheme.onSurface,
+                            child: Text(
+                              comic.title,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Theme.of(context).brightness ==
+                                        Brightness.dark
+                                    ? Colors.white
+                                    : Theme.of(context).colorScheme.onSurface,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
                             ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            textAlign: TextAlign.center,
-                          ),
                           ),
                         ),
                       ],
@@ -257,7 +270,7 @@ class _GenreComicsScreenState extends State<GenreComicsScreen> {
   /// Calculate optimal card width based on screen size and constraints
   double _calculateOptimalCardWidth() {
     final screenWidth = MediaQuery.of(context).size.width;
-    
+
     // Use different percentages based on screen size breakpoints
     double cardWidthPercent;
     if (screenWidth < 600.0) {
@@ -267,9 +280,9 @@ class _GenreComicsScreenState extends State<GenreComicsScreen> {
     } else {
       cardWidthPercent = 0.22; // Desktop: 4-5 columns
     }
-    
+
     final calculatedWidth = screenWidth * cardWidthPercent;
-    
+
     // Apply min/max constraints
     return calculatedWidth.clamp(120.0, 200.0);
   }
@@ -278,10 +291,10 @@ class _GenreComicsScreenState extends State<GenreComicsScreen> {
   double _calculateOptimalAspectRatio() {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
-    
+
     // Calculate aspect ratio based on screen proportions
     final widthRatio = screenWidth / screenHeight;
-    
+
     // Adjust aspect ratio based on screen orientation and size
     if (widthRatio > 1.0) {
       // Landscape or wide screen - use wider cards
@@ -294,5 +307,4 @@ class _GenreComicsScreenState extends State<GenreComicsScreen> {
       return 0.65;
     }
   }
-
-} 
+}

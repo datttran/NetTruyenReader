@@ -26,26 +26,27 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Comic> _displayComics = []; // Changed from final
   List<Comic> _filteredComics = []; // Comics filtered by selected genre
   final ScrollController _scrollController = ScrollController();
-  
+
   static const int _pageSize = 12;
   bool _isLoading = false;
   bool _hasMore = true;
   int _currentPage = 1;
-  
+
   String? _lastUsedDomain;
   final _thumbCacheManager = DefaultCacheManager();
-  
+
   // Genre filtering state
   String _selectedGenre = 'Phổ biến'; // Default to popular
   String? _selectedGenrePath;
   bool _isFilteringByGenre = false;
   String? _loadingGenre; // Track which specific genre is loading
-  
+
   // Genre caching
   final Map<String, List<Comic>> _genreCache = {};
   final Map<String, DateTime> _genreCacheTimestamps = {};
-  static const Duration _cacheExpiry = Duration(minutes: 10); // Cache for 10 minutes
-  
+  static const Duration _cacheExpiry =
+      Duration(minutes: 10); // Cache for 10 minutes
+
   // Popular comics caching
   static const String _popularCacheKey = 'popular';
 
@@ -53,7 +54,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadMore();
-    
+
     _scrollController.addListener(() {
       if (_scrollController.position.pixels >=
               _scrollController.position.maxScrollExtent * 0.8 &&
@@ -62,9 +63,9 @@ class _HomeScreenState extends State<HomeScreen> {
         _loadMore();
       }
     });
-    
+
     _initializeLastUsedDomain();
-    
+
     // Clear expired cache entries on app start
     _clearExpiredCache();
   }
@@ -93,7 +94,7 @@ class _HomeScreenState extends State<HomeScreen> {
   /// the automatic content refresh functionality when returning from settings.
   Future<void> _checkAndReloadIfNeeded() async {
     final currentDomain = await NetTruyenService().getCurrentDomain();
-    
+
     if (_lastUsedDomain != null && _lastUsedDomain != currentDomain) {
       _reloadContent();
     }
@@ -126,14 +127,14 @@ class _HomeScreenState extends State<HomeScreen> {
   String _cleanTitle(String title) {
     return title.replaceFirst(RegExp(r'^[Tt]ruyện tranh\s*'), '').trim();
   }
-  
+
   /// Filter comics by selected genre
   Future<void> _filterByGenre(String genreName, String genrePath) async {
     if (_selectedGenre == genreName && _isFilteringByGenre) {
       // Same genre selected, do nothing
       return;
     }
-    
+
     setState(() {
       _isLoading = true;
       _selectedGenre = genreName;
@@ -155,7 +156,7 @@ class _HomeScreenState extends State<HomeScreen> {
         }
       });
     }
-    
+
     try {
       // Check cache first
       final cachedData = _getCachedGenreData(genrePath);
@@ -163,26 +164,30 @@ class _HomeScreenState extends State<HomeScreen> {
         _filteredComics = cachedData;
       } else {
         final startTime = DateTime.now();
-        _filteredComics = await NetTruyenService().fetchComicsByGenre(genrePath);
+        _filteredComics =
+            await NetTruyenService().fetchComicsByGenre(genrePath);
         final endTime = DateTime.now();
         final duration = endTime.difference(startTime);
-        print('🔍 Loaded ${_filteredComics.length} comics for genre $genreName in ${duration.inMilliseconds}ms');
+        print(
+            '🔍 Loaded ${_filteredComics.length} comics for genre $genreName in ${duration.inMilliseconds}ms');
         // Debug: Print first few comics with chapter info
         for (int i = 0; i < _filteredComics.length && i < 3; i++) {
           final comic = _filteredComics[i];
-          print('🔍 Genre Comic ${i + 1}: ${comic.title} - Chapter Count: ${comic.chapterCount}, Chapter Info: ${comic.chapterInfo}');
+          print(
+              '🔍 Genre Comic ${i + 1}: ${comic.title} - Chapter Count: ${comic.chapterCount}, Chapter Info: ${comic.chapterInfo}');
         }
-        
+
         // Debug: Check if chapter data is preserved after assignment
-        print('🔍 After assignment - First comic chapter data: ${_filteredComics.isNotEmpty ? _filteredComics.first.chapterCount : 'No comics'}');
-        
+        print(
+            '🔍 After assignment - First comic chapter data: ${_filteredComics.isNotEmpty ? _filteredComics.first.chapterCount : 'No comics'}');
+
         // Cache the fetched data
         _cacheGenreData(genrePath, _filteredComics);
       }
-      
+
       // Apply deduplication to filtered comics
       _applyDeduplicationToFiltered();
-      
+
       // Show first page of filtered comics - simple and fast
       final newItems = _filteredComics.take(_pageSize).toList();
       setState(() {
@@ -201,7 +206,7 @@ class _HomeScreenState extends State<HomeScreen> {
       });
     }
   }
-  
+
   /// Show all comics (clear genre filter)
   Future<void> _showAllComics() async {
     setState(() {
@@ -225,7 +230,7 @@ class _HomeScreenState extends State<HomeScreen> {
         }
       });
     }
-    
+
     // Check cache first for popular comics
     final cachedPopularData = _getCachedGenreData(_popularCacheKey);
     if (cachedPopularData != null) {
@@ -233,11 +238,11 @@ class _HomeScreenState extends State<HomeScreen> {
     } else {
       _allComics = await NetTruyenService().fetchComics();
       _applyDeduplication();
-      
+
       // Cache the popular comics
       _cacheGenreData(_popularCacheKey, _allComics);
     }
-    
+
     // Show first page of popular comics - simple and fast
     final newItems = _allComics.take(_pageSize).toList();
     setState(() {
@@ -273,20 +278,18 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadMore() async {
     if (_isLoading || !_hasMore) return;
-    
+
     setState(() => _isLoading = true);
 
     try {
       if (_isFilteringByGenre) {
         // Loading more filtered comics
         if (_filteredComics.isEmpty) return;
-        
+
         final currentCount = _displayComics.length;
-        final newItems = _filteredComics
-            .skip(currentCount)
-            .take(_pageSize)
-            .toList();
-            
+        final newItems =
+            _filteredComics.skip(currentCount).take(_pageSize).toList();
+
         setState(() {
           _displayComics.addAll(newItems);
           _hasMore = _displayComics.length < _filteredComics.length;
@@ -304,19 +307,18 @@ class _HomeScreenState extends State<HomeScreen> {
             // Debug: Print first few comics with chapter info
             for (int i = 0; i < _allComics.length && i < 3; i++) {
               final comic = _allComics[i];
-              print('🔍 Comic ${i + 1}: ${comic.title} - Chapter Count: ${comic.chapterCount}, Chapter Info: ${comic.chapterInfo}');
+              print(
+                  '🔍 Comic ${i + 1}: ${comic.title} - Chapter Count: ${comic.chapterCount}, Chapter Info: ${comic.chapterInfo}');
             }
             _applyDeduplication();
-            
+
             // Cache the popular comics
             _cacheGenreData(_popularCacheKey, _allComics);
           }
         }
 
-        final newItems = _allComics
-            .skip(_displayComics.length)
-            .take(_pageSize)
-            .toList();
+        final newItems =
+            _allComics.skip(_displayComics.length).take(_pageSize).toList();
 
         setState(() {
           _displayComics.addAll(newItems);
@@ -324,10 +326,8 @@ class _HomeScreenState extends State<HomeScreen> {
         });
       }
 
-      final newItems = _allComics
-          .skip(_displayComics.length)
-          .take(_pageSize)
-          .toList();
+      final newItems =
+          _allComics.skip(_displayComics.length).take(_pageSize).toList();
 
       setState(() {
         _displayComics.addAll(newItems);
@@ -361,14 +361,14 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     _allComics = map.values.toList();
   }
-  
+
   /// Check if cached genre data is still valid
   bool _isGenreCacheValid(String genrePath) {
     if (!_genreCache.containsKey(genrePath)) return false;
-    
+
     final timestamp = _genreCacheTimestamps[genrePath];
     if (timestamp == null) return false;
-    
+
     return DateTime.now().difference(timestamp) < _cacheExpiry;
   }
 
@@ -396,34 +396,34 @@ class _HomeScreenState extends State<HomeScreen> {
   void _clearExpiredCache() {
     final now = DateTime.now();
     final expiredKeys = <String>[];
-    
+
     for (final entry in _genreCacheTimestamps.entries) {
       if (now.difference(entry.value) >= _cacheExpiry) {
         expiredKeys.add(entry.key);
       }
     }
-    
+
     for (final key in expiredKeys) {
       _genreCache.remove(key);
       _genreCacheTimestamps.remove(key);
     }
   }
-  
+
   /// Refresh content (pull to refresh)
   Future<void> _onRefresh() async {
     if (_isFilteringByGenre) {
       // Refresh filtered comics (clear cache and re-fetch)
       _clearGenreCache(_selectedGenrePath!);
-      await _filterByGenre(_selectedGenre!, _selectedGenrePath!);
+      await _filterByGenre(_selectedGenre, _selectedGenrePath!);
     } else {
       // Refresh popular comics (clear cache and re-fetch)
       _clearGenreCache(_popularCacheKey);
       _allComics = await NetTruyenService().fetchComics();
       _applyDeduplication();
-      
+
       // Cache the fresh popular comics
       _cacheGenreData(_popularCacheKey, _allComics);
-      
+
       setState(() {
         _displayComics = _allComics.take(_pageSize).toList();
         _hasMore = _allComics.length > _pageSize;
@@ -441,41 +441,47 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildGenreChip(String genreName, String genrePath) {
     final isSelected = _selectedGenre == genreName;
     final isLoading = _loadingGenre == genreName;
-    
+
     return Consumer<FontProvider>(
       builder: (context, fontProvider, child) {
         return Padding(
           padding: const EdgeInsets.only(right: 8),
           child: ActionChip(
-            label: isLoading 
-              ? Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SizedBox(
-                      width: 12,
-                      height: 12,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          isSelected ? Colors.white : ThemeConstants.netflixRed,
+            label: isLoading
+                ? Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: 12,
+                        height: 12,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            isSelected
+                                ? Colors.white
+                                : ThemeConstants.netflixRed,
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(genreName),
-                  ],
-                )
-              : Text(genreName),
-            onPressed: isLoading ? null : () { // Prevent taps while loading
-              if (genreName == 'Phổ biến') {
-                _showAllComics();
-              } else {
-                _filterByGenre(genreName, genrePath);
-              }
-            },
-            backgroundColor: isSelected 
-              ? ThemeConstants.netflixRed
-              : ThemeConstants.netflixRed.withValues(alpha: 0.1), // Use withValues instead of withOpacity
+                      const SizedBox(width: 6),
+                      Text(genreName),
+                    ],
+                  )
+                : Text(genreName),
+            onPressed: isLoading
+                ? null
+                : () {
+                    // Prevent taps while loading
+                    if (genreName == 'Phổ biến') {
+                      _showAllComics();
+                    } else {
+                      _filterByGenre(genreName, genrePath);
+                    }
+                  },
+            backgroundColor: isSelected
+                ? ThemeConstants.netflixRed
+                : ThemeConstants.netflixRed.withValues(
+                    alpha: 0.1), // Use withValues instead of withOpacity
             labelStyle: fontProvider.getScaledTextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w500,
@@ -490,7 +496,6 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-
       body: RefreshIndicator(
         onRefresh: _onRefresh,
         child: CustomScrollView(
@@ -498,65 +503,75 @@ class _HomeScreenState extends State<HomeScreen> {
           slivers: [
             // App Bar that hides when scrolling up
             SliverAppBar(
-              
-
               stretch: true,
 
-                 // Always pinned - prevents image from disappearing
+              // Always pinned - prevents image from disappearing
               expandedHeight: _getAppBarHeight(), // 20% of screen height
               backgroundColor: Colors.transparent, // Ensure no background color
               // collapsedHeight: 56,  // Removed to use Flutter's default minimum
               flexibleSpace: FlexibleSpaceBar(
-                title: Container(
-                  height: _getAppBarHeight()/5,
-                  decoration: BoxDecoration(color: Colors.transparent),
-                  child: Row(
+                title: Consumer<FontProvider>(
+                  builder: (context, fontProvider, child) {
+                    final scale = fontProvider.fontScale;
 
-                    mainAxisAlignment: MainAxisAlignment.center, // Left align to match menu button
-                    crossAxisAlignment: CrossAxisAlignment.baseline, // Align text baselines
-                    textBaseline: TextBaseline.alphabetic, // Use alphabetic baseline
-                    children: [
-                      // Your logo image with transparent background
-                      ShaderMask(
-                        shaderCallback: (Rect bounds) {
-                          return const LinearGradient(
-                            colors: [Colors.white, Colors.white],
-                          ).createShader(bounds);
-                        },
-                        blendMode: BlendMode.dstIn,
-                        child: Image.asset(
-                          'assets/images/logo.png',
-                          height: 82, // Adjust size as needed
-                          width: 120, // Adjust width as needed
-                          fit: BoxFit.contain,
-                          errorBuilder: (context, error, stackTrace) {
-                            // Debug: Print error info
-                            print('Logo loading error: $error');
-                            print('Logo stack trace: $stackTrace');
-                            // Fallback to icon if logo fails to load
-                            return const Icon(
-                              Icons.auto_stories,
-                              color: Colors.white,
-                              size: 24,
-                            );
-                          },
-                          frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-                            print('Logo frame loaded: frame=$frame, sync=$wasSynchronouslyLoaded');
-                            return child;
-                          },
+                    return Container(
+                      height: (_getAppBarHeight() / 5) * scale, // Scale container height with logo
+                      decoration: const BoxDecoration(color: Colors.transparent),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment
+                            .center, // Left align to match menu button
+                        crossAxisAlignment:
+                            CrossAxisAlignment.baseline, // Align text baselines
+                        textBaseline:
+                            TextBaseline.alphabetic, // Use alphabetic baseline
+                        children: [
+                          // Your logo image with transparent background
+                          ShaderMask(
+                            shaderCallback: (Rect bounds) {
+                              return const LinearGradient(
+                                colors: [Colors.white, Colors.white],
+                              ).createShader(bounds);
+                            },
+                            blendMode: BlendMode.dstIn,
+                            child: SizedBox(
+                              height: 30 * (scale * 2), // Scale logo height (x2 at 1.0, x4 at 2.0)
+                              width: 45 * (scale * 2), // Scale logo width (x2 at 1.0, x4 at 2.0)
+                              child: Image.asset(
+                                'assets/images/logo.png',
+                                fit: BoxFit.contain,
+                              errorBuilder: (context, error, stackTrace) {
+                                // Debug: Print error info
+                                print('Logo loading error: $error');
+                                print('Logo stack trace: $stackTrace');
+                                // Fallback to icon if logo fails to load
+                                return Icon(
+                                  Icons.auto_stories,
+                                  color: Colors.white,
+                                  size: 12 * (scale * 2), // Scale fallback icon (x2 at 1.0, x4 at 2.0)
+                                );
+                              },
+                              frameBuilder:
+                                  (context, child, frame, wasSynchronouslyLoaded) {
+                                print(
+                                    'Logo frame loaded: frame=$frame, sync=$wasSynchronouslyLoaded');
+                                return child;
+                              },
+                            ),
+                          ),
                         ),
+                        ],
                       ),
-                    ],
-                  ),
+                    );
+                  },
                 ),
                 background: Stack(
                   children: [
                     // Your WebP image as background - full coverage
                     Image.asset(
                       'assets/images/app_icon_collage.webp',
-                      fit: BoxFit.cover,  // Use cover to fill entire area
-                      width: double.infinity,  // Ensure full width
-                      height: double.infinity,  // Ensure full height
+                      fit: BoxFit.cover, // Use cover to fill entire area
+                      width: double.infinity, // Ensure full width
+                      height: double.infinity, // Ensure full height
                       errorBuilder: (context, error, stackTrace) {
                         // WebP Image error - fallback to background
                         return _buildFallbackBackground();
@@ -569,7 +584,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               actions: [
-
                 IconButton(
                   icon: const Icon(Icons.menu),
                   onPressed: () async {
@@ -579,9 +593,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         builder: (_) => const SettingsScreen(),
                       ),
                     );
-                                          if (result == true) {
-                        await _checkAndReloadIfNeeded();
-                      }
+                    if (result == true) {
+                      await _checkAndReloadIfNeeded();
+                    }
                   },
                 ),
               ],
@@ -596,11 +610,16 @@ class _HomeScreenState extends State<HomeScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          'Thể loại: $_selectedGenre',
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                        Consumer<FontProvider>(
+                          builder: (context, fontProvider, child) {
+                            return Text(
+                              'Thể loại: $_selectedGenre',
+                              style: fontProvider.getScaledTextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            );
+                          },
                         ),
                       ],
                     ),
@@ -609,15 +628,19 @@ class _HomeScreenState extends State<HomeScreen> {
                       scrollDirection: Axis.horizontal,
                       child: Row(
                         children: [
-                          _buildGenreChip('Phổ biến', ''), // Popular tab - shows all comics
+                          _buildGenreChip(
+                              'Phổ biến', ''), // Popular tab - shows all comics
                           _buildGenreChip('Action', '/tim-truyen/action-95'),
                           _buildGenreChip('Comedy', '/tim-truyen/comedy-99'),
                           _buildGenreChip('Drama', '/tim-truyen/drama-103'),
                           _buildGenreChip('Romance', '/tim-truyen/romance-121'),
                           _buildGenreChip('Fantasy', '/tim-truyen/fantasy-100'),
-                          _buildGenreChip('Adventure', '/tim-truyen/adventure-101'),
-                          _buildGenreChip('Slice of Life', '/tim-truyen/slice-of-life'),
-                          _buildGenreChip('Psychological', '/tim-truyen/psychological'),
+                          _buildGenreChip(
+                              'Adventure', '/tim-truyen/adventure-101'),
+                          _buildGenreChip(
+                              'Slice of Life', '/tim-truyen/slice-of-life'),
+                          _buildGenreChip(
+                              'Psychological', '/tim-truyen/psychological'),
                         ],
                       ),
                     ),
@@ -635,7 +658,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
                           padding: const EdgeInsets.all(8),
-                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          gridDelegate:
+                              const SliverGridDelegateWithFixedCrossAxisCount(
                             crossAxisCount: 3,
                             childAspectRatio: 0.65,
                             crossAxisSpacing: 8,
@@ -647,17 +671,51 @@ class _HomeScreenState extends State<HomeScreen> {
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              child: _isLoading 
-                                ? Shimmer.fromColors(
-                                    baseColor: Colors.grey[800]!,
-                                    highlightColor: Colors.grey[600]!,
-                                    child: Column(
+                              child: _isLoading
+                                  ? Shimmer.fromColors(
+                                      baseColor: Colors.grey[800]!,
+                                      highlightColor: Colors.grey[600]!,
+                                      child: Column(
+                                        children: [
+                                          Expanded(
+                                            child: Container(
+                                              decoration: BoxDecoration(
+                                                color: Colors.grey[700],
+                                                borderRadius:
+                                                    const BorderRadius.vertical(
+                                                        top:
+                                                            Radius.circular(8)),
+                                              ),
+                                            ),
+                                          ),
+                                          Container(
+                                            height: 16,
+                                            margin: const EdgeInsets.all(4),
+                                            decoration: BoxDecoration(
+                                              color: Colors.grey[700],
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    )
+                                  : Column(
                                       children: [
                                         Expanded(
                                           child: Container(
                                             decoration: BoxDecoration(
                                               color: Colors.grey[700],
-                                              borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                                              borderRadius:
+                                                  const BorderRadius.vertical(
+                                                      top: Radius.circular(8)),
+                                            ),
+                                            child: const Center(
+                                              child: Icon(
+                                                Icons.auto_stories,
+                                                color: Colors.white54,
+                                                size: 40,
+                                              ),
                                             ),
                                           ),
                                         ),
@@ -666,39 +724,12 @@ class _HomeScreenState extends State<HomeScreen> {
                                           margin: const EdgeInsets.all(4),
                                           decoration: BoxDecoration(
                                             color: Colors.grey[700],
-                                            borderRadius: BorderRadius.circular(4),
+                                            borderRadius:
+                                                BorderRadius.circular(4),
                                           ),
                                         ),
                                       ],
                                     ),
-                                  )
-                                : Column(
-                                    children: [
-                                      Expanded(
-                                        child: Container(
-                                          decoration: BoxDecoration(
-                                            color: Colors.grey[700],
-                                            borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
-                                          ),
-                                          child: const Center(
-                                            child: Icon(
-                                              Icons.auto_stories,
-                                              color: Colors.white54,
-                                              size: 40,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      Container(
-                                        height: 16,
-                                        margin: const EdgeInsets.all(4),
-                                        decoration: BoxDecoration(
-                                          color: Colors.grey[700],
-                                          borderRadius: BorderRadius.circular(4),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
                             );
                           },
                         ),
@@ -706,18 +737,22 @@ class _HomeScreenState extends State<HomeScreen> {
                         if (_isLoading)
                           Positioned.fill(
                             child: Container(
-                              color: Colors.black.withValues(alpha: 0.3), // Semi-transparent overlay
+                              color: Colors.black.withValues(
+                                  alpha: 0.3), // Semi-transparent overlay
                               child: Center(
                                 child: Container(
                                   padding: const EdgeInsets.all(24),
                                   decoration: BoxDecoration(
-                                    color: Theme.of(context).brightness == Brightness.dark 
-                                        ? Colors.grey[900]!.withValues(alpha: 0.9)
+                                    color: Theme.of(context).brightness ==
+                                            Brightness.dark
+                                        ? Colors.grey[900]!
+                                            .withValues(alpha: 0.9)
                                         : Colors.white.withValues(alpha: 0.9),
                                     borderRadius: BorderRadius.circular(16),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: Colors.black.withValues(alpha: 0.2),
+                                        color:
+                                            Colors.black.withValues(alpha: 0.2),
                                         blurRadius: 10,
                                         offset: const Offset(0, 4),
                                       ),
@@ -727,11 +762,12 @@ class _HomeScreenState extends State<HomeScreen> {
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       // Large loading spinner
-                                      SizedBox(
+                                      const SizedBox(
                                         width: 60,
                                         height: 60,
                                         child: CircularProgressIndicator(
-                                          valueColor: AlwaysStoppedAnimation<Color>(
+                                          valueColor:
+                                              AlwaysStoppedAnimation<Color>(
                                             ThemeConstants.netflixRed,
                                           ),
                                           strokeWidth: 4,
@@ -740,14 +776,18 @@ class _HomeScreenState extends State<HomeScreen> {
                                       const SizedBox(height: 20),
                                       // Main loading text
                                       Consumer<FontProvider>(
-                                        builder: (context, fontProvider, child) {
+                                        builder:
+                                            (context, fontProvider, child) {
                                           return Text(
                                             'Đang tải dữ liệu...',
-                                            style: fontProvider.getScaledTextStyle(
+                                            style:
+                                                fontProvider.getScaledTextStyle(
                                               fontSize: 18,
                                               fontWeight: FontWeight.w600,
-                                              color: Theme.of(context).brightness == Brightness.dark 
-                                                  ? Colors.white 
+                                              color: Theme.of(context)
+                                                          .brightness ==
+                                                      Brightness.dark
+                                                  ? Colors.white
                                                   : Colors.grey[800],
                                             ),
                                           );
@@ -756,16 +796,20 @@ class _HomeScreenState extends State<HomeScreen> {
                                       const SizedBox(height: 12),
                                       // Descriptive loading text
                                       Consumer<FontProvider>(
-                                        builder: (context, fontProvider, child) {
+                                        builder:
+                                            (context, fontProvider, child) {
                                           return Text(
-                                            _isFilteringByGenre 
-                                                ? 'Đang tải truyện ${_selectedGenre}...'
+                                            _isFilteringByGenre
+                                                ? 'Đang tải truyện $_selectedGenre...'
                                                 : 'Đang tải truyện phổ biến...',
-                                            style: fontProvider.getScaledTextStyle(
+                                            style:
+                                                fontProvider.getScaledTextStyle(
                                               fontSize: 16,
                                               fontWeight: FontWeight.w500,
-                                              color: Theme.of(context).brightness == Brightness.dark 
-                                                  ? Colors.white70 
+                                              color: Theme.of(context)
+                                                          .brightness ==
+                                                      Brightness.dark
+                                                  ? Colors.white70
                                                   : Colors.grey[600],
                                             ),
                                             textAlign: TextAlign.center,
@@ -775,15 +819,18 @@ class _HomeScreenState extends State<HomeScreen> {
                                       const SizedBox(height: 16),
                                       // Additional loading info
                                       Consumer<FontProvider>(
-                                        builder: (context, fontProvider, child) {
+                                        builder:
+                                            (context, fontProvider, child) {
                                           return Text(
                                             'Vui lòng chờ trong giây lát...',
                                             style: fontProvider.scaleTextStyle(
                                               TextStyle(
                                                 fontSize: 14,
                                                 fontStyle: FontStyle.italic,
-                                                color: Theme.of(context).brightness == Brightness.dark 
-                                                    ? Colors.white54 
+                                                color: Theme.of(context)
+                                                            .brightness ==
+                                                        Brightness.dark
+                                                    ? Colors.white54
                                                     : Colors.grey[500],
                                               ),
                                             ),
@@ -799,17 +846,57 @@ class _HomeScreenState extends State<HomeScreen> {
                       ],
                     ),
                   )
-                : SliverGrid(
-                    delegate: SliverChildBuilderDelegate(
+                : Consumer<FontProvider>(
+                    builder: (context, fontProvider, child) {
+                      // Calculate number of columns based on screen size and font scale
+                      final screenWidth = MediaQuery.of(context).size.width;
+                      final fontScale = fontProvider.fontScale;
+                      
+                      int crossAxisCount;
+                      if (screenWidth < AppConstants.MOBILE_BREAKPOINT) {
+                        // Mobile: 3 columns at 1.0, 2 columns at 1.5, 1 column at 2.0
+                        if (fontScale == 1.0) {
+                          crossAxisCount = 3;
+                        } else if (fontScale == 1.5) {
+                          crossAxisCount = 2;
+                        } else { // 2.0
+                          crossAxisCount = 1;
+                        }
+                      } else if (screenWidth < AppConstants.TABLET_BREAKPOINT) {
+                        // Tablet: 6 columns at 1.0, 4 columns at 1.5, 2 columns at 2.0
+                        if (fontScale == 1.0) {
+                          crossAxisCount = 6;
+                        } else if (fontScale == 1.5) {
+                          crossAxisCount = 4;
+                        } else { // 2.0
+                          crossAxisCount = 2;
+                        }
+                      } else {
+                        // Desktop: Use tablet configuration (no specific desktop handling needed)
+                        if (fontScale == 1.0) {
+                          crossAxisCount = 6;
+                        } else if (fontScale == 1.5) {
+                          crossAxisCount = 4;
+                        } else { // 2.0
+                          crossAxisCount = 2;
+                        }
+                      }
+                      
+
+
+                      return SliverGrid(
+                        delegate: SliverChildBuilderDelegate(
                       (context, index) {
                         if (index >= _displayComics.length) {
-                          return const Center(child: CircularProgressIndicator());
+                          return const Center(
+                              child: CircularProgressIndicator());
                         }
                         final comic = _displayComics[index];
                         return GestureDetector(
                           onTap: () => Navigator.push(
                             context,
-                            MaterialPageRoute(builder: (_) => DetailScreen(comic: comic)),
+                            MaterialPageRoute(
+                                builder: (_) => DetailScreen(comic: comic)),
                           ),
                           child: Card(
                             shape: RoundedRectangleBorder(
@@ -828,73 +915,89 @@ class _HomeScreenState extends State<HomeScreen> {
                                       Hero(
                                         tag: comic.imageUrl,
                                         child: ClipRRect(
-                                          borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
-                                                                                      child: CachedNetworkImage(
-                                              cacheManager: _thumbCacheManager,
-                                              imageUrl: comic.imageUrl,
-                                              httpHeaders: {'Referer': _getCurrentDomainForHeaders()},
-                                              imageBuilder: (ctx, provider) {
-                                                return Image(
-                                                  image: provider,
-                                                  fit: BoxFit.cover,
-                                                  width: double.infinity,
-                                                  height: double.infinity,
-                                                );
-                                              },
-                                              placeholder: (ctx, url) {
-                                                return Container(
-                                                  width: double.infinity,
-                                                  height: double.infinity,
-                                                  color: Colors.grey[700],
-                                                  child: Shimmer.fromColors(
-                                                    baseColor: Colors.grey[800]!,
-                                                    highlightColor: Colors.grey[600]!,
-                                                    child: Container(color: Colors.grey[700]),
+                                          borderRadius:
+                                              const BorderRadius.vertical(
+                                                  top: Radius.circular(8)),
+                                          child: CachedNetworkImage(
+                                            cacheManager: _thumbCacheManager,
+                                            imageUrl: comic.imageUrl,
+                                            httpHeaders: {
+                                              'Referer':
+                                                  _getCurrentDomainForHeaders()
+                                            },
+                                            imageBuilder: (ctx, provider) {
+                                              return Image(
+                                                image: provider,
+                                                fit: BoxFit.cover,
+                                                width: double.infinity,
+                                                height: double.infinity,
+                                              );
+                                            },
+                                            placeholder: (ctx, url) {
+                                              return Container(
+                                                width: double.infinity,
+                                                height: double.infinity,
+                                                color: Colors.grey[700],
+                                                child: Shimmer.fromColors(
+                                                  baseColor: Colors.grey[800]!,
+                                                  highlightColor:
+                                                      Colors.grey[600]!,
+                                                  child: Container(
+                                                      color: Colors.grey[700]),
+                                                ),
+                                              );
+                                            },
+                                            errorWidget: (ctx, url, error) {
+                                              WidgetsBinding.instance
+                                                  .addPostFrameCallback((_) {
+                                                _onThumbnailFailed(url);
+                                              });
+                                              return Container(
+                                                width: double.infinity,
+                                                height: double.infinity,
+                                                color: Colors.grey[700],
+                                                child: const Center(
+                                                    child: Icon(
+                                                        Icons.broken_image,
+                                                        size: 40)),
+                                              );
+                                            },
+                                          ),
+                                        ),
+                                      ),
+                                      // Chapter number badge on top left (shows Ch. prefix)
+                                      if (comic.chapterCount != null)
+                                        Positioned(
+                                          top: 8,
+                                          left: 8,
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color:
+                                                  Colors.red.withValues(alpha: 0.9),
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
+                                            ),
+                                            child: Consumer<FontProvider>(
+                                              builder: (context, fontProvider,
+                                                  child) {
+                                                return Text(
+                                                  'Ch.${comic.chapterCount}',
+                                                  style: fontProvider
+                                                      .getScaledTextStyle(
+                                                    fontSize: 8,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Colors.white,
                                                   ),
                                                 );
                                               },
-                                              errorWidget: (ctx, url, error) {
-                                                WidgetsBinding.instance.addPostFrameCallback((_) {
-                                                  _onThumbnailFailed(url);
-                                                });
-                                                return Container(
-                                                  width: double.infinity,
-                                                  height: double.infinity,
-                                                  color: Colors.grey[700],
-                                                  child: const Center(child: Icon(Icons.broken_image, size: 40)),
-                                                );
-                                              },
-                                            ),
-                                        ),
-                                      ),
-                                        // Chapter number badge on top left (shows Ch. prefix)
-                                        if (comic.chapterCount != null)
-                                          Positioned(
-                                            top: 8,
-                                            left: 8,
-                                            child: Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                              decoration: BoxDecoration(
-                                                color: Colors.red.withOpacity(0.9),
-                                                borderRadius: BorderRadius.circular(10),
-                                              ),
-                                              child: Consumer<FontProvider>(
-                                                builder: (context, fontProvider, child) {
-                                                  return Text(
-                                                    'Ch.${comic.chapterCount}',
-                                                    style: fontProvider.getScaledTextStyle(
-                                                      fontSize: 8,
-                                                      fontWeight: FontWeight.bold,
-                                                      color: Colors.white,
-                                                    ),
-                                                  );
-                                                },
-                                              ),
                                             ),
                                           ),
-                                      ],
-                                    ),
+                                        ),
+                                    ],
                                   ),
+                                ),
                                 // Text section that takes 20% of card height
                                 Flexible(
                                   flex: 2,
@@ -904,11 +1007,16 @@ class _HomeScreenState extends State<HomeScreen> {
                                       builder: (context, fontProvider, child) {
                                         return Text(
                                           comic.title,
-                                          style: fontProvider.getScaledTextStyle(
+                                          style:
+                                              fontProvider.getScaledTextStyle(
                                             fontSize: 12,
-                                            color: Theme.of(context).brightness == Brightness.dark 
-                                                ? Colors.white 
-                                                : Theme.of(context).colorScheme.onSurface,
+                                            color:
+                                                Theme.of(context).brightness ==
+                                                        Brightness.dark
+                                                    ? Colors.white
+                                                    : Theme.of(context)
+                                                        .colorScheme
+                                                        .onSurface,
                                           ),
                                           maxLines: 2,
                                           overflow: TextOverflow.ellipsis,
@@ -924,19 +1032,21 @@ class _HomeScreenState extends State<HomeScreen> {
                         );
                       },
                       childCount: _displayComics.length + (_hasMore ? 1 : 0),
-                    ),
-                    gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-                      maxCrossAxisExtent: _calculateOptimalCardWidth(),
-                      childAspectRatio: _calculateOptimalAspectRatio(),
-                      crossAxisSpacing: AppConstants.GRID_SPACING,
-                      mainAxisSpacing: AppConstants.GRID_SPACING,
-                    ),
+                        ),
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: crossAxisCount,
+                          childAspectRatio: _calculateOptimalAspectRatio(),
+                          crossAxisSpacing: AppConstants.GRID_SPACING,
+                          mainAxisSpacing: AppConstants.GRID_SPACING,
+                        ),
+                      );
+                    },
                   ),
-                  
-                  // Pagination widget - always show pagination controls
-                  SliverToBoxAdapter(
-                    child: _buildPagination(),
-                  ),
+
+            // Pagination widget - always show pagination controls
+            SliverToBoxAdapter(
+              child: _buildPagination(),
+            ),
           ],
         ),
       ),
@@ -946,7 +1056,7 @@ class _HomeScreenState extends State<HomeScreen> {
             context: context,
             delegate: ComicSearchDelegate(),
           );
-          if (comic != null) {
+          if (comic != null && context.mounted) {
             Navigator.push(
               context,
               MaterialPageRoute(
@@ -955,43 +1065,22 @@ class _HomeScreenState extends State<HomeScreen> {
             );
           }
         },
-        child: const Icon(Icons.search),
         tooltip: 'Tìm kiếm truyện',
+        child: const Icon(Icons.search),
       ),
     );
   }
 
-  /// Calculate optimal card width based on screen size and constraints
-  double _calculateOptimalCardWidth() {
-    final screenWidth = MediaQuery.of(context).size.width;
-    
-    // Use different percentages based on screen size breakpoints
-    double cardWidthPercent;
-    if (screenWidth < AppConstants.MOBILE_BREAKPOINT) {
-      cardWidthPercent = AppConstants.MOBILE_CARD_WIDTH_PERCENT; // Mobile: 2 columns
-    } else if (screenWidth < AppConstants.TABLET_BREAKPOINT) {
-      cardWidthPercent = AppConstants.TABLET_CARD_WIDTH_PERCENT; // Tablet: 3-4 columns
-    } else {
-      cardWidthPercent = AppConstants.DESKTOP_CARD_WIDTH_PERCENT; // Desktop: 4-5 columns
-    }
-    
-    final calculatedWidth = screenWidth * cardWidthPercent;
-    
-    // Apply min/max constraints
-    return calculatedWidth.clamp(
-      AppConstants.MIN_CARD_WIDTH,
-      AppConstants.MAX_CARD_WIDTH,
-    );
-  }
+
 
   /// Calculate optimal aspect ratio based on screen dimensions
   double _calculateOptimalAspectRatio() {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
-    
+
     // Calculate aspect ratio based on screen proportions
     final widthRatio = screenWidth / screenHeight;
-    
+
     // Adjust aspect ratio based on screen orientation and size
     if (widthRatio > 1.0) {
       // Landscape or wide screen - use wider cards
@@ -1005,12 +1094,10 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-
-
   /// Navigate to a specific page
   void _goToPage(int page) async {
     if (page < 1) return;
-    
+
     setState(() {
       _currentPage = page;
       _isLoading = true;
@@ -1030,9 +1117,9 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       if (_isFilteringByGenre) {
         // Fetch comics for specific genre with page parameter
-        final pageUrl = '${_selectedGenrePath}?page=$page';
+        final pageUrl = '$_selectedGenrePath?page=$page';
         final newComics = await NetTruyenService().fetchComicsByGenre(pageUrl);
-        
+
         setState(() {
           _filteredComics = newComics;
           _displayComics = newComics;
@@ -1042,7 +1129,7 @@ class _HomeScreenState extends State<HomeScreen> {
         // Fetch popular comics with page parameter
         final pageUrl = 'https://nettruyenvia.com/?page=$page';
         final newComics = await NetTruyenService().fetchComicsFromUrl(pageUrl);
-        
+
         setState(() {
           _allComics = newComics;
           _displayComics = newComics;
@@ -1070,10 +1157,10 @@ class _HomeScreenState extends State<HomeScreen> {
           center: Alignment.center,
           radius: 0.8,
           colors: [
-            Colors.transparent,  // Center: transparent
-            Colors.black.withValues(alpha: 0.2),  // Middle: light darkening
-            Colors.black.withValues(alpha: 0.7),  // Edge: strong darkening
-            Colors.black.withValues(alpha: .95),  // Corner: very dark
+            Colors.transparent, // Center: transparent
+            Colors.black.withValues(alpha: 0.2), // Middle: light darkening
+            Colors.black.withValues(alpha: 0.7), // Edge: strong darkening
+            Colors.black.withValues(alpha: .95), // Corner: very dark
           ],
           stops: const [0.0, 0.4, 0.7, 1.0],
         ),
@@ -1089,8 +1176,8 @@ class _HomeScreenState extends State<HomeScreen> {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            Colors.grey[800]!,  // Dark gray instead of red
-            Colors.grey[900]!,  // Darker gray
+            Colors.grey[800]!, // Dark gray instead of red
+            Colors.grey[900]!, // Darker gray
           ],
         ),
       ),
@@ -1098,8 +1185,8 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.image_not_supported,  // Changed icon to indicate image issue
+            const Icon(
+              Icons.image_not_supported, // Changed icon to indicate image issue
               size: 80,
               color: Colors.white,
             ),
@@ -1148,27 +1235,33 @@ class _HomeScreenState extends State<HomeScreen> {
               icon: const Icon(Icons.chevron_left),
               tooltip: 'Trang trước',
             ),
-          
+
           // Page numbers - show current page and nearby pages
           ...List.generate(10, (index) {
             final pageNumber = index + 1;
             final isCurrentPage = pageNumber == _currentPage;
-            
+
             // Show current page, first page, and pages around current
-            if (pageNumber == 1 || 
-                (pageNumber >= _currentPage - 1 && pageNumber <= _currentPage + 1)) {
+            if (pageNumber == 1 ||
+                (pageNumber >= _currentPage - 1 &&
+                    pageNumber <= _currentPage + 1)) {
               return Container(
                 margin: const EdgeInsets.symmetric(horizontal: 4),
                 child: InkWell(
                   onTap: () => _goToPage(pageNumber),
                   borderRadius: BorderRadius.circular(8),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
-                      color: isCurrentPage ? ThemeConstants.netflixRed : Colors.transparent,
+                      color: isCurrentPage
+                          ? ThemeConstants.netflixRed
+                          : Colors.transparent,
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
-                        color: isCurrentPage ? ThemeConstants.netflixRed : Colors.grey[300]!,
+                        color: isCurrentPage
+                            ? ThemeConstants.netflixRed
+                            : Colors.grey[300]!,
                         width: 1,
                       ),
                     ),
@@ -1178,8 +1271,11 @@ class _HomeScreenState extends State<HomeScreen> {
                           '$pageNumber',
                           style: fontProvider.getScaledTextStyle(
                             fontSize: 14,
-                            color: isCurrentPage ? Colors.white : Colors.grey[700],
-                            fontWeight: isCurrentPage ? FontWeight.bold : FontWeight.normal,
+                            color:
+                                isCurrentPage ? Colors.white : Colors.grey[700],
+                            fontWeight: isCurrentPage
+                                ? FontWeight.bold
+                                : FontWeight.normal,
                           ),
                         );
                       },
@@ -1187,7 +1283,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               );
-            } else if (pageNumber == _currentPage - 2 || pageNumber == _currentPage + 2) {
+            } else if (pageNumber == _currentPage - 2 ||
+                pageNumber == _currentPage + 2) {
               // Show ellipsis for skipped pages
               return Container(
                 margin: const EdgeInsets.symmetric(horizontal: 4),
@@ -1208,7 +1305,7 @@ class _HomeScreenState extends State<HomeScreen> {
               return const SizedBox.shrink();
             }
           }),
-          
+
           // Next page button (always show to allow forward navigation)
           IconButton(
             onPressed: () => _goToPage(_currentPage + 1),
@@ -1219,6 +1316,4 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-
-
 }
