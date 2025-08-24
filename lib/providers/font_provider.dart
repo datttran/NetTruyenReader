@@ -4,13 +4,19 @@ import 'package:google_fonts/google_fonts.dart';
 
 class FontProvider extends ChangeNotifier {
   String _selectedFont = 'Inconsolata';
+  double _fontScale = 1.0;
   
   String get selectedFont => _selectedFont;
+  double get fontScale => _fontScale;
+  
+  /// Get font scale as a percentage string for display
+  String get fontScalePercentage => '${(_fontScale * 100).round()}%';
 
   /// Initialize the font provider and load saved font preference
   Future<void> initialize() async {
     final prefs = await SharedPreferences.getInstance();
     _selectedFont = prefs.getString('selected_font') ?? 'Inconsolata';
+    _fontScale = prefs.getDouble('font_scale') ?? 1.0;
     notifyListeners();
   }
 
@@ -26,8 +32,45 @@ class FontProvider extends ChangeNotifier {
     }
   }
 
-  /// Get the text theme for the selected font
+  /// Change the font scale and save to preferences
+  Future<void> setFontScale(double scale) async {
+    // Limit scale between 0.5 and 3.0 for usability
+    final clampedScale = scale.clamp(0.5, 3.0);
+    
+    if (_fontScale != clampedScale) {
+      _fontScale = clampedScale;
+      
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setDouble('font_scale', clampedScale);
+      
+      notifyListeners();
+    }
+  }
+
+  /// Reset font scale to default (1.0)
+  Future<void> resetFontScale() async {
+    if (_fontScale != 1.0) {
+      _fontScale = 1.0;
+      
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setDouble('font_scale', 1.0);
+      
+      notifyListeners();
+    }
+  }
+
+  /// Get the text theme for the selected font with scaling applied
   TextTheme getTextTheme(ThemeData baseTheme) {
+    final baseTextTheme = _getBaseTextTheme(baseTheme);
+    
+    // Apply font scaling to all text styles
+    return baseTextTheme.apply(
+      fontSizeFactor: _fontScale,
+    );
+  }
+
+  /// Get the base text theme without scaling (for internal use)
+  TextTheme _getBaseTextTheme(ThemeData baseTheme) {
     switch (_selectedFont) {
       case 'Inconsolata':
         return GoogleFonts.inconsolataTextTheme(baseTheme.textTheme);
@@ -64,8 +107,18 @@ class FontProvider extends ChangeNotifier {
     }
   }
 
-  /// Get app bar title style for the selected font
+  /// Get app bar title style for the selected font with scaling applied
   TextStyle getAppBarTitleStyle() {
+    final baseStyle = _getBaseAppBarTitleStyle();
+    
+    // Apply font scaling
+    return baseStyle.copyWith(
+      fontSize: baseStyle.fontSize! * _fontScale,
+    );
+  }
+
+  /// Get the base app bar title style without scaling (for internal use)
+  TextStyle _getBaseAppBarTitleStyle() {
     switch (_selectedFont) {
       case 'Inconsolata':
         return GoogleFonts.inconsolata(
@@ -150,41 +203,51 @@ class FontProvider extends ChangeNotifier {
     }
   }
 
-  /// Get chip label style for the selected font
+  /// Get chip label style for the selected font with scaling applied
   TextStyle getChipLabelStyle(Color color) {
+    final baseStyle = _getBaseChipLabelStyle(color);
+    
+    // Apply font scaling
+    return baseStyle.copyWith(
+      fontSize: (baseStyle.fontSize ?? 14) * _fontScale,
+    );
+  }
+
+  /// Get the base chip label style without scaling (for internal use)
+  TextStyle _getBaseChipLabelStyle(Color color) {
     switch (_selectedFont) {
       case 'Inconsolata':
-        return GoogleFonts.inconsolata(color: color);
+        return GoogleFonts.inconsolata(color: color, fontSize: 14);
       case 'Roboto':
-        return GoogleFonts.roboto(color: color);
+        return GoogleFonts.roboto(color: color, fontSize: 14);
       case 'Open Sans':
-        return GoogleFonts.openSans(color: color);
+        return GoogleFonts.openSans(color: color, fontSize: 14);
       case 'Lato':
-        return GoogleFonts.lato(color: color);
+        return GoogleFonts.lato(color: color, fontSize: 14);
       case 'Poppins':
-        return GoogleFonts.poppins(color: color);
+        return GoogleFonts.poppins(color: color, fontSize: 14);
       case 'Inter':
-        return GoogleFonts.inter(color: color);
+        return GoogleFonts.inter(color: color, fontSize: 14);
       case 'Ubuntu':
-        return GoogleFonts.ubuntu(color: color);
+        return GoogleFonts.ubuntu(color: color, fontSize: 14);
       case 'Nunito':
-        return GoogleFonts.nunito(color: color);
+        return GoogleFonts.nunito(color: color, fontSize: 14);
       case 'Montserrat':
-        return GoogleFonts.montserrat(color: color);
+        return GoogleFonts.montserrat(color: color, fontSize: 14);
       case 'Raleway':
-        return GoogleFonts.raleway(color: color);
+        return GoogleFonts.raleway(color: color, fontSize: 14);
       case 'Work Sans':
-        return GoogleFonts.workSans(color: color);
+        return GoogleFonts.workSans(color: color, fontSize: 14);
       case 'Quicksand':
-        return GoogleFonts.quicksand(color: color);
+        return GoogleFonts.quicksand(color: color, fontSize: 14);
       case 'Comfortaa':
-        return GoogleFonts.comfortaa(color: color);
+        return GoogleFonts.comfortaa(color: color, fontSize: 14);
       case 'Josefin Sans':
-        return GoogleFonts.josefinSans(color: color);
+        return GoogleFonts.josefinSans(color: color, fontSize: 14);
       case 'Sono':
-        return GoogleFonts.sono(color: color);
+        return GoogleFonts.sono(color: color, fontSize: 14);
       default:
-        return GoogleFonts.inconsolata(color: color);
+        return GoogleFonts.inconsolata(color: color, fontSize: 14);
     }
   }
 }

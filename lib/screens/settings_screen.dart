@@ -326,6 +326,61 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 );
               },
             ),
+            
+            // Font Scale Slider
+            Consumer<FontProvider>(
+              builder: (context, fontProvider, child) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ListTile(
+                      title: const Text('Font Size'),
+                      subtitle: Text('${fontProvider.fontScalePercentage} (${fontProvider.fontScale.toStringAsFixed(1)}x)'),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.remove),
+                            onPressed: () {
+                              final newScale = (fontProvider.fontScale - 0.1).clamp(0.5, 3.0);
+                              fontProvider.setFontScale(newScale);
+                            },
+                            tooltip: 'Decrease font size',
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.refresh),
+                            onPressed: () => fontProvider.resetFontScale(),
+                            tooltip: 'Reset to default size',
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.add),
+                            onPressed: () {
+                              final newScale = (fontProvider.fontScale + 0.1).clamp(0.5, 3.0);
+                              fontProvider.setFontScale(newScale);
+                            },
+                            tooltip: 'Increase font size',
+                          ),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: Slider(
+                        value: fontProvider.fontScale,
+                        min: 0.5,
+                        max: 3.0,
+                        divisions: 25, // 0.1 increments
+                        label: fontProvider.fontScalePercentage,
+                        onChanged: (value) {
+                          fontProvider.setFontScale(value);
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                );
+              },
+            ),
             const Divider(),
             
             const ListTile(
