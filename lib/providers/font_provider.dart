@@ -292,4 +292,42 @@ class FontProvider extends ChangeNotifier {
         return GoogleFonts.inconsolata(color: color, fontSize: 14);
     }
   }
+
+  /// Scale any TextStyle with the current font scale
+  /// This is useful for custom text styles throughout the app
+  TextStyle scaleTextStyle(TextStyle style) {
+    if (_fontScale == 1.0 || style.fontSize == null) {
+      return style;
+    }
+    
+    return style.copyWith(
+      fontSize: style.fontSize! * _fontScale,
+    );
+  }
+
+  /// Scale a font size value with the current font scale
+  /// This is useful for inline fontSize values
+  double scaleFontSize(double fontSize) {
+    return fontSize * _fontScale;
+  }
+
+  /// Get a scaled text style for common use cases
+  TextStyle getScaledTextStyle({
+    double? fontSize,
+    FontWeight? fontWeight,
+    Color? color,
+    double? height,
+    TextDecoration? decoration,
+  }) {
+    final baseFontSize = fontSize ?? 16.0;
+    final scaledFontSize = scaleFontSize(baseFontSize);
+    
+    return TextStyle(
+      fontSize: scaledFontSize,
+      fontWeight: fontWeight,
+      color: color,
+      height: height,
+      decoration: decoration,
+    );
+  }
 }

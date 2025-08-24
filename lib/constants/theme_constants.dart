@@ -219,6 +219,23 @@ class ThemeConstants {
       selectedColor: netflixRed,
       labelStyle: fontProvider.getChipLabelStyle(netflixNavy),
     ),
+    // Ensure all text elements scale properly
+    inputDecorationTheme: InputDecorationTheme(
+      labelStyle: fontProvider.getScaledTextStyle(fontSize: 16),
+      hintStyle: fontProvider.getScaledTextStyle(fontSize: 16),
+      helperStyle: fontProvider.getScaledTextStyle(fontSize: 12),
+      errorStyle: fontProvider.getScaledTextStyle(fontSize: 12),
+    ),
+    dialogTheme: DialogThemeData(
+      titleTextStyle: fontProvider.getScaledTextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+      contentTextStyle: fontProvider.getScaledTextStyle(fontSize: 16),
+    ),
+    snackBarTheme: SnackBarThemeData(
+      contentTextStyle: fontProvider.getScaledTextStyle(fontSize: 14),
+    ),
+    tooltipTheme: TooltipThemeData(
+      textStyle: fontProvider.getScaledTextStyle(fontSize: 12),
+    ),
   );
 
   static ThemeData darkTheme(FontProvider fontProvider) => ThemeData(
@@ -245,6 +262,23 @@ class ThemeConstants {
       backgroundColor: netflixDarkGray,
       selectedColor: netflixRed,
       labelStyle: fontProvider.getChipLabelStyle(netflixWhite),
+    ),
+    // Ensure all text elements scale properly
+    inputDecorationTheme: InputDecorationTheme(
+      labelStyle: fontProvider.getScaledTextStyle(fontSize: 16),
+      hintStyle: fontProvider.getScaledTextStyle(fontSize: 16),
+      helperStyle: fontProvider.getScaledTextStyle(fontSize: 12),
+      errorStyle: fontProvider.getScaledTextStyle(fontSize: 12),
+    ),
+    dialogTheme: DialogThemeData(
+      titleTextStyle: fontProvider.getScaledTextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+      contentTextStyle: fontProvider.getScaledTextStyle(fontSize: 16),
+    ),
+    snackBarTheme: SnackBarThemeData(
+      contentTextStyle: fontProvider.getScaledTextStyle(fontSize: 14),
+    ),
+    tooltipTheme: TooltipThemeData(
+      textStyle: fontProvider.getScaledTextStyle(fontSize: 12),
     ),
   );
 
