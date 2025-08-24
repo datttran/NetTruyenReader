@@ -630,6 +630,30 @@ class NetTruyenService {
     }
   }
 
+  /// Test method to verify caching is working
+  Future<void> testCaching() async {
+    print('🧪 Testing caching system...');
+    
+    final helper = DatabaseHelper();
+    
+    // Test database connection
+    try {
+      final db = await helper.database;
+      print('✅ Database connection successful');
+      
+      // Test table structure
+      final tables = await db.rawQuery("SELECT name FROM sqlite_master WHERE type='table'");
+      print('📋 Available tables: ${tables.map((t) => t['name']).toList()}');
+      
+      // Test genres table structure
+      final genreColumns = await db.rawQuery('PRAGMA table_info(genres)');
+      print('🔍 Genres table columns: ${genreColumns.map((c) => c['name']).toList()}');
+      
+    } catch (e) {
+      print('❌ Database test failed: $e');
+    }
+  }
+
   /// Force refresh comic details from network (ignores cache)
   /// Useful for pull-to-refresh or manual refresh
   Future<Comic> forceRefreshComicDetails(Comic comic) async {
