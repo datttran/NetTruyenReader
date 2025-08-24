@@ -68,9 +68,36 @@ class FontProvider extends ChangeNotifier {
       return baseTextTheme;
     }
     
-    // Apply font scaling to all text styles
-    return baseTextTheme.apply(
-      fontSizeFactor: _fontScale,
+    // Manually scale each text style to avoid assertion errors
+    return TextTheme(
+      displayLarge: _scaleTextStyle(baseTextTheme.displayLarge),
+      displayMedium: _scaleTextStyle(baseTextTheme.displayMedium),
+      displaySmall: _scaleTextStyle(baseTextTheme.displaySmall),
+      headlineLarge: _scaleTextStyle(baseTextTheme.headlineLarge),
+      headlineMedium: _scaleTextStyle(baseTextTheme.headlineMedium),
+      headlineSmall: _scaleTextStyle(baseTextTheme.headlineSmall),
+      titleLarge: _scaleTextStyle(baseTextTheme.titleLarge),
+      titleMedium: _scaleTextStyle(baseTextTheme.titleMedium),
+      titleSmall: _scaleTextStyle(baseTextTheme.titleSmall),
+      bodyLarge: _scaleTextStyle(baseTextTheme.bodyLarge),
+      bodyMedium: _scaleTextStyle(baseTextTheme.bodyMedium),
+      bodySmall: _scaleTextStyle(baseTextTheme.bodySmall),
+      labelLarge: _scaleTextStyle(baseTextTheme.labelLarge),
+      labelMedium: _scaleTextStyle(baseTextTheme.labelMedium),
+      labelSmall: _scaleTextStyle(baseTextTheme.labelSmall),
+    );
+  }
+
+  /// Safely scale a text style, handling null cases
+  TextStyle? _scaleTextStyle(TextStyle? style) {
+    if (style == null) return null;
+    
+    // If the style has no fontSize, return it unchanged
+    if (style.fontSize == null) return style;
+    
+    // Scale the fontSize safely
+    return style.copyWith(
+      fontSize: style.fontSize! * _fontScale,
     );
   }
 
