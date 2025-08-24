@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 /// Centralized theme constants for the NetTruyen Reader app
 /// This makes it easy to switch between light and dark themes
@@ -51,15 +52,47 @@ class ThemeConstants {
   static const Color shimmerBaseDark = netflixDarkGray;         // Netflix dark gray for dark shimmer
   static const Color shimmerHighlightDark = netflixLightGray;   // Netflix light gray for dark shimmer highlight
 
+  // ===== GOOGLE FONTS SONO STYLES =====
+  static TextStyle get sonoHeading => GoogleFonts.sono(
+    fontSize: 24,
+    fontWeight: FontWeight.w700,
+  );
+  
+  static TextStyle get sonoSubheading => GoogleFonts.sono(
+    fontSize: 18,
+    fontWeight: FontWeight.w600,
+  );
+  
+  static TextStyle get sonoBody => GoogleFonts.sono(
+    fontSize: 16,
+    fontWeight: FontWeight.w400,
+  );
+  
+  static TextStyle get sonoCaption => GoogleFonts.sono(
+    fontSize: 14,
+    fontWeight: FontWeight.w400,
+  );
+  
+  static TextStyle get sonoButton => GoogleFonts.sono(
+    fontSize: 16,
+    fontWeight: FontWeight.w600,
+  );
+
   // ===== THEME DATA =====
   static ThemeData get lightTheme => ThemeData(
     useMaterial3: true,
     colorScheme: lightColorScheme,
-    appBarTheme: const AppBarTheme(
+    textTheme: GoogleFonts.sonoTextTheme(ThemeData.light().textTheme),
+    appBarTheme: AppBarTheme(
       backgroundColor: netflixRed,
       foregroundColor: netflixWhite,
       elevation: 0,
       surfaceTintColor: Colors.transparent,
+      titleTextStyle: GoogleFonts.sono(
+        fontSize: 20,
+        fontWeight: FontWeight.w600,
+        color: netflixWhite,
+      ),
     ),
     cardTheme: CardThemeData(
       color: lightColorScheme.surface,
@@ -68,21 +101,27 @@ class ThemeConstants {
         borderRadius: BorderRadius.circular(8),
       ),
     ),
-    chipTheme: const ChipThemeData(
+    chipTheme: ChipThemeData(
       backgroundColor: netflixLightGray,
       selectedColor: netflixRed,
-      labelStyle: TextStyle(color: netflixNavy),
+      labelStyle: GoogleFonts.sono(color: netflixNavy),
     ),
   );
 
   static ThemeData get darkTheme => ThemeData(
     useMaterial3: true,
     colorScheme: darkColorScheme,
-    appBarTheme: const AppBarTheme(
+    textTheme: GoogleFonts.sonoTextTheme(ThemeData.dark().textTheme),
+    appBarTheme: AppBarTheme(
       backgroundColor: netflixNavy,
       foregroundColor: netflixWhite,
       elevation: 0,
       surfaceTintColor: Colors.transparent,
+      titleTextStyle: GoogleFonts.sono(
+        fontSize: 20,
+        fontWeight: FontWeight.w600,
+        color: netflixWhite,
+      ),
     ),
     cardTheme: CardThemeData(
       color: darkColorScheme.surface,
@@ -91,10 +130,10 @@ class ThemeConstants {
         borderRadius: BorderRadius.circular(8),
       ),
     ),
-    chipTheme: const ChipThemeData(
+    chipTheme: ChipThemeData(
       backgroundColor: netflixDarkGray,
       selectedColor: netflixRed,
-      labelStyle: TextStyle(color: netflixWhite),
+      labelStyle: GoogleFonts.sono(color: netflixWhite),
     ),
   );
 

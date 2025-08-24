@@ -2,7 +2,6 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'dart:io';
 import '../models/comic.dart';
-import 'dart:io'; // Added for File
 
 class DatabaseHelper {
   static final DatabaseHelper _instance = DatabaseHelper._internal();
