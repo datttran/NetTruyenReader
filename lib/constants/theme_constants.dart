@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../providers/font_provider.dart';
 
 /// Centralized theme constants for the NetTruyen Reader app
 /// This makes it easy to switch between light and dark themes
@@ -193,18 +194,16 @@ class ThemeConstants {
   }
 
   // ===== THEME DATA =====
-  static ThemeData get lightTheme => ThemeData(
+  static ThemeData lightTheme(FontProvider fontProvider) => ThemeData(
     useMaterial3: true,
     colorScheme: lightColorScheme,
-    textTheme: GoogleFonts.inconsolataTextTheme(ThemeData.light().textTheme),
+    textTheme: fontProvider.getTextTheme(ThemeData.light()),
     appBarTheme: AppBarTheme(
       backgroundColor: netflixRed,
       foregroundColor: netflixWhite,
       elevation: 0,
       surfaceTintColor: Colors.transparent,
-      titleTextStyle: GoogleFonts.inconsolata(
-        fontSize: 20,
-        fontWeight: FontWeight.w600,
+      titleTextStyle: fontProvider.getAppBarTitleStyle().copyWith(
         color: netflixWhite,
       ),
     ),
@@ -218,22 +217,20 @@ class ThemeConstants {
     chipTheme: ChipThemeData(
       backgroundColor: netflixLightGray,
       selectedColor: netflixRed,
-      labelStyle: GoogleFonts.inconsolata(color: netflixNavy),
+      labelStyle: fontProvider.getChipLabelStyle(netflixNavy),
     ),
   );
 
-  static ThemeData get darkTheme => ThemeData(
+  static ThemeData darkTheme(FontProvider fontProvider) => ThemeData(
     useMaterial3: true,
     colorScheme: darkColorScheme,
-    textTheme: GoogleFonts.inconsolataTextTheme(ThemeData.dark().textTheme),
+    textTheme: fontProvider.getTextTheme(ThemeData.dark()),
     appBarTheme: AppBarTheme(
       backgroundColor: netflixNavy,
       foregroundColor: netflixWhite,
       elevation: 0,
       surfaceTintColor: Colors.transparent,
-      titleTextStyle: GoogleFonts.inconsolata(
-        fontSize: 20,
-        fontWeight: FontWeight.w600,
+      titleTextStyle: fontProvider.getAppBarTitleStyle().copyWith(
         color: netflixWhite,
       ),
     ),
@@ -247,7 +244,7 @@ class ThemeConstants {
     chipTheme: ChipThemeData(
       backgroundColor: netflixDarkGray,
       selectedColor: netflixRed,
-      labelStyle: GoogleFonts.inconsolata(color: netflixWhite),
+      labelStyle: fontProvider.getChipLabelStyle(netflixWhite),
     ),
   );
 

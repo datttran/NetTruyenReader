@@ -8,6 +8,7 @@ import '../constants/app_constants.dart';
 
 import '../services/database_helper.dart';
 import '../providers/theme_provider.dart';
+import '../providers/font_provider.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -41,15 +42,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     {'name': 'Josefin Sans', 'family': 'Josefin Sans'},
     {'name': 'Sono', 'family': 'Sono'},
   ];
-  
-  String _selectedFont = 'Inconsolata';
-
   @override
   void initState() {
     super.initState();
     _calculateDatabaseSize();
     _loadCurrentDomain();
-    _loadCurrentFont();
   }
 
   @override
@@ -101,25 +98,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  /// Load the current selected font from SharedPreferences
-  Future<void> _loadCurrentFont() async {
-    final prefs = await SharedPreferences.getInstance();
-    final selectedFont = prefs.getString('selected_font') ?? 'Inconsolata';
-    setState(() {
-      _selectedFont = selectedFont;
-    });
-  }
-
-  /// Save the selected font to SharedPreferences
-  Future<void> _saveFont(String fontName) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('selected_font', fontName);
-    setState(() {
-      _selectedFont = fontName;
-    });
-  }
-
-  /// Get the font style for the selected font family
+  /// Get the font style for the selected font family (for dropdown preview)
   TextStyle _getFontStyle(String fontFamily) {
     switch (fontFamily) {
       case 'Inconsolata':
@@ -322,26 +301,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 );
               },
             ),
-            ListTile(
-              title: const Text('Font Family'),
-              subtitle: Text(_selectedFont),
-              trailing: DropdownButton<String>(
-                value: _selectedFont,
-                onChanged: (String? newValue) {
-                  if (newValue != null) {
-                    _saveFont(newValue);
-                  }
-                },
-                items: _popularFonts.map<DropdownMenuItem<String>>((font) {
-                  return DropdownMenuItem<String>(
-                    value: font['name'],
-                    child: Text(
-                      font['name']!,
-                      style: _getFontStyle(font['family']!),
-                    ),
-                  );
-                }).toList(),
-              ),
+            Consumer<FontProvider>(
+              builder: (context, fontProvider, child) {
+                return ListTile(
+                  title: const Text('Font Family'),
+                  subtitle: Text(fontProvider.selectedFont),
+                  trailing: DropdownButton<String>(
+                    value: fontProvider.selectedFont,
+                    onChanged: (String? newValue) {
+                      if (newValue != null) {
+                        fontProvider.setFont(newValue);
+                      }
+                    },
+                    items: _popularFonts.map<DropdownMenuItem<String>>((font) {
+                      return DropdownMenuItem<String>(
+                        value: font['name'],
+                        child: Text(
+                          font['name']!,
+                          style: _getFontStyle(font['family']!),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                );
+              },
             ),
             const Divider(),
             
