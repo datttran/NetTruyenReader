@@ -216,20 +216,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         body: ListView(
           children: [
-            const ListTile(
-              title: Text(
-                'Domain Settings',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
+            Consumer<FontProvider>(
+              builder: (context, fontProvider, child) {
+                return ListTile(
+                  title: Text(
+                    'Domain Settings',
+                    style: fontProvider.getScaledTextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                );
+              },
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Source Domain',
-                    style: TextStyle(fontSize: 14, color: Colors.grey),
+                  Consumer<FontProvider>(
+                    builder: (context, fontProvider, child) {
+                      return Text(
+                        'Source Domain',
+                        style: fontProvider.getScaledTextStyle(
+                          fontSize: 14,
+                          color: Colors.grey,
+                        ),
+                      );
+                    },
                   ),
                   const SizedBox(height: 8),
                   TextField(
@@ -253,19 +267,40 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     },
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    'Current: $_currentDomain',
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  Consumer<FontProvider>(
+                    builder: (context, fontProvider, child) {
+                      return Text(
+                        'Current: $_currentDomain',
+                        style: fontProvider.getScaledTextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                        ),
+                      );
+                    },
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    'Note: https:// is automatically added if not provided',
-                    style: const TextStyle(fontSize: 10, color: Colors.blue),
+                  Consumer<FontProvider>(
+                    builder: (context, fontProvider, child) {
+                      return Text(
+                        'Note: https:// is automatically added if not provided',
+                        style: fontProvider.getScaledTextStyle(
+                          fontSize: 10,
+                          color: Colors.blue,
+                        ),
+                      );
+                    },
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    'Default: ${AppConstants.PRIMARY_DOMAIN}',
-                    style: const TextStyle(fontSize: 10, color: Colors.grey),
+                  Consumer<FontProvider>(
+                    builder: (context, fontProvider, child) {
+                      return Text(
+                        'Default: ${AppConstants.PRIMARY_DOMAIN}',
+                        style: fontProvider.getScaledTextStyle(
+                          fontSize: 10,
+                          color: Colors.grey,
+                        ),
+                      );
+                    },
                   ),
                   const SizedBox(height: 16),
                 ],
@@ -273,11 +308,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const Divider(),
             
-            const ListTile(
-              title: Text(
-                'Appearance',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
+            Consumer<FontProvider>(
+              builder: (context, fontProvider, child) {
+                return ListTile(
+                  title: Text(
+                    'Appearance',
+                    style: fontProvider.getScaledTextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                );
+              },
             ),
             Consumer<ThemeProvider>(
               builder: (context, themeProvider, child) {
@@ -383,11 +425,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const Divider(),
             
-            const ListTile(
-              title: Text(
-                'Database',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
+            Consumer<FontProvider>(
+              builder: (context, fontProvider, child) {
+                return ListTile(
+                  title: Text(
+                    'Database',
+                    style: fontProvider.getScaledTextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                );
+              },
             ),
             ListTile(
               title: const Text('Database Size'),
@@ -401,11 +450,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const Divider(),
             
-            const ListTile(
-              title: Text(
-                'About',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
+            Consumer<FontProvider>(
+              builder: (context, fontProvider, child) {
+                return ListTile(
+                  title: Text(
+                    'About',
+                    style: fontProvider.getScaledTextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                );
+              },
             ),
             ListTile(
               title: const Text('About'),

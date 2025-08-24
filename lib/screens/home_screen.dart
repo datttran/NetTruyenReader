@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:provider/provider.dart';
 import '../models/comic.dart';
 import '../services/nettruyen_service.dart';
 import '../constants/app_constants.dart';
@@ -11,6 +12,7 @@ import '../constants/theme_constants.dart';
 import 'detail_screen.dart';
 import 'settings_screen.dart';
 import '../services/comic_search_delegate.dart';
+import '../providers/font_provider.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -439,43 +441,49 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildGenreChip(String genreName, String genrePath) {
     final isSelected = _selectedGenre == genreName;
     final isLoading = _loadingGenre == genreName;
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: ActionChip(
-        label: isLoading 
-          ? Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SizedBox(
-                  width: 12,
-                  height: 12,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      isSelected ? Colors.white : ThemeConstants.netflixRed,
+    
+    return Consumer<FontProvider>(
+      builder: (context, fontProvider, child) {
+        return Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: ActionChip(
+            label: isLoading 
+              ? Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: 12,
+                      height: 12,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          isSelected ? Colors.white : ThemeConstants.netflixRed,
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Text(genreName),
-              ],
-            )
-          : Text(genreName),
-        onPressed: isLoading ? null : () { // Prevent taps while loading
-          if (genreName == 'Phổ biến') {
-            _showAllComics();
-          } else {
-            _filterByGenre(genreName, genrePath);
-          }
-        },
-        backgroundColor: isSelected 
-          ? ThemeConstants.netflixRed
-          : ThemeConstants.netflixRed.withValues(alpha: 0.1), // Use withValues instead of withOpacity
-        labelStyle: TextStyle(
-          color: isSelected ? Colors.white : ThemeConstants.netflixRed,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
+                    const SizedBox(width: 6),
+                    Text(genreName),
+                  ],
+                )
+              : Text(genreName),
+            onPressed: isLoading ? null : () { // Prevent taps while loading
+              if (genreName == 'Phổ biến') {
+                _showAllComics();
+              } else {
+                _filterByGenre(genreName, genrePath);
+              }
+            },
+            backgroundColor: isSelected 
+              ? ThemeConstants.netflixRed
+              : ThemeConstants.netflixRed.withValues(alpha: 0.1), // Use withValues instead of withOpacity
+            labelStyle: fontProvider.getScaledTextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: isSelected ? Colors.white : ThemeConstants.netflixRed,
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -731,42 +739,56 @@ class _HomeScreenState extends State<HomeScreen> {
                                       ),
                                       const SizedBox(height: 20),
                                       // Main loading text
-                                      Text(
-                                        'Đang tải dữ liệu...',
-                                        style: TextStyle(
-                                          color: Theme.of(context).brightness == Brightness.dark 
-                                              ? Colors.white 
-                                              : Colors.grey[800],
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.w600,
-                                        ),
+                                      Consumer<FontProvider>(
+                                        builder: (context, fontProvider, child) {
+                                          return Text(
+                                            'Đang tải dữ liệu...',
+                                            style: fontProvider.getScaledTextStyle(
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.w600,
+                                              color: Theme.of(context).brightness == Brightness.dark 
+                                                  ? Colors.white 
+                                                  : Colors.grey[800],
+                                            ),
+                                          );
+                                        },
                                       ),
                                       const SizedBox(height: 12),
                                       // Descriptive loading text
-                                      Text(
-                                        _isFilteringByGenre 
-                                            ? 'Đang tải truyện ${_selectedGenre}...'
-                                            : 'Đang tải truyện phổ biến...',
-                                        style: TextStyle(
-                                          color: Theme.of(context).brightness == Brightness.dark 
-                                              ? Colors.white70 
-                                              : Colors.grey[600],
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                        textAlign: TextAlign.center,
+                                      Consumer<FontProvider>(
+                                        builder: (context, fontProvider, child) {
+                                          return Text(
+                                            _isFilteringByGenre 
+                                                ? 'Đang tải truyện ${_selectedGenre}...'
+                                                : 'Đang tải truyện phổ biến...',
+                                            style: fontProvider.getScaledTextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w500,
+                                              color: Theme.of(context).brightness == Brightness.dark 
+                                                  ? Colors.white70 
+                                                  : Colors.grey[600],
+                                            ),
+                                            textAlign: TextAlign.center,
+                                          );
+                                        },
                                       ),
                                       const SizedBox(height: 16),
                                       // Additional loading info
-                                      Text(
-                                        'Vui lòng chờ trong giây lát...',
-                                        style: TextStyle(
-                                          color: Theme.of(context).brightness == Brightness.dark 
-                                              ? Colors.white54 
-                                              : Colors.grey[500],
-                                          fontSize: 14,
-                                          fontStyle: FontStyle.italic,
-                                        ),
+                                      Consumer<FontProvider>(
+                                        builder: (context, fontProvider, child) {
+                                          return Text(
+                                            'Vui lòng chờ trong giây lát...',
+                                            style: fontProvider.scaleTextStyle(
+                                              TextStyle(
+                                                fontSize: 14,
+                                                fontStyle: FontStyle.italic,
+                                                color: Theme.of(context).brightness == Brightness.dark 
+                                                    ? Colors.white54 
+                                                    : Colors.grey[500],
+                                              ),
+                                            ),
+                                          );
+                                        },
                                       ),
                                     ],
                                   ),
@@ -856,13 +878,17 @@ class _HomeScreenState extends State<HomeScreen> {
                                                 color: Colors.red.withOpacity(0.9),
                                                 borderRadius: BorderRadius.circular(10),
                                               ),
-                                              child: Text(
-                                                'Ch.${comic.chapterCount}',
-                                                style: const TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 8,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
+                                              child: Consumer<FontProvider>(
+                                                builder: (context, fontProvider, child) {
+                                                  return Text(
+                                                    'Ch.${comic.chapterCount}',
+                                                    style: fontProvider.getScaledTextStyle(
+                                                      fontSize: 8,
+                                                      fontWeight: FontWeight.bold,
+                                                      color: Colors.white,
+                                                    ),
+                                                  );
+                                                },
                                               ),
                                             ),
                                           ),
@@ -874,17 +900,21 @@ class _HomeScreenState extends State<HomeScreen> {
                                   flex: 2,
                                   child: Container(
                                     padding: const EdgeInsets.all(4),
-                                    child: Text(
-                                      comic.title,
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Theme.of(context).brightness == Brightness.dark 
-                                            ? Colors.white 
-                                            : Theme.of(context).colorScheme.onSurface,
-                                      ),
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      textAlign: TextAlign.center,
+                                    child: Consumer<FontProvider>(
+                                      builder: (context, fontProvider, child) {
+                                        return Text(
+                                          comic.title,
+                                          style: fontProvider.getScaledTextStyle(
+                                            fontSize: 12,
+                                            color: Theme.of(context).brightness == Brightness.dark 
+                                                ? Colors.white 
+                                                : Theme.of(context).colorScheme.onSurface,
+                                          ),
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                          textAlign: TextAlign.center,
+                                        );
+                                      },
                                     ),
                                   ),
                                 ),
@@ -1074,21 +1104,29 @@ class _HomeScreenState extends State<HomeScreen> {
               color: Colors.white,
             ),
             const SizedBox(height: 16),
-            Text(
-              'Image Not Available',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
+            Consumer<FontProvider>(
+              builder: (context, fontProvider, child) {
+                return Text(
+                  'Image Not Available',
+                  style: fontProvider.getScaledTextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                );
+              },
             ),
             const SizedBox(height: 8),
-            Text(
-              'Using Fallback Background',
-              style: TextStyle(
-                color: Colors.grey[300],
-                fontSize: 14,
-              ),
+            Consumer<FontProvider>(
+              builder: (context, fontProvider, child) {
+                return Text(
+                  'Using Fallback Background',
+                  style: fontProvider.getScaledTextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[300],
+                  ),
+                );
+              },
             ),
           ],
         ),
@@ -1134,12 +1172,17 @@ class _HomeScreenState extends State<HomeScreen> {
                         width: 1,
                       ),
                     ),
-                    child: Text(
-                      '$pageNumber',
-                      style: TextStyle(
-                        color: isCurrentPage ? Colors.white : Colors.grey[700],
-                        fontWeight: isCurrentPage ? FontWeight.bold : FontWeight.normal,
-                      ),
+                    child: Consumer<FontProvider>(
+                      builder: (context, fontProvider, child) {
+                        return Text(
+                          '$pageNumber',
+                          style: fontProvider.getScaledTextStyle(
+                            fontSize: 14,
+                            color: isCurrentPage ? Colors.white : Colors.grey[700],
+                            fontWeight: isCurrentPage ? FontWeight.bold : FontWeight.normal,
+                          ),
+                        );
+                      },
                     ),
                   ),
                 ),
@@ -1148,12 +1191,16 @@ class _HomeScreenState extends State<HomeScreen> {
               // Show ellipsis for skipped pages
               return Container(
                 margin: const EdgeInsets.symmetric(horizontal: 4),
-                child: Text(
-                  '...',
-                  style: TextStyle(
-                    color: Colors.grey[600],
-                    fontSize: 16,
-                  ),
+                child: Consumer<FontProvider>(
+                  builder: (context, fontProvider, child) {
+                    return Text(
+                      '...',
+                      style: fontProvider.getScaledTextStyle(
+                        fontSize: 16,
+                        color: Colors.grey[600],
+                      ),
+                    );
+                  },
                 ),
               );
             } else {
