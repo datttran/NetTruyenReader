@@ -538,20 +538,11 @@ class NetTruyenService {
   /// The method is essential for the caching and performance optimization functionality.
   Future<Comic> updateComicWithDetails(Comic comic) async {
     try {
-      print('🔄 Checking cache for: ${comic.title}');
-      
       // First, check if we have cached data in the database
       final helper = DatabaseHelper();
       final cachedComic = await helper.getComic(comic.detailUrl);
       
-      print('🔄 Cached comic found: ${cachedComic != null}');
-      if (cachedComic != null) {
-        print('🔄 Cached status: ${cachedComic.status}');
-        print('🔄 Cached author: ${cachedComic.author}');
-        print('🔄 Cached genres count: ${cachedComic.genres.length}');
-      }
-      
-      // If we have cached data and it's recent (less than 1 hour old), use it
+      // If we have cached data with meaningful content and it's recent (less than 1 hour old), use it
       if (cachedComic != null && 
           cachedComic.status != null && 
           cachedComic.author != null && 
@@ -564,21 +555,13 @@ class NetTruyenService {
           )
         );
         
-        print('🔄 Cache age: ${cacheAge.inMinutes} minutes');
-        
         if (cacheAge.inHours < 1) {
           // Use cached data - it's recent enough
-          print('✅ Using cached data (age: ${cacheAge.inMinutes} minutes)');
           return cachedComic;
-        } else {
-          print('⏰ Cache expired (age: ${cacheAge.inHours} hours)');
         }
-      } else {
-        print('❌ No valid cached data available');
       }
       
       // No recent cached data, fetch from network
-      print('🌐 Fetching fresh data from network');
       final details = await fetchComicDetails(comic.detailUrl);
       
       final updated = Comic(
@@ -630,29 +613,7 @@ class NetTruyenService {
     }
   }
 
-  /// Test method to verify caching is working
-  Future<void> testCaching() async {
-    print('🧪 Testing caching system...');
-    
-    final helper = DatabaseHelper();
-    
-    // Test database connection
-    try {
-      final db = await helper.database;
-      print('✅ Database connection successful');
-      
-      // Test table structure
-      final tables = await db.rawQuery("SELECT name FROM sqlite_master WHERE type='table'");
-      print('📋 Available tables: ${tables.map((t) => t['name']).toList()}');
-      
-      // Test genres table structure
-      final genreColumns = await db.rawQuery('PRAGMA table_info(genres)');
-      print('🔍 Genres table columns: ${genreColumns.map((c) => c['name']).toList()}');
-      
-    } catch (e) {
-      print('❌ Database test failed: $e');
-    }
-  }
+
 
   /// Force refresh comic details from network (ignores cache)
   /// Useful for pull-to-refresh or manual refresh

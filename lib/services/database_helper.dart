@@ -81,34 +81,21 @@ class DatabaseHelper {
   }
 
   Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
-    print('🔄 Database upgrade: from v$oldVersion to v$newVersion');
-    
     if (oldVersion < 2) {
       try {
-        print('🔄 Checking genres table structure...');
-        
         // Check if url column already exists before adding it
         final columns = await db.rawQuery('PRAGMA table_info(genres)');
         final hasUrlColumn = columns.any((col) => col['name'] == 'url');
         
-        print('🔄 URL column exists: $hasUrlColumn');
-        
         if (!hasUrlColumn) {
-          print('🔄 Adding URL column to genres table...');
           // Add URL column to genres table only if it doesn't exist
           await db.execute('ALTER TABLE genres ADD COLUMN url TEXT NOT NULL DEFAULT ""');
-          print('🔄 URL column added successfully');
-        } else {
-          print('🔄 URL column already exists, skipping...');
         }
         
         // Update existing genres with empty URLs (they will be updated when comics are refreshed)
-        print('🔄 Updating existing genres with empty URLs...');
         await db.execute('UPDATE genres SET url = "" WHERE url IS NULL');
-        print('🔄 Genres updated successfully');
         
       } catch (e) {
-        print('❌ Database upgrade error: $e');
         // Continue with the upgrade even if there's an error
       }
     }
@@ -136,24 +123,45 @@ class DatabaseHelper {
 
     // Insert genres
     for (final genre in comic.genres ?? []) {
-      final genreId = await db.insert(
+      // First check if genre already exists
+      final existingGenres = await db.query(
         'genres',
-        {
-          'name': genre.name,
-          'url': genre.url,
-        },
-        conflictAlgorithm: ConflictAlgorithm.ignore,
+        where: 'name = ?',
+        whereArgs: [genre.name],
       );
       
-      // Link comic and genre
-      await db.insert(
+      int genreId;
+      if (existingGenres.isNotEmpty) {
+        // Use existing genre ID
+        genreId = existingGenres.first['id'] as int;
+      } else {
+        // Insert new genre
+        genreId = await db.insert(
+          'genres',
+          {
+            'name': genre.name,
+            'url': genre.url,
+          },
+        );
+      }
+      
+      // Check if comic-genre relationship already exists
+      final existingLinks = await db.query(
         'comic_genres',
-        {
-          'comic_id': comicId,
-          'genre_id': genreId,
-        },
-        conflictAlgorithm: ConflictAlgorithm.ignore,
+        where: 'comic_id = ? AND genre_id = ?',
+        whereArgs: [comicId, genreId],
       );
+      
+      if (existingLinks.isEmpty) {
+        // Link comic and genre
+        await db.insert(
+          'comic_genres',
+          {
+            'comic_id': comicId,
+            'genre_id': genreId,
+          },
+        );
+      }
     }
 
     return comicId;
@@ -162,15 +170,12 @@ class DatabaseHelper {
   Future<Comic?> getComic(String detailUrl) async {
     final db = await database;
     
-    print('🔍 Database: Looking for comic with URL: $detailUrl');
-    
     final maps = await db.query(
       'comics',
       where: 'detailUrl = ?',
       whereArgs: [detailUrl],
     );
 
-    print('🔍 Database: Found ${maps.length} comic records');
     if (maps.isEmpty) return null;
 
     // Get genres for this comic

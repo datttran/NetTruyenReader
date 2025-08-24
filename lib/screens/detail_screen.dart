@@ -34,9 +34,6 @@ class DetailScreenState extends State<DetailScreen> {
   void initState() {
     super.initState();
     
-    // Test caching system
-    NetTruyenService().testCaching();
-    
     // fetch the full chapter list (including "Xem thêm" expansion)
     _chaptersFuture = NetTruyenService().fetchChapters(widget.comic.detailUrl);
     // fetch the full-size image URL
