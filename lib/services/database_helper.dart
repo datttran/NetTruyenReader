@@ -1,5 +1,6 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
+import 'dart:io';
 import '../models/comic.dart';
 import 'dart:io'; // Added for File
 
@@ -80,20 +81,34 @@ class DatabaseHelper {
   }
 
   Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
+    print('🔄 Database upgrade: from v$oldVersion to v$newVersion');
+    
     if (oldVersion < 2) {
       try {
+        print('🔄 Checking genres table structure...');
+        
         // Check if url column already exists before adding it
         final columns = await db.rawQuery('PRAGMA table_info(genres)');
         final hasUrlColumn = columns.any((col) => col['name'] == 'url');
         
+        print('🔄 URL column exists: $hasUrlColumn');
+        
         if (!hasUrlColumn) {
+          print('🔄 Adding URL column to genres table...');
           // Add URL column to genres table only if it doesn't exist
           await db.execute('ALTER TABLE genres ADD COLUMN url TEXT NOT NULL DEFAULT ""');
+          print('🔄 URL column added successfully');
+        } else {
+          print('🔄 URL column already exists, skipping...');
         }
         
         // Update existing genres with empty URLs (they will be updated when comics are refreshed)
+        print('🔄 Updating existing genres with empty URLs...');
         await db.execute('UPDATE genres SET url = "" WHERE url IS NULL');
+        print('🔄 Genres updated successfully');
+        
       } catch (e) {
+        print('❌ Database upgrade error: $e');
         // Continue with the upgrade even if there's an error
       }
     }
@@ -211,6 +226,44 @@ class DatabaseHelper {
         SELECT DISTINCT genre_id FROM comic_genres
       )
     ''');
+  }
+
+  /// Clear all cache data (useful for debugging or resetting)
+  Future<void> clearAllCache() async {
+    final db = await database;
+    
+    print('🗑️ Clearing all cache data...');
+    
+    // Clear all tables
+    await db.delete('comic_genres');
+    await db.delete('genres');
+    await db.delete('comics');
+    await db.delete('chapters');
+    
+    print('🗑️ All cache data cleared');
+  }
+
+  /// Force database recreation (useful for fixing schema issues)
+  Future<void> forceRecreateDatabase() async {
+    final db = await database;
+    
+    print('🔄 Force recreating database...');
+    
+    // Close current database
+    await db.close();
+    
+    // Delete database file
+    final dbPath = await getDatabasesPath();
+    final path = join(dbPath, 'nettruyen.db');
+    final file = File(path);
+    if (await file.exists()) {
+      await file.delete();
+      print('🗑️ Old database file deleted');
+    }
+    
+    // Reopen database (this will trigger onCreate)
+    await database;
+    print('🔄 Database recreated successfully');
   }
 
   // Chapter operations
