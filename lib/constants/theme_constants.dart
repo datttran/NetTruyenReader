@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Centralized theme constants for the NetTruyen Reader app
 /// This makes it easy to switch between light and dark themes
@@ -77,6 +78,119 @@ class ThemeConstants {
     fontSize: 16,
     fontWeight: FontWeight.w600,
   );
+
+  // ===== DYNAMIC FONT SELECTION =====
+  static Future<TextStyle> getDynamicFont({
+    required double fontSize,
+    FontWeight fontWeight = FontWeight.w400,
+    Color? color,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final selectedFont = prefs.getString('selected_font') ?? 'Inconsolata';
+    
+    return _getFontStyle(selectedFont, fontSize, fontWeight, color);
+  }
+
+  static TextStyle _getFontStyle(String fontFamily, double fontSize, FontWeight fontWeight, Color? color) {
+    switch (fontFamily) {
+      case 'Inconsolata':
+        return GoogleFonts.inconsolata(
+          fontSize: fontSize,
+          fontWeight: fontWeight,
+          color: color,
+        );
+      case 'Roboto':
+        return GoogleFonts.roboto(
+          fontSize: fontSize,
+          fontWeight: fontWeight,
+          color: color,
+        );
+      case 'Open Sans':
+        return GoogleFonts.openSans(
+          fontSize: fontSize,
+          fontWeight: fontWeight,
+          color: color,
+        );
+      case 'Lato':
+        return GoogleFonts.lato(
+          fontSize: fontSize,
+          fontWeight: fontWeight,
+          color: color,
+        );
+      case 'Poppins':
+        return GoogleFonts.poppins(
+          fontSize: fontSize,
+          fontWeight: fontWeight,
+          color: color,
+        );
+      case 'Inter':
+        return GoogleFonts.inter(
+          fontSize: fontSize,
+          fontWeight: fontWeight,
+          color: color,
+        );
+      case 'Ubuntu':
+        return GoogleFonts.ubuntu(
+          fontSize: fontSize,
+          fontWeight: fontWeight,
+          color: color,
+        );
+      case 'Nunito':
+        return GoogleFonts.nunito(
+          fontSize: fontSize,
+          fontWeight: fontWeight,
+          color: color,
+        );
+      case 'Montserrat':
+        return GoogleFonts.montserrat(
+          fontSize: fontSize,
+          fontWeight: fontWeight,
+          color: color,
+        );
+      case 'Raleway':
+        return GoogleFonts.raleway(
+          fontSize: fontSize,
+          fontWeight: fontWeight,
+          color: color,
+        );
+      case 'Work Sans':
+        return GoogleFonts.workSans(
+          fontSize: fontSize,
+          fontWeight: fontWeight,
+          color: color,
+        );
+      case 'Quicksand':
+        return GoogleFonts.quicksand(
+          fontSize: fontSize,
+          fontWeight: fontWeight,
+          color: color,
+        );
+      case 'Comfortaa':
+        return GoogleFonts.comfortaa(
+          fontSize: fontSize,
+          fontWeight: fontWeight,
+          color: color,
+        );
+      case 'Josefin Sans':
+        return GoogleFonts.josefinSans(
+          fontSize: fontSize,
+          fontWeight: fontWeight,
+          color: color,
+        );
+      case 'Sono':
+        return GoogleFonts.sono(
+          fontSize: fontSize,
+          fontWeight: fontWeight,
+          color: color,
+        );
+      default:
+        return GoogleFonts.inconsolata(
+          fontSize: fontSize,
+          fontWeight: fontWeight,
+          color: color,
+        );
+    }
+  }
 
   // ===== THEME DATA =====
   static ThemeData get lightTheme => ThemeData(

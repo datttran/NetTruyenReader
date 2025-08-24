@@ -3,8 +3,9 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../constants/app_constants.dart';
-import '../constants/theme_constants.dart';
+
 import '../services/database_helper.dart';
 import '../providers/theme_provider.dart';
 
@@ -21,12 +22,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
   
   String _dbSize = 'Calculating...';
   bool _isLoading = false;
+  
+  // Popular Google Fonts list
+  static const List<Map<String, String>> _popularFonts = [
+    {'name': 'Inconsolata', 'family': 'Inconsolata'},
+    {'name': 'Roboto', 'family': 'Roboto'},
+    {'name': 'Open Sans', 'family': 'Open Sans'},
+    {'name': 'Lato', 'family': 'Lato'},
+    {'name': 'Poppins', 'family': 'Poppins'},
+    {'name': 'Inter', 'family': 'Inter'},
+    {'name': 'Ubuntu', 'family': 'Ubuntu'},
+    {'name': 'Nunito', 'family': 'Nunito'},
+    {'name': 'Montserrat', 'family': 'Montserrat'},
+    {'name': 'Raleway', 'family': 'Raleway'},
+    {'name': 'Work Sans', 'family': 'Work Sans'},
+    {'name': 'Quicksand', 'family': 'Quicksand'},
+    {'name': 'Comfortaa', 'family': 'Comfortaa'},
+    {'name': 'Josefin Sans', 'family': 'Josefin Sans'},
+    {'name': 'Sono', 'family': 'Sono'},
+  ];
+  
+  String _selectedFont = 'Inconsolata';
 
   @override
   void initState() {
     super.initState();
     _calculateDatabaseSize();
     _loadCurrentDomain();
+    _loadCurrentFont();
   }
 
   @override
@@ -75,6 +98,62 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _currentDomain = AppConstants.PRIMARY_DOMAIN;
       });
       print('🔍 Domain cleared, using default: ${AppConstants.PRIMARY_DOMAIN}');
+    }
+  }
+
+  /// Load the current selected font from SharedPreferences
+  Future<void> _loadCurrentFont() async {
+    final prefs = await SharedPreferences.getInstance();
+    final selectedFont = prefs.getString('selected_font') ?? 'Inconsolata';
+    setState(() {
+      _selectedFont = selectedFont;
+    });
+  }
+
+  /// Save the selected font to SharedPreferences
+  Future<void> _saveFont(String fontName) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('selected_font', fontName);
+    setState(() {
+      _selectedFont = fontName;
+    });
+  }
+
+  /// Get the font style for the selected font family
+  TextStyle _getFontStyle(String fontFamily) {
+    switch (fontFamily) {
+      case 'Inconsolata':
+        return GoogleFonts.inconsolata(fontSize: 14);
+      case 'Roboto':
+        return GoogleFonts.roboto(fontSize: 14);
+      case 'Open Sans':
+        return GoogleFonts.openSans(fontSize: 14);
+      case 'Lato':
+        return GoogleFonts.lato(fontSize: 14);
+      case 'Poppins':
+        return GoogleFonts.poppins(fontSize: 14);
+      case 'Inter':
+        return GoogleFonts.inter(fontSize: 14);
+      case 'Ubuntu':
+        return GoogleFonts.ubuntu(fontSize: 14);
+      case 'Nunito':
+        return GoogleFonts.nunito(fontSize: 14);
+      case 'Montserrat':
+        return GoogleFonts.montserrat(fontSize: 14);
+      case 'Raleway':
+        return GoogleFonts.raleway(fontSize: 14);
+      case 'Work Sans':
+        return GoogleFonts.workSans(fontSize: 14);
+      case 'Quicksand':
+        return GoogleFonts.quicksand(fontSize: 14);
+      case 'Comfortaa':
+        return GoogleFonts.comfortaa(fontSize: 14);
+      case 'Josefin Sans':
+        return GoogleFonts.josefinSans(fontSize: 14);
+      case 'Sono':
+        return GoogleFonts.sono(fontSize: 14);
+      default:
+        return GoogleFonts.inconsolata(fontSize: 14);
     }
   }
 
@@ -242,6 +321,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 );
               },
+            ),
+            ListTile(
+              title: const Text('Font Family'),
+              subtitle: Text(_selectedFont),
+              trailing: DropdownButton<String>(
+                value: _selectedFont,
+                onChanged: (String? newValue) {
+                  if (newValue != null) {
+                    _saveFont(newValue);
+                  }
+                },
+                items: _popularFonts.map<DropdownMenuItem<String>>((font) {
+                  return DropdownMenuItem<String>(
+                    value: font['name'],
+                    child: Text(
+                      font['name']!,
+                      style: _getFontStyle(font['family']!),
+                    ),
+                  );
+                }).toList(),
+              ),
             ),
             const Divider(),
             
