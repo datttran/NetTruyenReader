@@ -52,28 +52,28 @@ class ThemeConstants {
   static const Color shimmerBaseDark = netflixDarkGray;         // Netflix dark gray for dark shimmer
   static const Color shimmerHighlightDark = netflixLightGray;   // Netflix light gray for dark shimmer highlight
 
-  // ===== GOOGLE FONTS SONO STYLES =====
-  static TextStyle get sonoHeading => GoogleFonts.sono(
+  // ===== GOOGLE FONTS INCONSOLATA STYLES =====
+  static TextStyle get inconsolataHeading => GoogleFonts.inconsolata(
     fontSize: 24,
     fontWeight: FontWeight.w700,
   );
   
-  static TextStyle get sonoSubheading => GoogleFonts.sono(
+  static TextStyle get inconsolataSubheading => GoogleFonts.inconsolata(
     fontSize: 18,
     fontWeight: FontWeight.w600,
   );
   
-  static TextStyle get sonoBody => GoogleFonts.sono(
+  static TextStyle get inconsolataBody => GoogleFonts.inconsolata(
     fontSize: 16,
     fontWeight: FontWeight.w400,
   );
   
-  static TextStyle get sonoCaption => GoogleFonts.sono(
+  static TextStyle get inconsolataCaption => GoogleFonts.inconsolata(
     fontSize: 14,
     fontWeight: FontWeight.w400,
   );
   
-  static TextStyle get sonoButton => GoogleFonts.sono(
+  static TextStyle get inconsolataButton => GoogleFonts.inconsolata(
     fontSize: 16,
     fontWeight: FontWeight.w600,
   );
@@ -82,13 +82,13 @@ class ThemeConstants {
   static ThemeData get lightTheme => ThemeData(
     useMaterial3: true,
     colorScheme: lightColorScheme,
-    textTheme: GoogleFonts.sonoTextTheme(ThemeData.light().textTheme),
+    textTheme: GoogleFonts.inconsolataTextTheme(ThemeData.light().textTheme),
     appBarTheme: AppBarTheme(
       backgroundColor: netflixRed,
       foregroundColor: netflixWhite,
       elevation: 0,
       surfaceTintColor: Colors.transparent,
-      titleTextStyle: GoogleFonts.sono(
+      titleTextStyle: GoogleFonts.inconsolata(
         fontSize: 20,
         fontWeight: FontWeight.w600,
         color: netflixWhite,
@@ -104,20 +104,20 @@ class ThemeConstants {
     chipTheme: ChipThemeData(
       backgroundColor: netflixLightGray,
       selectedColor: netflixRed,
-      labelStyle: GoogleFonts.sono(color: netflixNavy),
+      labelStyle: GoogleFonts.inconsolata(color: netflixNavy),
     ),
   );
 
   static ThemeData get darkTheme => ThemeData(
     useMaterial3: true,
     colorScheme: darkColorScheme,
-    textTheme: GoogleFonts.sonoTextTheme(ThemeData.dark().textTheme),
+    textTheme: GoogleFonts.inconsolataTextTheme(ThemeData.dark().textTheme),
     appBarTheme: AppBarTheme(
       backgroundColor: netflixNavy,
       foregroundColor: netflixWhite,
       elevation: 0,
       surfaceTintColor: Colors.transparent,
-      titleTextStyle: GoogleFonts.sono(
+      titleTextStyle: GoogleFonts.inconsolata(
         fontSize: 20,
         fontWeight: FontWeight.w600,
         color: netflixWhite,
@@ -133,7 +133,7 @@ class ThemeConstants {
     chipTheme: ChipThemeData(
       backgroundColor: netflixDarkGray,
       selectedColor: netflixRed,
-      labelStyle: GoogleFonts.sono(color: netflixWhite),
+      labelStyle: GoogleFonts.inconsolata(color: netflixWhite),
     ),
   );
 
