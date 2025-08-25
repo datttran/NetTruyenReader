@@ -631,8 +631,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     final scale = fontProvider.fontScale;
 
                     return Container(
-                      height: (_getAppBarHeight() / 3) *
-                          scale, // Scale container height with logo
+                      height: scale == 1.0 ? (_getAppBarHeight() / 2) : (_getAppBarHeight() / 3) * scale, // Larger container for 1.0x scale
 
                       child: Center(
                         child: AnimatedBuilder(
@@ -688,9 +687,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                     opacity: _thunderAnimation.value,  // Fades in after logo finishes
                                     duration: const Duration(milliseconds: 200),
                                     child: Lottie.asset(
-                                      'assets/animations/YT.json',
-                                      width: 50 * scale,
-                                      height: 50 * scale,
+                                      'assets/animations/RL.json',
+                                      width: scale == 1.0 ? 250 : 150 * scale,   // Larger for 1.0x scale
+                                      height: scale == 1.0 ? 200 : 150 * scale,  // Larger for 1.0x scale
                                       repeat: true,
                                       animate: true,
                                       onLoaded: (composition) {
