@@ -677,18 +677,14 @@ class _HomeScreenState extends State<HomeScreen> {
                     delegate: SliverChildBuilderDelegate(
                       (context, index) {
                         return Card(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            side: const BorderSide(
-                              color: Colors.black,
-                              width: 1.0,
-                            ),
-                          ),
                           elevation: 0,
-                          shadowColor: Colors.black,
                           child: Container(
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: Colors.black,
+                                width: 1.0,
+                              ),
                               gradient: const LinearGradient(
                                 begin: Alignment.topCenter,
                                 end: Alignment.bottomCenter,
@@ -697,6 +693,14 @@ class _HomeScreenState extends State<HomeScreen> {
                                   Color(0xFFE0E0E0),
                                 ],
                               ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black,
+                                  offset: const Offset(2, 2),
+                                  blurRadius: 0,      // No blur
+                                  spreadRadius: 0,    // No spread
+                                ),
+                              ],
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
