@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:nettruyen_reader/screens/home_screen.dart';
-import 'package:nettruyen_reader/constants/app_constants.dart';
-import 'package:nettruyen_reader/constants/theme_constants.dart';
-import 'package:nettruyen_reader/providers/theme_provider.dart';
-import 'package:nettruyen_reader/providers/font_provider.dart';
+import 'screens/loading_screen.dart';
+import 'constants/app_constants.dart';
+import 'constants/theme_constants.dart';
+import 'providers/theme_provider.dart';
+import 'providers/font_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -38,7 +38,7 @@ class NetTruyenReaderApp extends StatelessWidget {
           theme: ThemeConstants.lightTheme(fontProvider),
           darkTheme: ThemeConstants.darkTheme(fontProvider),
           themeMode: themeProvider.themeMode,
-          home: const HomeScreen(),
+          home: const LoadingScreen(),
         );
       },
     );

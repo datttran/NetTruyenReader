@@ -15,7 +15,9 @@ import '../services/comic_search_delegate.dart';
 import '../providers/font_provider.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final List<Comic>? initialComics;
+  
+  const HomeScreen({super.key, this.initialComics});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -53,7 +55,16 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _loadMore();
+    
+    // Use initial comics if provided, otherwise load them
+    if (widget.initialComics != null && widget.initialComics!.isNotEmpty) {
+      _allComics = List.from(widget.initialComics!);
+      _displayComics = _allComics.take(_pageSize).toList();
+      _hasMore = _allComics.length > _pageSize;
+      _currentPage = 1;
+    } else {
+      _loadMore();
+    }
 
     _scrollController.addListener(() {
       if (_scrollController.position.pixels >=
@@ -536,29 +547,32 @@ class _HomeScreenState extends State<HomeScreen> {
                             child: SizedBox(
                               height: 30 * (scale * 2), // Scale logo height (x2 at 1.0, x4 at 2.0)
                               width: 45 * (scale * 2), // Scale logo width (x2 at 1.0, x4 at 2.0)
-                              child: Image.asset(
-                                'assets/images/logo.png',
-                                fit: BoxFit.contain,
-                              errorBuilder: (context, error, stackTrace) {
-                                // Debug: Print error info
-                                print('Logo loading error: $error');
-                                print('Logo stack trace: $stackTrace');
-                                // Fallback to icon if logo fails to load
-                                return Icon(
-                                  Icons.auto_stories,
-                                  color: Colors.white,
-                                  size: 12 * (scale * 2), // Scale fallback icon (x2 at 1.0, x4 at 2.0)
-                                );
-                              },
-                              frameBuilder:
-                                  (context, child, frame, wasSynchronouslyLoaded) {
-                                print(
-                                    'Logo frame loaded: frame=$frame, sync=$wasSynchronouslyLoaded');
-                                return child;
-                              },
+                              child: Hero(
+                                tag: 'app_logo',
+                                child: Image.asset(
+                                  'assets/images/logo.png',
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    // Debug: Print error info
+                                    print('Logo loading error: $error');
+                                    print('Logo stack trace: $stackTrace');
+                                    // Fallback to icon if logo fails to load
+                                    return Icon(
+                                      Icons.auto_stories,
+                                      color: Colors.white,
+                                      size: 12 * (scale * 2), // Scale fallback icon (x2 at 1.0, x4 at 2.0)
+                                    );
+                                  },
+                                  frameBuilder:
+                                      (context, child, frame, wasSynchronouslyLoaded) {
+                                    print(
+                                        'Logo frame loaded: frame=$frame, sync=$wasSynchronouslyLoaded');
+                                    return child;
+                                  },
+                                ),
+                              ),
                             ),
                           ),
-                        ),
                         ],
                       ),
                     );
