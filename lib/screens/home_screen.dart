@@ -745,18 +745,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   child: Column(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      // Large loading spinner
-                                      const SizedBox(
-                                        width: 60,
-                                        height: 60,
-                                        child: CircularProgressIndicator(
-                                          valueColor:
-                                              AlwaysStoppedAnimation<Color>(
-                                            ThemeConstants.netflixRed,
-                                          ),
-                                          strokeWidth: 4,
-                                        ),
-                                      ),
+                                      // Loading spinner removed - using only shimmer effects
                                       const SizedBox(height: 12),
                                       // Loading text removed - cleaner UI
                                     ],
@@ -810,8 +799,36 @@ class _HomeScreenState extends State<HomeScreen> {
                         delegate: SliverChildBuilderDelegate(
                       (context, index) {
                         if (index >= _displayComics.length) {
-                          return const Center(
-                              child: CircularProgressIndicator());
+                          return Card(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Shimmer.fromColors(
+                              baseColor: Colors.grey[800]!,
+                              highlightColor: Colors.grey[600]!,
+                              child: Column(
+                                children: [
+                                  Expanded(
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey[700],
+                                        borderRadius: const BorderRadius.vertical(
+                                            top: Radius.circular(8)),
+                                      ),
+                                    ),
+                                  ),
+                                  Container(
+                                    height: 16,
+                                    margin: const EdgeInsets.all(4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey[700],
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
                         }
                         final comic = _displayComics[index];
                         return GestureDetector(
