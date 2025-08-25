@@ -636,7 +636,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             // Comics Grid
             SliverPadding(
-              padding: const EdgeInsets.only(right: 6.0),
+              padding: const EdgeInsets.only(right: 4.0),
               sliver: Consumer<FontProvider>(
               builder: (context, fontProvider, child) {
                 // Calculate number of columns based on screen size and font scale
