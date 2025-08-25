@@ -732,7 +732,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           },
                         );
                       },
-                      childCount: 6,
+                      childCount: _pageSize,
                     ),
                     gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: crossAxisCount,
