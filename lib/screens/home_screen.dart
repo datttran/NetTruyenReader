@@ -633,133 +633,94 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             // Comics Grid
-            _displayComics.isEmpty || _isLoading
-                ? SliverToBoxAdapter(
-                    child: Stack(
-                      children: [
-                        // Loading grid with shimmer placeholders
-                        GridView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          padding: const EdgeInsets.all(8),
-                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 3,
-                            childAspectRatio: _calculateOptimalAspectRatio(), // Use same aspect ratio as loaded cards
-                            crossAxisSpacing: 8,
-                            mainAxisSpacing: 8,
+            Consumer<FontProvider>(
+              builder: (context, fontProvider, child) {
+                // Calculate number of columns based on screen size and font scale
+                final screenWidth = MediaQuery.of(context).size.width;
+                final fontScale = fontProvider.fontScale;
+                
+                int crossAxisCount;
+                if (screenWidth < AppConstants.MOBILE_BREAKPOINT) {
+                  // Mobile: 3 columns at 1.0, 2 columns at 1.5, 1 column at 2.0
+                  if (fontScale == 1.0) {
+                    crossAxisCount = 3;
+                  } else if (fontScale == 1.5) {
+                    crossAxisCount = 2;
+                  } else { // 2.0
+                    crossAxisCount = 1;
+                  }
+                } else if (screenWidth < AppConstants.TABLET_BREAKPOINT) {
+                  // Tablet: 6 columns at 1.0, 4 columns at 1.5, 2 columns at 2.0
+                  if (fontScale == 1.0) {
+                    crossAxisCount = 6;
+                  } else if (fontScale == 1.5) {
+                    crossAxisCount = 4;
+                  } else { // 2.0
+                    crossAxisCount = 2;
+                  }
+                } else {
+                  // Desktop: Use tablet configuration
+                  if (fontScale == 1.0) {
+                    crossAxisCount = 6;
+                  } else if (fontScale == 1.5) {
+                    crossAxisCount = 4;
+                  } else { // 2.0
+                    crossAxisCount = 2;
+                  }
+                }
+
+                if (_displayComics.isEmpty || _isLoading) {
+                  // Loading grid with shimmer placeholders
+                  return SliverToBoxAdapter(
+                    child: GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      padding: const EdgeInsets.all(8),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: crossAxisCount,
+                        childAspectRatio: _calculateOptimalAspectRatio(),
+                        crossAxisSpacing: AppConstants.GRID_SPACING,
+                        mainAxisSpacing: AppConstants.GRID_SPACING,
+                      ),
+                      itemCount: _isLoading ? 6 : _displayComics.length,
+                      itemBuilder: (context, index) {
+                        return Card(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
                           ),
-                          itemCount: _isLoading ? 6 : _displayComics.length,
-                          itemBuilder: (context, index) {
-                            return Card(
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: _isLoading
-                                  ? Shimmer.fromColors(
-                                      baseColor: Colors.grey[800]!,
-                                      highlightColor: Colors.grey[600]!,
-                                      child: Column(
-                                        children: [
-                                          Expanded(
-                                            child: Container(
-                                              decoration: BoxDecoration(
-                                                color: Colors.grey[700],
-                                                borderRadius:
-                                                    const BorderRadius.vertical(
-                                                        top:
-                                                            Radius.circular(8)),
-                                              ),
-                                            ),
-                                          ),
-                                          Container(
-                                            height: 16,
-                                            margin: const EdgeInsets.all(4),
-                                            decoration: BoxDecoration(
-                                              color: Colors.grey[700],
-                                              borderRadius:
-                                                  BorderRadius.circular(4),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    )
-                                  : Column(
-                                      children: [
-                                        Expanded(
-                                          child: Container(
-                                            decoration: BoxDecoration(
-                                              color: Colors.grey[700],
-                                              borderRadius:
-                                                  const BorderRadius.vertical(
-                                                      top: Radius.circular(8)),
-                                            ),
-                                            child: const Center(
-                                              child: Icon(
-                                                Icons.auto_stories,
-                                                color: Colors.white54,
-                                                size: 40,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                        Container(
-                                          height: 16,
-                                          margin: const EdgeInsets.all(4),
-                                          decoration: BoxDecoration(
-                                            color: Colors.grey[700],
-                                            borderRadius:
-                                                BorderRadius.circular(4),
-                                          ),
-                                        ),
-                                      ],
+                          child: Shimmer.fromColors(
+                            baseColor: Colors.grey[800]!,
+                            highlightColor: Colors.grey[600]!,
+                            child: Column(
+                              children: [
+                                Expanded(
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey[700],
+                                      borderRadius: const BorderRadius.vertical(
+                                          top: Radius.circular(8)),
                                     ),
-                            );
-                          },
-                        ),
-                        // Loading overlay removed - using shimmer grid only
-                      ],
+                                  ),
+                                ),
+                                Container(
+                                  height: 16,
+                                  margin: const EdgeInsets.all(4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey[700],
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
                     ),
-                  )
-                : Consumer<FontProvider>(
-                    builder: (context, fontProvider, child) {
-                      // Calculate number of columns based on screen size and font scale
-                      final screenWidth = MediaQuery.of(context).size.width;
-                      final fontScale = fontProvider.fontScale;
-                      
-                      int crossAxisCount;
-                      if (screenWidth < AppConstants.MOBILE_BREAKPOINT) {
-                        // Mobile: 3 columns at 1.0, 2 columns at 1.5, 1 column at 2.0
-                        if (fontScale == 1.0) {
-                          crossAxisCount = 3;
-                        } else if (fontScale == 1.5) {
-                          crossAxisCount = 2;
-                        } else { // 2.0
-                          crossAxisCount = 1;
-                        }
-                      } else if (screenWidth < AppConstants.TABLET_BREAKPOINT) {
-                        // Tablet: 6 columns at 1.0, 4 columns at 1.5, 2 columns at 2.0
-                        if (fontScale == 1.0) {
-                          crossAxisCount = 6;
-                        } else if (fontScale == 1.5) {
-                          crossAxisCount = 4;
-                        } else { // 2.0
-                          crossAxisCount = 2;
-                        }
-                      } else {
-                        // Desktop: Use tablet configuration
-                        if (fontScale == 1.0) {
-                          crossAxisCount = 6;
-                        } else if (fontScale == 1.5) {
-                          crossAxisCount = 4;
-                        } else { // 2.0
-                          crossAxisCount = 2;
-                        }
-                      }
-                      
-
-
-                      return SliverGrid(
-                        delegate: SliverChildBuilderDelegate(
+                  );
+                } else {
+                  // Loaded comics grid
+                  return SliverGrid(
+                    delegate: SliverChildBuilderDelegate(
                       (context, index) {
                         if (index >= _displayComics.length) {
                           return Card(
@@ -909,7 +870,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                       child: Consumer<FontProvider>(
                                         builder: (context, fontProvider, child) {
                                           return Text(
-                                            comic.title,
+                                            _cleanTitle(comic.title),
                                             style:
                                                 fontProvider.getScaledTextStyle(
                                               fontSize: 12,
@@ -936,16 +897,17 @@ class _HomeScreenState extends State<HomeScreen> {
                         );
                       },
                       childCount: _displayComics.length + (_hasMore ? 1 : 0),
-                        ),
-                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: crossAxisCount,
-                          childAspectRatio: _calculateOptimalAspectRatio(),
-                          crossAxisSpacing: AppConstants.GRID_SPACING,
-                          mainAxisSpacing: AppConstants.GRID_SPACING,
-                        ),
-                      );
-                    },
-                  ),
+                    ),
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: crossAxisCount,
+                      childAspectRatio: _calculateOptimalAspectRatio(),
+                      crossAxisSpacing: AppConstants.GRID_SPACING,
+                      mainAxisSpacing: AppConstants.GRID_SPACING,
+                    ),
+                  );
+                }
+              },
+            ),
 
             // Pagination widget - always show pagination controls
             SliverToBoxAdapter(
