@@ -682,32 +682,41 @@ class _HomeScreenState extends State<HomeScreen> {
                   return SliverGrid(
                     delegate: SliverChildBuilderDelegate(
                       (context, index) {
-                        return Card(
-                          shape: RoundedRectangleBorder(
+                        return Container(
+                          decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(8),
+                            color: Colors.grey[100],
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              // Image placeholder that takes 85% of card height (flex: 17)
+                              // Upper section: 85% height with grey color
                               Flexible(
                                 flex: 17,
-                                child: Container(
-                                  color: Colors.grey[300],
-                                  child: CardLoading(
-                                    height: double.infinity,
-                                    width: double.infinity,
+                                child: CardLoading(
+                                  height: double.infinity,
+                                  width: double.infinity,
+                                  borderRadius: const BorderRadius.vertical(
+                                    top: Radius.circular(8),
+                                  ),
+                                  cardLoadingTheme: CardLoadingTheme(
+                                    colorOne: Colors.grey[300]!,
+                                    colorTwo: Colors.grey[400]!,
                                   ),
                                 ),
                               ),
-                              // Text placeholder that takes 15% of card height (flex: 3)
+                              // Lower section: 15% height with white color
                               Flexible(
                                 flex: 3,
-                                child: Container(
-                                  color: Colors.white,
-                                  child: CardLoading(
-                                    height: double.infinity,
-                                    width: double.infinity,
+                                child: CardLoading(
+                                  height: double.infinity,
+                                  width: double.infinity,
+                                  borderRadius: const BorderRadius.vertical(
+                                    bottom: Radius.circular(8),
+                                  ),
+                                  cardLoadingTheme: CardLoadingTheme(
+                                    colorOne: Colors.white,
+                                    colorTwo: Colors.grey[200]!,
                                   ),
                                 ),
                               ),
