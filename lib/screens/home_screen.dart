@@ -679,42 +679,76 @@ class _HomeScreenState extends State<HomeScreen> {
                         return Card(
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
+                            side: const BorderSide(
+                              color: Colors.black,
+                              width: 1.0,
+                            ),
                           ),
-                          elevation: 4,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              // Upper section: 85% height with grey color
-                              Flexible(
-                                flex: 17,
-                                child: CardLoading(
-                                  height: double.infinity,
-                                  width: double.infinity,
-                                  borderRadius: const BorderRadius.vertical(
-                                    top: Radius.circular(8),
-                                  ),
-                                  cardLoadingTheme: CardLoadingTheme(
-                                    colorOne: Colors.grey[300]!,
-                                    colorTwo: Colors.grey[400]!,
+                          elevation: 0,
+                          shadowColor: Colors.black,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(8),
+                              gradient: const LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  Colors.grey,
+                                  Color(0xFFE0E0E0),
+                                ],
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                // Upper section: 85% height with grey color
+                                Flexible(
+                                  flex: 17,
+                                  child: Container(
+                                    decoration: const BoxDecoration(
+                                      color: Color(0xFFF5F5F5),
+                                      borderRadius: BorderRadius.vertical(
+                                        top: Radius.circular(8),
+                                      ),
+                                    ),
+                                    child: CardLoading(
+                                      height: double.infinity,
+                                      width: double.infinity,
+                                      borderRadius: const BorderRadius.vertical(
+                                        top: Radius.circular(8),
+                                      ),
+                                      cardLoadingTheme: CardLoadingTheme(
+                                        colorOne: Color(0xFFF5F5F5),
+                                        colorTwo: Color(0xFFE8E8E8),
+                                      ),
+                                    ),
                                   ),
                                 ),
-                              ),
-                              // Lower section: 15% height with white color
-                              Flexible(
-                                flex: 3,
-                                child: CardLoading(
-                                  height: double.infinity,
-                                  width: double.infinity,
-                                  borderRadius: const BorderRadius.vertical(
-                                    bottom: Radius.circular(8),
-                                  ),
-                                  cardLoadingTheme: CardLoadingTheme(
-                                    colorOne: Colors.white,
-                                    colorTwo: Colors.grey[200]!,
+                                // Lower section: 15% height with white color
+                                Flexible(
+                                  flex: 3,
+                                  child: Container(
+                                    decoration: const BoxDecoration(
+                                      color: Color(0xFFF0F0F0),
+                                      borderRadius: BorderRadius.vertical(
+                                        bottom: Radius.circular(8),
+                                      ),
+                                    ),
+                                    child: CardLoading(
+                                      height: double.infinity,
+                                      width: double.infinity,
+                                      borderRadius: const BorderRadius.vertical(
+                                        bottom: Radius.circular(8),
+                                      ),
+                                      cardLoadingTheme: CardLoadingTheme(
+                                        colorOne: Color(0xFFF0F0F0),
+                                        colorTwo: Color(0xFFE0E0E0),
+                                      ),
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         );
                       },
