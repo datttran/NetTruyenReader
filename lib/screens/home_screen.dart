@@ -530,60 +530,42 @@ class _HomeScreenState extends State<HomeScreen> {
                     return Container(
                       height: (_getAppBarHeight() / 3) *
                           scale, // Scale container height with logo
-                      decoration:
-                          const BoxDecoration(color: Colors.transparent),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment
-                            .center, // Left align to match menu button
-                        crossAxisAlignment:
-                            CrossAxisAlignment.baseline, // Align text baselines
-                        textBaseline:
-                            TextBaseline.alphabetic, // Use alphabetic baseline
-                        children: [
-                          // Your logo image with transparent background
-                          ShaderMask(
-                            shaderCallback: (Rect bounds) {
-                              return const LinearGradient(
-                                colors: [Colors.white, Colors.white],
-                              ).createShader(bounds);
-                            },
-                            blendMode: BlendMode.dstIn,
-                            child: SizedBox(
-                              height: 30 *
-                                  (scale *
-                                      2), // Scale logo height (x2 at 1.0, x4 at 2.0)
-                              width: 45 *
-                                  (scale *
-                                      2), // Scale logo width (x2 at 1.0, x4 at 2.0)
-                              child: Hero(
-                                tag: 'app_logo',
-                                child: Image.asset(
-                                  'assets/images/logo.png',
-                                  fit: BoxFit.contain,
-                                  errorBuilder: (context, error, stackTrace) {
-                                    // Debug: Print error info
-                                    print('Logo loading error: $error');
-                                    print('Logo stack trace: $stackTrace');
-                                    // Fallback to icon if logo fails to load
-                                    return Icon(
-                                      Icons.auto_stories,
-                                      color: Colors.white,
-                                      size: 12 *
-                                          (scale *
-                                              2), // Scale fallback icon (x2 at 1.0, x4 at 2.0)
-                                    );
-                                  },
-                                  frameBuilder: (context, child, frame,
-                                      wasSynchronouslyLoaded) {
-                                    print(
-                                        'Logo frame loaded: frame=$frame, sync=$wasSynchronouslyLoaded');
-                                    return child;
-                                  },
-                                ),
-                              ),
+
+                      child: Center(
+                        child: SizedBox(
+                          height: 30 *
+                              (scale *
+                                  2), // Scale logo height (x2 at 1.0, x4 at 2.0)
+                          width: 45 *
+                              (scale *
+                                  2), // Scale logo width (x2 at 1.0, x4 at 2.0)
+                          child: Hero(
+                            tag: 'app_logo',
+                            child: Image.asset(
+                              'assets/images/logo.png',
+                              fit: BoxFit.contain,
+                              errorBuilder: (context, error, stackTrace) {
+                                // Debug: Print error info
+                                print('Logo loading error: $error');
+                                print('Logo stack trace: $stackTrace');
+                                // Fallback to icon if logo fails to load
+                                return Icon(
+                                  Icons.auto_stories,
+                                  color: Colors.white,
+                                  size: 12 *
+                                      (scale *
+                                          2), // Scale fallback icon (x2 at 1.0, x4 at 2.0)
+                                );
+                              },
+                              frameBuilder: (context, child, frame,
+                                  wasSynchronouslyLoaded) {
+                                print(
+                                    'Logo frame loaded: frame=$frame, sync=$wasSynchronouslyLoaded');
+                                return child;
+                              },
                             ),
                           ),
-                        ],
+                        ),
                       ),
                     );
                   },
@@ -602,8 +584,14 @@ class _HomeScreenState extends State<HomeScreen> {
                       },
                       // frameBuilder removed - WebP loading confirmed working
                     ),
+
                     // Edge vignette overlay
                     _buildGradientOverlay(),
+
+                    Container(
+                      color: Colors.black.withOpacity(.8), // 👈 change opacity & color
+                    ),
+
                   ],
                 ),
               ),
@@ -992,8 +980,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                         decoration: BoxDecoration(
                                           color: Theme.of(context).brightness ==
                                                   Brightness.dark
-                                              ? Colors.grey[
-                                                  800] // ← Dark theme: Dark grey background
+                                              ? ThemeConstants.netflixDarkGray // ← Dark theme: Dark grey background
                                               : Colors.grey[
                                                   100], // ← Light theme: Light grey background
                                           borderRadius: const BorderRadius.only(
@@ -1148,27 +1135,52 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  /// Calculate app bar height as percentage of screen height
+  /// Calculate app bar height as percentage of screen height, scaled with font scale
   double _getAppBarHeight() {
-    return MediaQuery.of(context).size.height * 0.2; // 20% of screen height
+    // Get the current font scale from the provider
+    final fontProvider = Provider.of<FontProvider>(context, listen: false);
+    final scale = fontProvider.fontScale;
+    
+    // Apply custom scaling: 1.0 = 20%, 1.5 = 30%, 2.0 = 40%
+    double heightPercentage;
+    if (scale == 1.0) {
+      heightPercentage = 0.2;  // 20% of screen height
+    } else if (scale == 1.5) {
+      heightPercentage = 0.3;  // 30% of screen height
+    } else if (scale == 2.0) {
+      heightPercentage = 0.4;  // 40% of screen height
+    } else {
+      heightPercentage = 0.2;  // Fallback to 20%
+    }
+    
+    return MediaQuery.of(context).size.height * heightPercentage;
   }
 
   /// Build edge vignette overlay for image
   Widget _buildGradientOverlay() {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: RadialGradient(
-          center: Alignment.center,
-          radius: 0.8,
-          colors: [
-            Colors.transparent, // Center: transparent
-            Colors.black.withValues(alpha: 0.2), // Middle: light darkening
-            Colors.black.withValues(alpha: 0.7), // Edge: strong darkening
-            Colors.black.withValues(alpha: .95), // Corner: very dark
-          ],
-          stops: const [0.0, 0.4, 0.7, 1.0],
-        ),
-      ),
+    return Builder(
+      builder: (context) {
+        final isDarkTheme = Theme.of(context).brightness == Brightness.dark;
+        final overlayColor = isDarkTheme 
+            ? ThemeConstants.netflixNavy 
+            : ThemeConstants.netflixRed;
+        
+        return Container(
+          decoration: BoxDecoration(
+            gradient: RadialGradient(
+              center: Alignment.center,
+              radius: 0.8,
+              colors: [
+                overlayColor.withValues(alpha: 0.5),
+                overlayColor.withValues(alpha: 0.5), // Middle: light darkening
+                overlayColor.withValues(alpha: 0.5), // Edge: strong darkening
+                overlayColor.withValues(alpha: 0.5), // Corner: very dark
+              ],
+              stops: const [0.0, 0.4, 0.7, 1.0],
+            ),
+          ),
+        );
+      },
     );
   }
 
