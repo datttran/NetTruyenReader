@@ -670,20 +670,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 }
 
                 if (_displayComics.isEmpty || _isLoading) {
-                  // Loading grid with shimmer placeholders
-                  return SliverToBoxAdapter(
-                    child: GridView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      // Removed padding to match loaded grid spacing
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: crossAxisCount,
-                        childAspectRatio: _calculateOptimalAspectRatio(),
-                        crossAxisSpacing: AppConstants.GRID_SPACING,
-                        mainAxisSpacing: AppConstants.GRID_SPACING,
-                      ),
-                      itemCount: _isLoading ? 6 : _displayComics.length,
-                      itemBuilder: (context, index) {
+                  // Loading grid with shimmer placeholders - use SliverGrid for consistency
+                  return SliverGrid(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
                         return Card(
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
@@ -715,6 +705,13 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         );
                       },
+                      childCount: _isLoading ? 6 : _displayComics.length,
+                    ),
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: crossAxisCount,
+                      childAspectRatio: _calculateOptimalAspectRatio(),
+                      crossAxisSpacing: AppConstants.GRID_SPACING,
+                      mainAxisSpacing: AppConstants.GRID_SPACING,
                     ),
                   );
                 } else {
