@@ -717,43 +717,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             );
                           },
                         ),
-                        // Loading indicator layered above the grid
-                        if (_isLoading)
-                          Positioned.fill(
-                            child: Container(
-                              color: Colors.black.withValues(
-                                  alpha: 0.3), // Semi-transparent overlay
-                              child: Center(
-                                child: Container(
-                                  padding: const EdgeInsets.all(24),
-                                  decoration: BoxDecoration(
-                                    color: Theme.of(context).brightness ==
-                                            Brightness.dark
-                                        ? Colors.grey[900]!
-                                            .withValues(alpha: 0.9)
-                                        : Colors.white.withValues(alpha: 0.9),
-                                    borderRadius: BorderRadius.circular(16),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color:
-                                            Colors.black.withValues(alpha: 0.2),
-                                        blurRadius: 10,
-                                        offset: const Offset(0, 4),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      // Loading spinner removed - using only shimmer effects
-                                      const SizedBox(height: 12),
-                                      // Loading text removed - cleaner UI
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
+                        // Loading overlay removed - using shimmer grid only
                       ],
                     ),
                   )
