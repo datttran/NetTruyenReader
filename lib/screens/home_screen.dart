@@ -451,57 +451,55 @@ class _HomeScreenState extends State<HomeScreen> {
     return Consumer<FontProvider>(
       builder: (context, fontProvider, child) {
         return Padding(
-          padding: const EdgeInsets.only(right: 8),
-          child: SizedBox(
-            height: 50,
-            child: Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: DecoratedBox(
+          padding: const EdgeInsets.all(8.0),
+          child: DecoratedBox(
 
-                decoration: BoxDecoration(
+            decoration: BoxDecoration(
 
 
-                  borderRadius: BorderRadius.circular(8),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black,      // shadow color
-                      offset: const Offset(2, 2),     // shadow position
-                      blurRadius: 0,            // no blur → hard edge
-                      spreadRadius: 0,          // no extra spread
-                    ),
-                  ],
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black,      // shadow color
+                  offset: const Offset(4, 4),     // shadow position
+                  blurRadius: 0,            // no blur → hard edge
+                  spreadRadius: 0,          // no extra spread
                 ),
-                              child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: InkWell(
-                  onTap: () {
-                    if (genreName == 'Phổ biến') {
-                      _showAllComics();
-                    } else {
-                      _filterByGenre(genreName, genrePath);
-                    }
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? ThemeConstants.netflixRed
-                          : ThemeConstants.netflixRed.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      genreName,
-                      style: fontProvider.getScaledTextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: isSelected ? Colors.white : ThemeConstants.netflixRed,
-                      ),
-                    ),
+              ],
+            ),
+                          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: InkWell(
+              onTap: () {
+                if (genreName == 'Phổ biến') {
+                  _showAllComics();
+                } else {
+                  _filterByGenre(genreName, genrePath);
+                }
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? ThemeConstants.netflixRed
+                      : ThemeConstants.netflixWhite,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: Colors.black,
+                    width: 2.0,
+                  ),
+                ),
+                child: Text(
+                  genreName,
+                  style: fontProvider.getScaledTextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: isSelected ? Colors.white : ThemeConstants.netflixRed,
                   ),
                 ),
               ),
-              ),
             ),
+          ),
           ),
         );
       },
@@ -530,7 +528,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     final scale = fontProvider.fontScale;
 
                     return Container(
-                      height: (_getAppBarHeight() / 5) *
+                      height: (_getAppBarHeight() / 3) *
                           scale, // Scale container height with logo
                       decoration:
                           const BoxDecoration(color: Colors.transparent),
