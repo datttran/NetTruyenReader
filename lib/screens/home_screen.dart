@@ -635,7 +635,9 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             // Comics Grid
-            Consumer<FontProvider>(
+            SliverPadding(
+              padding: const EdgeInsets.only(right: 6.0),
+              sliver: Consumer<FontProvider>(
               builder: (context, fontProvider, child) {
                 // Calculate number of columns based on screen size and font scale
                 final screenWidth = MediaQuery.of(context).size.width;
@@ -987,6 +989,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   );
                 }
               },
+            ),
             ),
 
             // Pagination widget - always show pagination controls
