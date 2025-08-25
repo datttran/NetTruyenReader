@@ -3,7 +3,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
-import 'package:fade_shimmer/fade_shimmer.dart';
+import 'package:card_loading/card_loading.dart';
 import 'package:provider/provider.dart';
 import '../models/comic.dart';
 import '../services/nettruyen_service.dart';
@@ -692,23 +692,17 @@ class _HomeScreenState extends State<HomeScreen> {
                               // Image placeholder that takes 80% of card height (flex: 8)
                               Flexible(
                                 flex: 8,
-                                child: FadeShimmer(
+                                child: CardLoading(
                                   height: double.infinity,
                                   width: double.infinity,
-                                  radius: 8,
-                                  millisecondsDelay: 0,
-                                  fadeTheme: FadeTheme.light,
                                 ),
                               ),
                               // Text placeholder that takes 20% of card height (flex: 2)
                               Flexible(
                                 flex: 2,
-                                child: FadeShimmer(
+                                child: CardLoading(
                                   height: double.infinity,
                                   width: double.infinity,
-                                  radius: 8,
-                                  millisecondsDelay: 50,
-                                  fadeTheme: FadeTheme.dark,
                                 ),
                               ),
                             ],
@@ -740,23 +734,17 @@ class _HomeScreenState extends State<HomeScreen> {
                                 // Image placeholder that takes 80% of card height (flex: 8)
                                 Flexible(
                                   flex: 8,
-                                  child: FadeShimmer(
+                                  child: CardLoading(
                                     height: double.infinity,
                                     width: double.infinity,
-                                    radius: 8,
-                                    millisecondsDelay: 0,
-                                    fadeTheme: FadeTheme.light,
                                   ),
                                 ),
                                 // Text placeholder that takes 20% of card height (flex: 2)
                                 Flexible(
                                   flex: 2,
-                                  child: FadeShimmer(
+                                  child: CardLoading(
                                     height: double.infinity,
                                     width: double.infinity,
-                                    radius: 8,
-                                    millisecondsDelay: 50,
-                                    fadeTheme: FadeTheme.dark,
                                   ),
                                 ),
                               ],
@@ -810,12 +798,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                                 width: double.infinity,
                                                 height: double.infinity,
                                                 color: Colors.grey[700],
-                                                child: FadeShimmer(
-                                                  radius: 0,
-                                                  width: double.infinity,
+                                                child: CardLoading(
                                                   height: double.infinity,
-                                                  baseColor: Colors.grey[800]!,
-                                                  highlightColor: Colors.grey[600]!,
+                                                  width: double.infinity,
                                                 ),
                                               );
                                             },
