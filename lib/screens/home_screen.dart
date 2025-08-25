@@ -689,7 +689,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   flex: 8,
                                   child: Container(
                                     decoration: BoxDecoration(
-                                      color: Colors.grey[700],
+                                      color: Colors.grey[600], // Different color for image section
                                       borderRadius: const BorderRadius.vertical(
                                           top: Radius.circular(8)),
                                     ),
@@ -701,7 +701,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   child: Container(
                                     padding: const EdgeInsets.all(4),
                                     decoration: BoxDecoration(
-                                      color: Colors.grey[700],
+                                      color: Colors.grey[800], // Different color for text section
                                       borderRadius: const BorderRadius.vertical(
                                           bottom: Radius.circular(8)),
                                     ),
@@ -742,7 +742,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                     flex: 8,
                                     child: Container(
                                       decoration: BoxDecoration(
-                                        color: Colors.grey[700],
+                                        color: Colors.grey[600], // Different color for image section
                                         borderRadius: const BorderRadius.vertical(
                                             top: Radius.circular(8)),
                                       ),
@@ -754,7 +754,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                     child: Container(
                                       padding: const EdgeInsets.all(4),
                                       decoration: BoxDecoration(
-                                        color: Colors.grey[700],
+                                        color: Colors.grey[800], // Different color for text section
                                         borderRadius: const BorderRadius.vertical(
                                             bottom: Radius.circular(8)),
                                       ),
