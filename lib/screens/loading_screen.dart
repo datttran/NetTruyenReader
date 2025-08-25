@@ -12,7 +12,10 @@ class LoadingScreen extends StatefulWidget {
 
 class _LoadingScreenState extends State<LoadingScreen> with TickerProviderStateMixin {
   late AnimationController _animationController;
+  late AnimationController _pulseController;
   late Animation<double> _scaleAnimation;
+  late Animation<double> _pulseAnimation;
+  late Animation<double> _fadeAnimation;
   
   List<Comic> _comics = [];
 
@@ -20,22 +23,47 @@ class _LoadingScreenState extends State<LoadingScreen> with TickerProviderStateM
   void initState() {
     super.initState();
     
-    // Initialize single animation controller
+    // Initialize main animation controller
     _animationController = AnimationController(
-      duration: const Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 1200),
+      vsync: this,
+    );
+    
+    // Initialize zoom controller for smooth zoom in/out effect
+    _pulseController = AnimationController(
+      duration: const Duration(milliseconds: 1200),  // Smooth, gentle zoom
       vsync: this,
     );
     
     _scaleAnimation = Tween<double>(
-      begin: 0.8,
-      end: 1.0,
+      begin: 0.0,  // Start from invisible
+      end: 1.0,   // Scale to full size
     ).animate(CurvedAnimation(
       parent: _animationController,
-      curve: Curves.elasticOut,
+      curve: const Interval(0.0, 0.6, curve: Curves.easeOutBack),
     ));
     
-    // Start animation
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,  // Start invisible
+      end: 1.0,   // Fade to visible
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: const Interval(0.0, 0.8, curve: Curves.easeInOut),
+    ));
+    
+    _pulseAnimation = Tween<double>(
+      begin: 1.0,
+      end: 1.08,  // Subtle zoom up to 108%
+    ).animate(CurvedAnimation(
+      parent: _pulseController,
+      curve: Curves.easeInOut,  // Smooth for zoom in/out
+    ));
+    
+    // Start main animation
     _animationController.forward();
+    
+    // Start continuous zoom in/out animation
+    _pulseController.repeat(reverse: true);
     
     // Load comics in background while showing animation
     _loadComicsInBackground();
@@ -44,6 +72,7 @@ class _LoadingScreenState extends State<LoadingScreen> with TickerProviderStateM
   @override
   void dispose() {
     _animationController.dispose();
+    _pulseController.dispose();
     super.dispose();
   }
 
@@ -115,38 +144,43 @@ class _LoadingScreenState extends State<LoadingScreen> with TickerProviderStateM
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Logo with Hero animation
+              // Logo with zoom Hero animation
               Hero(
                 tag: 'app_logo',
                 child: AnimatedBuilder(
-                  animation: _animationController,
+                  animation: Listenable.merge([_animationController, _pulseController]),
                   builder: (context, child) {
                     return Transform.scale(
-                      scale: _scaleAnimation.value,
-                      child: Image.asset(
-                        'assets/images/logo.png',
-                        width: 200,
-                        height: 200,
-                        fit: BoxFit.contain,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Container(
-                            width: 200,
-                            height: 200,
-                            color: Colors.grey[800],
-                            child: const Center(
-                              child: Icon(
-                                Icons.auto_stories,
-                                size: 80,
-                                color: Colors.white,
+                      scale: _scaleAnimation.value * _pulseAnimation.value,
+                      child: Opacity(
+                        opacity: _fadeAnimation.value,
+                        child: Image.asset(
+                          'assets/images/logo.png',
+                          width: 200,
+                          height: 200,
+                          fit: BoxFit.contain,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              width: 200,
+                              height: 200,
+                              color: Colors.grey[800],
+                              child: const Center(
+                                child: Icon(
+                                  Icons.auto_stories,
+                                  size: 80,
+                                  color: Colors.white,
+                                ),
                               ),
-                            ),
-                          );
-                        },
+                            );
+                          },
+                        ),
                       ),
                     );
                   },
                 ),
               ),
+              
+
             ],
           ),
         ),

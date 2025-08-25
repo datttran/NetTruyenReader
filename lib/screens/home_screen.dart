@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:card_loading/card_loading.dart';
 import 'package:provider/provider.dart';
+import 'package:lottie/lottie.dart';
 import '../models/comic.dart';
 import '../services/nettruyen_service.dart';
 import '../constants/app_constants.dart';
@@ -23,7 +24,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   List<Comic> _allComics = []; // Changed from final
   List<Comic> _displayComics = []; // Changed from final
   List<Comic> _filteredComics = []; // Comics filtered by selected genre
@@ -56,9 +57,48 @@ class _HomeScreenState extends State<HomeScreen> {
   DateTime? _topComicsCacheTimestamp;
   static const Duration _topComicsCacheExpiry = Duration(minutes: 10);
 
+  // Logo animation variables
+  late AnimationController _logoAnimationController;
+  late Animation<double> _logoSlideAnimation;
+  late Animation<double> _logoBounceAnimation;
+  late Animation<double> _thunderAnimation;
+
   @override
   void initState() {
     super.initState();
+
+    // Initialize logo animations
+    _logoAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 1200),
+      vsync: this,
+    );
+
+    _logoSlideAnimation = Tween<double>(
+      begin: -100.0, // Start from above
+      end: 0.0,      // Slide to final position
+    ).animate(CurvedAnimation(
+      parent: _logoAnimationController,
+      curve: const Interval(0.0, 0.6, curve: Curves.easeOutBack),
+    ));
+
+    _logoBounceAnimation = Tween<double>(
+      begin: 0.0,
+      end: 20.0, // Bounce up by 20 pixels
+    ).animate(CurvedAnimation(
+      parent: _logoAnimationController,
+      curve: const Interval(0.6, 1.0, curve: Curves.elasticOut),
+    ));
+
+    _thunderAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _logoAnimationController,
+      curve: const Interval(0.9, 1.0, curve: Curves.easeInOut),
+    ));
+
+    // Start logo animation
+    _logoAnimationController.forward();
 
     // Use initial comics if provided, otherwise load them
     if (widget.initialComics != null && widget.initialComics!.isNotEmpty) {
@@ -467,6 +507,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void dispose() {
     _scrollController.dispose();
+    _logoAnimationController.dispose();
     super.dispose();
   }
 
@@ -578,6 +619,7 @@ class _HomeScreenState extends State<HomeScreen> {
             // App Bar that hides when scrolling up
             SliverAppBar(
               stretch: true,
+              
 
               // Always pinned - prevents image from disappearing
               expandedHeight: _getAppBarHeight(), // 20% of screen height
@@ -593,39 +635,87 @@ class _HomeScreenState extends State<HomeScreen> {
                           scale, // Scale container height with logo
 
                       child: Center(
-                        child: SizedBox(
-                          height: 30 *
-                              (scale *
-                                  2), // Scale logo height (x2 at 1.0, x4 at 2.0)
-                          width: 45 *
-                              (scale *
-                                  2), // Scale logo width (x2 at 1.0, x4 at 2.0)
-                          child: Hero(
-                            tag: 'app_logo',
-                            child: Image.asset(
-                              'assets/images/logo.png',
-                              fit: BoxFit.contain,
-                              errorBuilder: (context, error, stackTrace) {
-                                // Debug: Print error info
-                                print('Logo loading error: $error');
-                                print('Logo stack trace: $stackTrace');
-                                // Fallback to icon if logo fails to load
-                                return Icon(
-                                  Icons.auto_stories,
-                                  color: Colors.white,
-                                  size: 12 *
-                                      (scale *
-                                          2), // Scale fallback icon (x2 at 1.0, x4 at 2.0)
-                                );
-                              },
-                              frameBuilder: (context, child, frame,
-                                  wasSynchronouslyLoaded) {
-                                print(
-                                    'Logo frame loaded: frame=$frame, sync=$wasSynchronouslyLoaded');
-                                return child;
-                              },
-                            ),
-                          ),
+                        child: AnimatedBuilder(
+                          animation: _logoAnimationController,
+                          builder: (context, child) {
+                            // Combine slide and bounce animations
+                            final slideOffset = _logoSlideAnimation.value;
+                            final bounceOffset = _logoBounceAnimation.value;
+                            
+                            return Transform.translate(
+                              offset: Offset(0, slideOffset + bounceOffset),
+                              child: Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  // Logo as the base layer
+                                  SizedBox(
+                                    height: 30 *
+                                        (scale *
+                                            2), // Scale logo height (x2 at 1.0, x4 at 2.0)
+                                    width: 45 *
+                                        (scale *
+                                            2), // Scale logo width (x2 at 1.0, x4 at 2.0)
+                                    child: Hero(
+                                      tag: 'app_logo',
+                                      child: Image.asset(
+                                        'assets/images/logo.png',
+                                        fit: BoxFit.contain,
+                                        errorBuilder: (context, error, stackTrace) {
+                                          // Debug: Print error info
+                                          print('Logo loading error: $error');
+                                          print('Logo stack trace: $stackTrace');
+                                          // Fallback to icon if logo fails to load
+                                          return Icon(
+                                            Icons.auto_stories,
+                                            color: Colors.white,
+                                            size: 12 *
+                                                (scale *
+                                                    2), // Scale fallback icon (x2 at 1.0, x4 at 2.0)
+                                          );
+                                        },
+                                        frameBuilder: (context, child, frame,
+                                            wasSynchronouslyLoaded) {
+                                          print(
+                                              'Logo frame loaded: frame=$frame, sync=$wasSynchronouslyLoaded');
+                                          return child;
+                                        },
+                                      ),
+                                    ),
+                                  ),
+                                  
+                                  // Thunder animation overlaid on top of the logo
+                                  AnimatedOpacity(
+                                    opacity: _thunderAnimation.value,  // Fades in after logo finishes
+                                    duration: const Duration(milliseconds: 200),
+                                    child: Lottie.asset(
+                                      'assets/animations/YT.json',
+                                      width: 50 * scale,
+                                      height: 50 * scale,
+                                      repeat: true,
+                                      animate: true,
+                                      onLoaded: (composition) {
+                                        print('✅ Thunder Lottie animation loaded successfully!');
+                                        print('   - Duration: ${composition.duration}');
+                                        print('   - Frame rate: ${composition.frameRate}');
+                                        print('   - Bounds: ${composition.bounds}');
+                                      },
+                                      errorBuilder: (context, error, stackTrace) {
+                                        print('❌ Thunder Lottie animation failed to load:');
+                                        print('   - Error: $error');
+                                        print('   - Stack trace: $stackTrace');
+                                        // Fallback to static icon
+                                        return Icon(
+                                          Icons.flash_on,
+                                          color: Colors.yellow,
+                                          size: 20 * scale,
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
                         ),
                       ),
                     );
