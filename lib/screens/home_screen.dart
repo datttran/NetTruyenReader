@@ -689,20 +689,26 @@ class _HomeScreenState extends State<HomeScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              // Image placeholder that takes 80% of card height (flex: 8)
+                              // Image placeholder that takes 85% of card height (flex: 17)
                               Flexible(
-                                flex: 8,
-                                child: CardLoading(
-                                  height: double.infinity,
-                                  width: double.infinity,
+                                flex: 17,
+                                child: Container(
+                                  color: Colors.grey[300],
+                                  child: CardLoading(
+                                    height: double.infinity,
+                                    width: double.infinity,
+                                  ),
                                 ),
                               ),
-                              // Text placeholder that takes 20% of card height (flex: 2)
+                              // Text placeholder that takes 15% of card height (flex: 3)
                               Flexible(
-                                flex: 2,
-                                child: CardLoading(
-                                  height: double.infinity,
-                                  width: double.infinity,
+                                flex: 3,
+                                child: Container(
+                                  color: Colors.grey[600],
+                                  child: CardLoading(
+                                    height: double.infinity,
+                                    width: double.infinity,
+                                  ),
                                 ),
                               ),
                             ],
@@ -731,20 +737,26 @@ class _HomeScreenState extends State<HomeScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                // Image placeholder that takes 80% of card height (flex: 8)
+                                // Image placeholder that takes 85% of card height (flex: 17)
                                 Flexible(
-                                  flex: 8,
-                                  child: CardLoading(
-                                    height: double.infinity,
-                                    width: double.infinity,
+                                  flex: 17,
+                                  child: Container(
+                                    color: Colors.grey[300],
+                                    child: CardLoading(
+                                      height: double.infinity,
+                                      width: double.infinity,
+                                    ),
                                   ),
                                 ),
-                                // Text placeholder that takes 20% of card height (flex: 2)
+                                // Text placeholder that takes 15% of card height (flex: 3)
                                 Flexible(
-                                  flex: 2,
-                                  child: CardLoading(
-                                    height: double.infinity,
-                                    width: double.infinity,
+                                  flex: 3,
+                                  child: Container(
+                                    color: Colors.grey[600],
+                                    child: CardLoading(
+                                      height: double.infinity,
+                                      width: double.infinity,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -766,9 +778,9 @@ class _HomeScreenState extends State<HomeScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                // Image container that takes 80% of card height
+                                // Image container that takes 85% of card height
                                 Flexible(
-                                  flex: 8,
+                                  flex: 17,
                                   child: Stack(
                                     children: [
                                       // Main image with fixed dimensions
@@ -855,9 +867,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                     ],
                                   ),
                                 ),
-                                // Text section that takes 20% of card height
+                                // Text section that takes 15% of card height
                                 Flexible(
-                                  flex: 2,
+                                  flex: 3,
                                   child: Container(
                                     padding: const EdgeInsets.all(4),
                                     child: Center(
