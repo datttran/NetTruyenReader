@@ -675,7 +675,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: GridView.builder(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
-                      padding: const EdgeInsets.all(8),
+                      // Removed padding to match loaded grid spacing
                       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: crossAxisCount,
                         childAspectRatio: _calculateOptimalAspectRatio(),
