@@ -939,14 +939,15 @@ class _HomeScreenState extends State<HomeScreen> {
                                     flex: 3,
                                     child: Container(
                                       padding: const EdgeInsets.all(4),
-                                      decoration: BoxDecoration(
-                                        color: Theme.of(context).brightness == Brightness.dark
-                                            ? Colors.grey[800]                    // ← Dark theme: Dark grey background
-                                            : Colors.grey[100],                   // ← Light theme: Light grey background
-                                        borderRadius: BorderRadius.vertical(
-                                          bottom: Radius.circular(8),             // ← Match card's bottom radius
-                                        ),
+                                                                          decoration: BoxDecoration(
+                                      color: Theme.of(context).brightness == Brightness.dark
+                                          ? Colors.grey[800]                    // ← Dark theme: Dark grey background
+                                          : Colors.grey[100],                   // ← Light theme: Light grey background
+                                      borderRadius: const BorderRadius.only(
+                                        bottomLeft: Radius.circular(8),         // ← Bottom left corner
+                                        bottomRight: Radius.circular(8),        // ← Bottom right corner
                                       ),
+                                    ),
                                       child: Center(
                                         child: Consumer<FontProvider>(
                                           builder: (context, fontProvider, child) {
