@@ -683,7 +683,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
                                 color: Colors.black,
-                                width: 1.0,
+                                width: 2.0,
                               ),
                               gradient: const LinearGradient(
                                 begin: Alignment.topCenter,
@@ -696,7 +696,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               boxShadow: [
                                 BoxShadow(
                                   color: Colors.black,
-                                  offset: const Offset(2, 2),
+                                  offset: const Offset(4, 4),
                                   blurRadius: 0,      // No blur
                                   spreadRadius: 0,    // No spread
                                 ),
@@ -823,130 +823,147 @@ class _HomeScreenState extends State<HomeScreen> {
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            elevation: 4,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                // Image container that takes 85% of card height
-                                Flexible(
-                                  flex: 17,
-                                  child: Stack(
-                                    children: [
-                                      // Main image with fixed dimensions
-                                      Hero(
-                                        tag: comic.imageUrl,
-                                        child: ClipRRect(
-                                          borderRadius:
-                                              const BorderRadius.vertical(
-                                                  top: Radius.circular(8)),
-                                          child: CachedNetworkImage(
-                                            cacheManager: _thumbCacheManager,
-                                            imageUrl: comic.imageUrl,
-                                            httpHeaders: {
-                                              'Referer':
-                                                  _getCurrentDomainForHeaders()
-                                            },
-                                            imageBuilder: (ctx, provider) {
-                                              return Image(
-                                                image: provider,
-                                                fit: BoxFit.cover,
-                                                width: double.infinity,
-                                                height: double.infinity,
-                                              );
-                                            },
-                                            placeholder: (ctx, url) {
-                                              return Container(
-                                                width: double.infinity,
-                                                height: double.infinity,
-                                                color: Colors.grey[700],
-                                                child: CardLoading(
-                                                  height: double.infinity,
+                            elevation: 0,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: Colors.black,
+                                  width: 2.0,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black,
+                                    offset: const Offset(4, 4),
+                                    blurRadius: 0,      // No blur
+                                    spreadRadius: 0,    // No spread
+                                  ),
+                                ],
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  // Image container that takes 85% of card height
+                                  Flexible(
+                                    flex: 17,
+                                    child: Stack(
+                                      children: [
+                                        // Main image with fixed dimensions
+                                        Hero(
+                                          tag: comic.imageUrl,
+                                          child: ClipRRect(
+                                            borderRadius:
+                                                const BorderRadius.vertical(
+                                                    top: Radius.circular(8)),
+                                            child: CachedNetworkImage(
+                                              cacheManager: _thumbCacheManager,
+                                              imageUrl: comic.imageUrl,
+                                              httpHeaders: {
+                                                'Referer':
+                                                    _getCurrentDomainForHeaders()
+                                              },
+                                              imageBuilder: (ctx, provider) {
+                                                return Image(
+                                                  image: provider,
+                                                  fit: BoxFit.cover,
                                                   width: double.infinity,
-                                                ),
-                                              );
-                                            },
-                                            errorWidget: (ctx, url, error) {
-                                              WidgetsBinding.instance
-                                                  .addPostFrameCallback((_) {
-                                                _onThumbnailFailed(url);
-                                              });
-                                              return Container(
-                                                width: double.infinity,
-                                                height: double.infinity,
-                                                color: Colors.grey[700],
-                                                child: const Center(
-                                                    child: Icon(
-                                                        Icons.broken_image,
-                                                        size: 40)),
-                                              );
-                                            },
-                                          ),
-                                        ),
-                                      ),
-                                      // Chapter number badge on top left (shows Ch. prefix)
-                                      if (comic.chapterCount != null)
-                                        Positioned(
-                                          top: 8,
-                                          left: 8,
-                                          child: Container(
-                                            padding: const EdgeInsets.symmetric(
-                                                horizontal: 6, vertical: 2),
-                                            decoration: BoxDecoration(
-                                              color:
-                                                  Colors.red.withValues(alpha: 0.9),
-                                              borderRadius:
-                                                  BorderRadius.circular(10),
-                                            ),
-                                            child: Consumer<FontProvider>(
-                                              builder: (context, fontProvider,
-                                                  child) {
-                                                return Text(
-                                                  'Ch.${comic.chapterCount}',
-                                                  style: fontProvider
-                                                      .getScaledTextStyle(
-                                                    fontSize: 8,
-                                                    fontWeight: FontWeight.bold,
-                                                    color: Colors.white,
+                                                  height: double.infinity,
+                                                );
+                                              },
+                                              placeholder: (ctx, url) {
+                                                return Container(
+                                                  width: double.infinity,
+                                                  height: double.infinity,
+                                                  color: Colors.grey[700],
+                                                  child: CardLoading(
+                                                    height: double.infinity,
+                                                    width: double.infinity,
                                                   ),
+                                                );
+                                              },
+                                              errorWidget: (ctx, url, error) {
+                                                WidgetsBinding.instance
+                                                    .addPostFrameCallback((_) {
+                                                  _onThumbnailFailed(url);
+                                                });
+                                                return Container(
+                                                  width: double.infinity,
+                                                  height: double.infinity,
+                                                  color: Colors.grey[700],
+                                                  child: const Center(
+                                                      child: Icon(
+                                                          Icons.broken_image,
+                                                          size: 40)),
                                                 );
                                               },
                                             ),
                                           ),
                                         ),
-                                    ],
-                                  ),
-                                ),
-                                // Text section that takes 15% of card height
-                                Flexible(
-                                  flex: 3,
-                                  child: Container(
-                                    padding: const EdgeInsets.all(4),
-                                    child: Center(
-                                      child: Consumer<FontProvider>(
-                                        builder: (context, fontProvider, child) {
-                                          return Text(
-                                            _cleanTitle(comic.title),
-                                            style:
-                                                fontProvider.getScaledTextStyle(
-                                              fontSize: 12,
-                                              color:
-                                                  Theme.of(context).brightness ==
-                                                          Brightness.dark
-                                                      ? Colors.white
-                                                      : Theme.of(context)
-                                                          .colorScheme
-                                                          .onSurface,
+                                        // Chapter number badge on top left (shows Ch. prefix)
+                                        if (comic.chapterCount != null)
+                                          Positioned(
+                                            top: 8,
+                                            left: 8,
+                                            child: Container(
+                                              padding: const EdgeInsets.symmetric(
+                                                  horizontal: 6, vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color:
+                                                    Colors.red.withValues(alpha: 0.9),
+                                                borderRadius:
+                                                    BorderRadius.circular(10),
+                                              ),
+                                              child: Consumer<FontProvider>(
+                                                builder: (context, fontProvider,
+                                                    child) {
+                                                  return Text(
+                                                    'Ch.${comic.chapterCount}',
+                                                    style: fontProvider
+                                                        .getScaledTextStyle(
+                                                      fontSize: 8,
+                                                      fontWeight: FontWeight.bold,
+                                                      color: Colors.white,
+                                                    ),
+                                                  );
+                                                },
+                                              ),
                                             ),
-                                            maxLines: 2,
-                                            overflow: TextOverflow.ellipsis,
-                                            textAlign: TextAlign.center,
-                                          );
-                                        },
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                  // Text section that takes 15% of card height
+                                  Flexible(
+                                    flex: 3,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(4),
+                                      child: Center(
+                                        child: Consumer<FontProvider>(
+                                          builder: (context, fontProvider, child) {
+                                            return Text(
+                                              _cleanTitle(comic.title),
+                                              style:
+                                                  fontProvider.getScaledTextStyle(
+                                                fontSize: 12,
+                                                color:
+                                                    Theme.of(context).brightness ==
+                                                            Brightness.dark
+                                                        ? Colors.white
+                                                        : Theme.of(context)
+                                                            .colorScheme
+                                                            .onSurface,
+                                              ),
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                              textAlign: TextAlign.center,
+                                            );
+                                          },
+                                        ),
                                       ),
                                     ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         );
