@@ -452,23 +452,36 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (context, fontProvider, child) {
         return Padding(
           padding: const EdgeInsets.only(right: 8),
-          child: ActionChip(
-            label: Text(genreName),
-            onPressed: () {
-              if (genreName == 'Phổ biến') {
-                _showAllComics();
-              } else {
-                _filterByGenre(genreName, genrePath);
-              }
-            },
-            backgroundColor: isSelected
-                ? ThemeConstants.netflixRed
-                : ThemeConstants.netflixRed.withValues(
-                    alpha: 0.1), // Use withValues instead of withOpacity
-            labelStyle: fontProvider.getScaledTextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: isSelected ? Colors.white : ThemeConstants.netflixRed,
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20), // Match ActionChip's default radius
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black,
+                  offset: const Offset(2, 2),
+                  blurRadius: 0,      // No blur
+                  spreadRadius: 0,    // No spread
+                ),
+              ],
+            ),
+            child: ActionChip(
+              label: Text(genreName),
+              onPressed: () {
+                if (genreName == 'Phổ biến') {
+                  _showAllComics();
+                } else {
+                  _filterByGenre(genreName, genrePath);
+                }
+              },
+              backgroundColor: isSelected
+                  ? ThemeConstants.netflixRed
+                  : ThemeConstants.netflixRed.withValues(
+                      alpha: 0.1), // Use withValues instead of withOpacity
+              labelStyle: fontProvider.getScaledTextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: isSelected ? Colors.white : ThemeConstants.netflixRed,
+              ),
             ),
           ),
         );
@@ -938,7 +951,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                   Flexible(
                                     flex: 3,
                                     child: Container(
-                                      padding: const EdgeInsets.all(4),
+                                      width: double.infinity,
+                                      //padding: const EdgeInsets.all(4),
                                                                           decoration: BoxDecoration(
                                       color: Theme.of(context).brightness == Brightness.dark
                                           ? Colors.grey[800]                    // ← Dark theme: Dark grey background
