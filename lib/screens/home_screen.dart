@@ -695,7 +695,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 child: Container(
                                   color: Colors.grey[300],
                                   child: CardLoading(
-                                    height: double.infinity,
+                                    height: 200, // Fixed height instead of double.infinity
                                     width: double.infinity,
                                   ),
                                 ),
@@ -704,9 +704,9 @@ class _HomeScreenState extends State<HomeScreen> {
                               Flexible(
                                 flex: 3,
                                 child: Container(
-                                  color: Colors.grey[600],
+                                  color: Colors.white,
                                   child: CardLoading(
-                                    height: double.infinity,
+                                    height: 35, // Fixed height instead of double.infinity
                                     width: double.infinity,
                                   ),
                                 ),
@@ -743,7 +743,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   child: Container(
                                     color: Colors.grey[300],
                                     child: CardLoading(
-                                      height: double.infinity,
+                                      height: 200, // Fixed height instead of double.infinity
                                       width: double.infinity,
                                     ),
                                   ),
@@ -754,7 +754,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   child: Container(
                                     color: Colors.grey[600],
                                     child: CardLoading(
-                                      height: double.infinity,
+                                      height: 35, // Fixed height instead of double.infinity
                                       width: double.infinity,
                                     ),
                                   ),
