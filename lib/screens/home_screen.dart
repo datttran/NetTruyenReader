@@ -3,7 +3,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
-import 'package:shimmer/shimmer.dart';
+import 'package:fade_shimmer/fade_shimmer.dart';
 import 'package:provider/provider.dart';
 import '../models/comic.dart';
 import '../services/nettruyen_service.dart';
@@ -684,24 +684,23 @@ class _HomeScreenState extends State<HomeScreen> {
                               // Image placeholder that takes 80% of card height (flex: 8)
                               Flexible(
                                 flex: 8,
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: Colors.white, // White for image section
-                                    borderRadius: const BorderRadius.vertical(
-                                        top: Radius.circular(8)),
-                                  ),
+                                child: FadeShimmer(
+                                  radius: 8,
+                                  width: double.infinity,
+                                  height: double.infinity,
+                                  baseColor: Colors.white,
+                                  highlightColor: Colors.grey[300]!,
                                 ),
                               ),
                               // Text placeholder that takes 20% of card height (flex: 2)
                               Flexible(
                                 flex: 2,
-                                child: Container(
-                                  padding: const EdgeInsets.all(4),
-                                  decoration: BoxDecoration(
-                                    color: Colors.black, // Black for text section
-                                    borderRadius: const BorderRadius.vertical(
-                                        bottom: Radius.circular(8)),
-                                  ),
+                                child: FadeShimmer(
+                                  radius: 8,
+                                  width: double.infinity,
+                                  height: double.infinity,
+                                  baseColor: Colors.black,
+                                  highlightColor: Colors.grey[700]!,
                                 ),
                               ),
                             ],
@@ -733,24 +732,23 @@ class _HomeScreenState extends State<HomeScreen> {
                                 // Image placeholder that takes 80% of card height (flex: 8)
                                 Flexible(
                                   flex: 8,
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      color: Colors.white, // White for image section
-                                      borderRadius: const BorderRadius.vertical(
-                                          top: Radius.circular(8)),
-                                    ),
+                                  child: FadeShimmer(
+                                    radius: 8,
+                                    width: double.infinity,
+                                    height: double.infinity,
+                                    baseColor: Colors.white,
+                                    highlightColor: Colors.grey[300]!,
                                   ),
                                 ),
                                 // Text placeholder that takes 20% of card height (flex: 2)
                                 Flexible(
                                   flex: 2,
-                                  child: Container(
-                                    padding: const EdgeInsets.all(4),
-                                    decoration: BoxDecoration(
-                                      color: Colors.black, // Black for text section
-                                      borderRadius: const BorderRadius.vertical(
-                                          bottom: Radius.circular(8)),
-                                    ),
+                                  child: FadeShimmer(
+                                    radius: 8,
+                                    width: double.infinity,
+                                    height: double.infinity,
+                                    baseColor: Colors.black,
+                                    highlightColor: Colors.grey[700]!,
                                   ),
                                 ),
                               ],
@@ -804,12 +802,12 @@ class _HomeScreenState extends State<HomeScreen> {
                                                 width: double.infinity,
                                                 height: double.infinity,
                                                 color: Colors.grey[700],
-                                                child: Shimmer.fromColors(
+                                                child: FadeShimmer(
+                                                  radius: 0,
+                                                  width: double.infinity,
+                                                  height: double.infinity,
                                                   baseColor: Colors.grey[800]!,
-                                                  highlightColor:
-                                                      Colors.grey[600]!,
-                                                  child: Container(
-                                                      color: Colors.grey[700]),
+                                                  highlightColor: Colors.grey[600]!,
                                                 ),
                                               );
                                             },
