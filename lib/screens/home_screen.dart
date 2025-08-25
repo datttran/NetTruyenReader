@@ -678,9 +678,55 @@ class _HomeScreenState extends State<HomeScreen> {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: Shimmer.fromColors(
-                            baseColor: Colors.grey[800]!,
-                            highlightColor: Colors.grey[600]!,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              // Image placeholder that takes 80% of card height (flex: 8)
+                              Flexible(
+                                flex: 8,
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.white, // White for image section
+                                    borderRadius: const BorderRadius.vertical(
+                                        top: Radius.circular(8)),
+                                  ),
+                                ),
+                              ),
+                              // Text placeholder that takes 20% of card height (flex: 2)
+                              Flexible(
+                                flex: 2,
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black, // Black for text section
+                                    borderRadius: const BorderRadius.vertical(
+                                        bottom: Radius.circular(8)),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                      childCount: _isLoading ? 6 : _displayComics.length,
+                    ),
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: crossAxisCount,
+                      childAspectRatio: _calculateOptimalAspectRatio(),
+                      crossAxisSpacing: AppConstants.GRID_SPACING,
+                      mainAxisSpacing: AppConstants.GRID_SPACING,
+                    ),
+                  );
+                } else {
+                  // Loaded comics grid
+                  return SliverGrid(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        if (index >= _displayComics.length) {
+                          return Card(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
@@ -708,60 +754,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ),
                                 ),
                               ],
-                            ),
-                          ),
-                        );
-                      },
-                      childCount: _isLoading ? 6 : _displayComics.length,
-                    ),
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: crossAxisCount,
-                      childAspectRatio: _calculateOptimalAspectRatio(),
-                      crossAxisSpacing: AppConstants.GRID_SPACING,
-                      mainAxisSpacing: AppConstants.GRID_SPACING,
-                    ),
-                  );
-                } else {
-                  // Loaded comics grid
-                  return SliverGrid(
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                        if (index >= _displayComics.length) {
-                          return Card(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Shimmer.fromColors(
-                              baseColor: Colors.grey[800]!,
-                              highlightColor: Colors.grey[600]!,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  // Image placeholder that takes 80% of card height (flex: 8)
-                                  Flexible(
-                                    flex: 8,
-                                    child: Container(
-                                      decoration: BoxDecoration(
-                                        color: Colors.white, // White for image section
-                                        borderRadius: const BorderRadius.vertical(
-                                            top: Radius.circular(8)),
-                                      ),
-                                    ),
-                                  ),
-                                  // Text placeholder that takes 20% of card height (flex: 2)
-                                  Flexible(
-                                    flex: 2,
-                                    child: Container(
-                                      padding: const EdgeInsets.all(4),
-                                      decoration: BoxDecoration(
-                                        color: Colors.black, // Black for text section
-                                        borderRadius: const BorderRadius.vertical(
-                                            bottom: Radius.circular(8)),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
                             ),
                           );
                         }
