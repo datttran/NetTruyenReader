@@ -694,13 +694,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                 flex: 17,
                                 child: Container(
                                   color: Colors.grey[300],
-                                  child: LayoutBuilder(
-                                    builder: (context, constraints) {
-                                      return CardLoading(
-                                        height: constraints.maxHeight,
-                                        width: double.infinity,
-                                      );
-                                    },
+                                  child: CardLoading(
+                                    height: double.infinity,
+                                    width: double.infinity,
                                   ),
                                 ),
                               ),
@@ -709,13 +705,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                 flex: 3,
                                 child: Container(
                                   color: Colors.white,
-                                  child: LayoutBuilder(
-                                    builder: (context, constraints) {
-                                      return CardLoading(
-                                        height: constraints.maxHeight,
-                                        width: double.infinity,
-                                      );
-                                    },
+                                  child: CardLoading(
+                                    height: double.infinity,
+                                    width: double.infinity,
                                   ),
                                 ),
                               ),
@@ -723,7 +715,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         );
                       },
-                      childCount: _isLoading ? 6 : _displayComics.length,
+                      childCount: 6,
                     ),
                     gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: crossAxisCount,
