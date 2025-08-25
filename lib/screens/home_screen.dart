@@ -682,8 +682,11 @@ class _HomeScreenState extends State<HomeScreen> {
                             baseColor: Colors.grey[800]!,
                             highlightColor: Colors.grey[600]!,
                             child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                Expanded(
+                                // Image placeholder that takes 80% of card height (flex: 8)
+                                Flexible(
+                                  flex: 8,
                                   child: Container(
                                     decoration: BoxDecoration(
                                       color: Colors.grey[700],
@@ -692,12 +695,16 @@ class _HomeScreenState extends State<HomeScreen> {
                                     ),
                                   ),
                                 ),
-                                Container(
-                                  height: 16,
-                                  margin: const EdgeInsets.all(4),
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey[700],
-                                    borderRadius: BorderRadius.circular(4),
+                                // Text placeholder that takes 20% of card height (flex: 2)
+                                Flexible(
+                                  flex: 2,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey[700],
+                                      borderRadius: const BorderRadius.vertical(
+                                          bottom: Radius.circular(8)),
+                                    ),
                                   ),
                                 ),
                               ],
@@ -728,8 +735,11 @@ class _HomeScreenState extends State<HomeScreen> {
                               baseColor: Colors.grey[800]!,
                               highlightColor: Colors.grey[600]!,
                               child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
-                                  Expanded(
+                                  // Image placeholder that takes 80% of card height (flex: 8)
+                                  Flexible(
+                                    flex: 8,
                                     child: Container(
                                       decoration: BoxDecoration(
                                         color: Colors.grey[700],
@@ -738,12 +748,16 @@ class _HomeScreenState extends State<HomeScreen> {
                                       ),
                                     ),
                                   ),
-                                  Container(
-                                    height: 16,
-                                    margin: const EdgeInsets.all(4),
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey[700],
-                                      borderRadius: BorderRadius.circular(4),
+                                  // Text placeholder that takes 20% of card height (flex: 2)
+                                  Flexible(
+                                    flex: 2,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(4),
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey[700],
+                                        borderRadius: const BorderRadius.vertical(
+                                            bottom: Radius.circular(8)),
+                                      ),
                                     ),
                                   ),
                                 ],
