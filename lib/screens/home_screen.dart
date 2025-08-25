@@ -453,11 +453,13 @@ class _HomeScreenState extends State<HomeScreen> {
         return Padding(
           padding: const EdgeInsets.only(right: 8),
           child: Material(
-            elevation: 2,
+            color: Colors.transparent,  // Make Material transparent
+            elevation: 4,
             shadowColor: Colors.black,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(8),
             child: ActionChip(
-              elevation: 0,  // Remove ActionChip's built-in elevation
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), // Control padding explicitly
+
               label: Text(genreName),
               onPressed: () {
                 if (genreName == 'Phổ biến') {
