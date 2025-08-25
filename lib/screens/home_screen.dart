@@ -694,9 +694,13 @@ class _HomeScreenState extends State<HomeScreen> {
                                 flex: 17,
                                 child: Container(
                                   color: Colors.grey[300],
-                                  child: CardLoading(
-                                    height: 200, // Fixed height instead of double.infinity
-                                    width: double.infinity,
+                                  child: LayoutBuilder(
+                                    builder: (context, constraints) {
+                                      return CardLoading(
+                                        height: constraints.maxHeight,
+                                        width: double.infinity,
+                                      );
+                                    },
                                   ),
                                 ),
                               ),
@@ -705,9 +709,13 @@ class _HomeScreenState extends State<HomeScreen> {
                                 flex: 3,
                                 child: Container(
                                   color: Colors.white,
-                                  child: CardLoading(
-                                    height: 35, // Fixed height instead of double.infinity
-                                    width: double.infinity,
+                                  child: LayoutBuilder(
+                                    builder: (context, constraints) {
+                                      return CardLoading(
+                                        height: constraints.maxHeight,
+                                        width: double.infinity,
+                                      );
+                                    },
                                   ),
                                 ),
                               ),
@@ -742,9 +750,13 @@ class _HomeScreenState extends State<HomeScreen> {
                                   flex: 17,
                                   child: Container(
                                     color: Colors.grey[300],
-                                    child: CardLoading(
-                                      height: 200, // Fixed height instead of double.infinity
-                                      width: double.infinity,
+                                    child: LayoutBuilder(
+                                      builder: (context, constraints) {
+                                        return CardLoading(
+                                          height: constraints.maxHeight,
+                                          width: double.infinity,
+                                        );
+                                      },
                                     ),
                                   ),
                                 ),
@@ -753,9 +765,13 @@ class _HomeScreenState extends State<HomeScreen> {
                                   flex: 3,
                                   child: Container(
                                     color: Colors.grey[600],
-                                    child: CardLoading(
-                                      height: 35, // Fixed height instead of double.infinity
-                                      width: double.infinity,
+                                    child: LayoutBuilder(
+                                      builder: (context, constraints) {
+                                        return CardLoading(
+                                          height: constraints.maxHeight,
+                                          width: double.infinity,
+                                        );
+                                      },
                                     ),
                                   ),
                                 ),
