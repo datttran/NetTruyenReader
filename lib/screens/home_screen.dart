@@ -484,9 +484,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   fontWeight: FontWeight.w500,
                   color: isSelected ? Colors.white : ThemeConstants.netflixRed,
                 ),
-              ), // ActionChip
-            ), // ClipRRect
-          ), // DecoratedBox
+              ),
+            ),
+          ),
         ),
       ),
     );
