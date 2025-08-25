@@ -200,9 +200,6 @@ class _HomeScreenState extends State<HomeScreen> {
       // Show first page of filtered comics - simple and fast
       final newItems = _filteredComics.take(_pageSize).toList();
       
-      // Add a small delay to make shimmer effect visible
-      await Future.delayed(const Duration(milliseconds: 800));
-      
       setState(() {
         _displayComics = newItems;
         _hasMore = _filteredComics.length > _pageSize;
@@ -255,9 +252,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
     // Show first page of popular comics - simple and fast
     final newItems = _allComics.take(_pageSize).toList();
-    
-    // Add a small delay to make shimmer effect visible
-    await Future.delayed(const Duration(milliseconds: 800));
     
     setState(() {
       _displayComics = newItems;
