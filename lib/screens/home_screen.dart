@@ -50,6 +50,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // Popular comics caching
   static const String _popularCacheKey = 'popular';
+  
+  // Top comics caching
+  List<Comic> _topComics = [];
+  DateTime? _topComicsCacheTimestamp;
+  static const Duration _topComicsCacheExpiry = Duration(minutes: 10);
 
   @override
   void initState() {
@@ -78,6 +83,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     // Clear expired cache entries on app start
     _clearExpiredCache();
+    _clearExpiredTopComicsCache();
   }
 
   /// CRITICAL: DO NOT CHANGE THIS METHOD! This method initializes the last used domain
@@ -416,8 +422,28 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  /// Clear expired top comics cache
+  void _clearExpiredTopComicsCache() {
+    if (_topComicsCacheTimestamp != null) {
+      final now = DateTime.now();
+      if (now.difference(_topComicsCacheTimestamp!) >= _topComicsCacheExpiry) {
+        _topComics.clear();
+        _topComicsCacheTimestamp = null;
+      }
+    }
+  }
+
+  /// Clear top comics cache manually
+  void _clearTopComicsCache() {
+    _topComics.clear();
+    _topComicsCacheTimestamp = null;
+  }
+
   /// Refresh content (pull to refresh)
   Future<void> _onRefresh() async {
+    // Clear top comics cache on refresh
+    _clearTopComicsCache();
+    
     if (_isFilteringByGenre) {
       // Refresh filtered comics (clear cache and re-fetch)
       _clearGenreCache(_selectedGenrePath!);
@@ -444,7 +470,33 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
-  /// Build a genre chip with proper styling
+  /// Get the appropriate icon for a genre
+  IconData _getGenreIcon(String genreName) {
+    switch (genreName) {
+      case 'Phổ biến':
+        return Icons.trending_up;
+      case 'Action':
+        return Icons.flash_on;
+      case 'Comedy':
+        return Icons.sentiment_satisfied;
+      case 'Drama':
+        return Icons.theater_comedy;
+      case 'Romance':
+        return Icons.favorite;
+      case 'Fantasy':
+        return Icons.auto_awesome;
+      case 'Adventure':
+        return Icons.explore;
+      case 'Slice of Life':
+        return Icons.home;
+      case 'Psychological':
+        return Icons.psychology;
+      default:
+        return Icons.category;
+    }
+  }
+
+  /// Build a genre chip with proper styling and icon
   Widget _buildGenreChip(String genreName, String genrePath) {
     final isSelected = _selectedGenre == genreName;
 
@@ -453,10 +505,7 @@ class _HomeScreenState extends State<HomeScreen> {
         return Padding(
           padding: const EdgeInsets.all(8.0),
           child: DecoratedBox(
-
             decoration: BoxDecoration(
-
-
               borderRadius: BorderRadius.circular(8),
               boxShadow: [
                 BoxShadow(
@@ -467,40 +516,51 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ],
             ),
-                          child: ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: InkWell(
+            child: ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              onTap: () {
-                if (genreName == 'Phổ biến') {
-                  _showAllComics();
-                } else {
-                  _filterByGenre(genreName, genrePath);
-                }
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? ThemeConstants.netflixRed
-                      : ThemeConstants.netflixWhite,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: Colors.black,
-                    width: 2.0,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: () {
+                  if (genreName == 'Phổ biến') {
+                    _showAllComics();
+                  } else {
+                    _filterByGenre(genreName, genrePath);
+                  }
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? ThemeConstants.netflixRed
+                        : ThemeConstants.netflixWhite,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: Colors.black,
+                      width: 2.0,
+                    ),
                   ),
-                ),
-                child: Text(
-                  genreName,
-                  style: fontProvider.getScaledTextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: isSelected ? Colors.white : ThemeConstants.netflixRed,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        _getGenreIcon(genreName),
+                        size: 16 * fontProvider.fontScale,
+                        color: isSelected ? Colors.white : ThemeConstants.netflixRed,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        genreName,
+                        style: fontProvider.getScaledTextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: isSelected ? Colors.white : ThemeConstants.netflixRed,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
             ),
-          ),
           ),
         );
       },
@@ -612,6 +672,66 @@ class _HomeScreenState extends State<HomeScreen> {
                   },
                 ),
               ],
+            ),
+            // Top Comics Section
+            SliverToBoxAdapter(
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: Consumer<FontProvider>(
+                        builder: (context, fontProvider, child) {
+                          return Row(
+                            children: [
+                              Icon(
+                                Icons.flash_on,
+                                color: Colors.yellow,
+                                size: 24 * fontProvider.fontScale,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Truyện Nổi Bật',
+                                style: fontProvider.getScaledTextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Consumer<FontProvider>(
+                      builder: (context, fontProvider, child) {
+                        final scale = fontProvider.fontScale;
+                        final cardHeight = 200 * scale; // Scale card height with font scale
+                        
+                        return SizedBox(
+                          height: cardHeight,
+                          child: FutureBuilder<List<Comic>>(
+                            future: _fetchTopComics(),
+                            builder: (context, snapshot) {
+                              if (snapshot.connectionState == ConnectionState.waiting) {
+                                return _buildTopComicsLoading();
+                              } else if (snapshot.hasError) {
+                                return _buildTopComicsError();
+                              } else if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+                                return _buildTopComicsList(snapshot.data!, scale);
+                              } else {
+                                return _buildTopComicsEmpty();
+                              }
+                            },
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
             ),
             // Popular Genres Section
             SliverToBoxAdapter(
@@ -1335,6 +1455,338 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  /// Fetch top comics from the specified URL with caching
+  Future<List<Comic>> _fetchTopComics() async {
+    // Check if cache is valid
+    if (_topComics.isNotEmpty && _topComicsCacheTimestamp != null) {
+      final now = DateTime.now();
+      if (now.difference(_topComicsCacheTimestamp!) < _topComicsCacheExpiry) {
+        return _topComics; // Return cached data
+      }
+    }
+    
+    // Fetch fresh data if cache is expired or empty
+    try {
+      final url = 'https://nettruyenvia.com/tim-truyen?status=&sort=10';
+      final response = await NetTruyenService().fetchComicsFromUrl(url);
+      
+      if (response.isNotEmpty) {
+        _topComics = response.take(10).toList();
+        _topComicsCacheTimestamp = DateTime.now();
+        return _topComics;
+      }
+      return [];
+    } catch (e) {
+      print('Error fetching top comics: $e');
+      // Return cached data if available, otherwise empty list
+      return _topComics.isNotEmpty ? _topComics : [];
+    }
+  }
+
+  /// Build loading state for top comics
+  Widget _buildTopComicsLoading() {
+    return ListView.builder(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      itemCount: 5, // Show 5 loading cards
+      itemBuilder: (context, index) {
+        return Container(
+          width: 120,
+          margin: const EdgeInsets.only(right: 12),
+          child: Card(
+            elevation: 0,
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: Colors.black,
+                  width: 2.0,
+                ),
+                gradient: const LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.grey,
+                    Color(0xFFE0E0E0),
+                  ],
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black,
+                    offset: const Offset(4, 4),
+                    blurRadius: 0,
+                    spreadRadius: 0,
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Image placeholder
+                  Flexible(
+                    flex: 3,
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFF5F5F5),
+                        borderRadius: BorderRadius.vertical(
+                          top: Radius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ),
+                  // Text placeholder
+                  Flexible(
+                    flex: 1,
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        borderRadius: const BorderRadius.vertical(
+                          bottom: Radius.circular(8),
+                        ),
+                      ),
+                      child: Container(
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: Colors.grey[300],
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  /// Build error state for top comics
+  Widget _buildTopComicsError() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.error_outline,
+            size: 48,
+            color: Colors.grey[600],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Không thể tải truyện nổi bật',
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontSize: 14,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Build empty state for top comics
+  Widget _buildTopComicsEmpty() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.inbox_outlined,
+            size: 48,
+            color: Colors.grey[600],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Không có truyện nổi bật',
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontSize: 14,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Build horizontal list of top comics with scaling
+  Widget _buildTopComicsList(List<Comic> comics, double scale) {
+    final cardWidth = 120 * scale; // Scale card width with font scale
+    
+    return ListView.builder(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      itemCount: comics.length,
+      itemBuilder: (context, index) {
+        final comic = comics[index];
+        return Container(
+          width: cardWidth,
+          margin: const EdgeInsets.only(right: 12),
+          child: GestureDetector(
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => DetailScreen(comic: comic),
+              ),
+            ),
+            child: Card(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              elevation: 0,
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: Colors.black,
+                    width: 2.0,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black,
+                      offset: const Offset(4, 4),
+                      blurRadius: 0, // No blur
+                      spreadRadius: 0, // No spread
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Image container that takes 85% of card height
+                    Flexible(
+                      flex: 17,
+                      child: Stack(
+                        children: [
+                          // Main image with fixed dimensions
+                          Hero(
+                            tag: comic.imageUrl,
+                            child: ClipRRect(
+                              borderRadius: const BorderRadius.vertical(
+                                top: Radius.circular(6),
+                              ),
+                              child: CachedNetworkImage(
+                                cacheManager: _thumbCacheManager,
+                                imageUrl: comic.imageUrl,
+                                httpHeaders: {
+                                  'Referer': _getCurrentDomainForHeaders()
+                                },
+                                imageBuilder: (ctx, provider) {
+                                  return Image(
+                                    image: provider,
+                                    fit: BoxFit.cover,
+                                    width: double.infinity,
+                                    height: double.infinity,
+                                  );
+                                },
+                                placeholder: (ctx, url) {
+                                  return Container(
+                                    width: double.infinity,
+                                    height: double.infinity,
+                                    color: Colors.grey[700],
+                                    child: CardLoading(
+                                      height: double.infinity,
+                                      width: double.infinity,
+                                    ),
+                                  );
+                                },
+                                errorWidget: (ctx, url, error) {
+                                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                                    _onThumbnailFailed(url);
+                                  });
+                                  return Container(
+                                    width: double.infinity,
+                                    height: double.infinity,
+                                    color: Colors.grey[700],
+                                    child: const Center(
+                                      child: Icon(
+                                        Icons.broken_image,
+                                        size: 40,
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                          // Chapter number badge on top left (shows Ch. prefix)
+                          if (comic.chapterCount != null)
+                            Positioned(
+                              top: 8,
+                              left: 8,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.red.withValues(alpha: 0.9),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Consumer<FontProvider>(
+                                  builder: (context, fontProvider, child) {
+                                    return Text(
+                                      'Ch.${comic.chapterCount}',
+                                      style: fontProvider.getScaledTextStyle(
+                                        fontSize: 8,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    // Text section that takes 15% of card height
+                    Flexible(
+                      flex: 3,
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? ThemeConstants.netflixDarkGray
+                              : Colors.grey[100],
+                          borderRadius: const BorderRadius.only(
+                            bottomLeft: Radius.circular(6),
+                            bottomRight: Radius.circular(6),
+                          ),
+                        ),
+                        child: Center(
+                          child: Consumer<FontProvider>(
+                            builder: (context, fontProvider, child) {
+                              return Text(
+                                _cleanTitle(comic.title),
+                                style: fontProvider.getScaledTextStyle(
+                                  fontSize: 12,
+                                  color: Theme.of(context).brightness == Brightness.dark
+                                      ? Colors.white
+                                      : Theme.of(context).colorScheme.onSurface,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.center,
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
