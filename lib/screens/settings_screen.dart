@@ -414,67 +414,52 @@ class _SettingsScreenState extends State<SettingsScreen> {
               },
             ),
 
-            // Font Scale Slider
+            // Font Scale Dropdown (replacing the slider)
             Consumer<FontProvider>(
               builder: (context, fontProvider, child) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    ListTile(
-                      title: Text(
-                        'App Scaling',
-                        style: fontProvider.getScaledTextStyle(fontSize: 16),
+                // Ensure the current scale is one of the valid options
+                final currentScale = fontProvider.fontScale;
+                final validScales = [1.0, 1.5, 2.0];
+                final displayScale = validScales.contains(currentScale) ? currentScale : 1.0;
+                
+                return ListTile(
+                  title: Text(
+                    'App Scaling',
+                    style: fontProvider.getScaledTextStyle(fontSize: 16),
+                  ),
+                  subtitle: Text(
+                    '${fontProvider.fontScalePercentage} (${displayScale == 1.0 ? "1.0x" : displayScale == 1.5 ? "1.2x" : "1.4x"})',
+                    style: fontProvider.getScaledTextStyle(fontSize: 14),
+                  ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.refresh),
+                        onPressed: () => fontProvider.resetFontScale(),
+                        tooltip: 'Reset to default scaling',
                       ),
-                      subtitle: Text(
-                        '${fontProvider.fontScalePercentage} (${fontProvider.fontScale.toStringAsFixed(1)}x)',
-                        style: fontProvider.getScaledTextStyle(fontSize: 14),
-                      ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.remove),
-                            onPressed: () {
-                              final newScale = (fontProvider.fontScale - 0.5)
-                                  .clamp(1.0, 2.0);
-                              fontProvider.setFontScale(newScale);
-                            },
-                            tooltip: 'Decrease app scaling',
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.refresh),
-                            onPressed: () => fontProvider.resetFontScale(),
-                            tooltip: 'Reset to default scaling',
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.add),
-                            onPressed: () {
-                              final newScale = (fontProvider.fontScale + 0.5)
-                                  .clamp(1.0, 2.0);
-                              fontProvider.setFontScale(newScale);
-                            },
-                            tooltip: 'Increase app scaling',
-                          ),
-                        ],
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      child: Slider(
-                        value: fontProvider.fontScale,
-                        min: 1.0,
-                        max: 2.0,
-                        divisions: 2, // 0.5 increments (1.0, 1.5, 2.0)
-                        label: fontProvider.fontScalePercentage,
-                        onChanged: (value) {
-                          // Snap to nearest 0.5 increment
-                          final snappedValue = (value * 2).round() / 2;
-                          fontProvider.setFontScale(snappedValue);
+                      DropdownButton<double>(
+                        value: displayScale,
+                        onChanged: (double? newValue) {
+                          if (newValue != null) {
+                            fontProvider.setFontScale(newValue);
+                          }
                         },
+                        items: validScales.map<DropdownMenuItem<double>>(
+                          (double scale) {
+                            return DropdownMenuItem<double>(
+                              value: scale,
+                              child: Text(
+                                '${(scale * 100).round()}%',
+                                style: fontProvider.getScaledTextStyle(fontSize: 14),
+                              ),
+                            );
+                          },
+                        ).toList(),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                  ],
+                    ],
+                  ),
                 );
               },
             ),

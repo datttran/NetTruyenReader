@@ -872,7 +872,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           crossAxisCount = 2;
                         }
                       } else {
-                        // Desktop: Use tablet configuration (no specific desktop handling needed)
+                        // Desktop: Use tablet configuration
                         if (fontScale == 1.0) {
                           crossAxisCount = 6;
                         } else if (fontScale == 1.5) {
@@ -1003,26 +1003,28 @@ class _HomeScreenState extends State<HomeScreen> {
                                   flex: 2,
                                   child: Container(
                                     padding: const EdgeInsets.all(4),
-                                    child: Consumer<FontProvider>(
-                                      builder: (context, fontProvider, child) {
-                                        return Text(
-                                          comic.title,
-                                          style:
-                                              fontProvider.getScaledTextStyle(
-                                            fontSize: 12,
-                                            color:
-                                                Theme.of(context).brightness ==
-                                                        Brightness.dark
-                                                    ? Colors.white
-                                                    : Theme.of(context)
-                                                        .colorScheme
-                                                        .onSurface,
-                                          ),
-                                          maxLines: 2,
-                                          overflow: TextOverflow.ellipsis,
-                                          textAlign: TextAlign.center,
-                                        );
-                                      },
+                                    child: Center(
+                                      child: Consumer<FontProvider>(
+                                        builder: (context, fontProvider, child) {
+                                          return Text(
+                                            comic.title,
+                                            style:
+                                                fontProvider.getScaledTextStyle(
+                                              fontSize: 12,
+                                              color:
+                                                  Theme.of(context).brightness ==
+                                                          Brightness.dark
+                                                      ? Colors.white
+                                                      : Theme.of(context)
+                                                          .colorScheme
+                                                          .onSurface,
+                                            ),
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                            textAlign: TextAlign.center,
+                                          );
+                                        },
+                                      ),
                                     ),
                                   ),
                                 ),

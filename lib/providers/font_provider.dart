@@ -9,6 +9,20 @@ class FontProvider extends ChangeNotifier {
   String get selectedFont => _selectedFont;
   double get fontScale => _fontScale;
 
+  /// Convert scale value to actual font multiplier
+  /// 1.0 = 1.0x, 1.5 = 1.2x, 2.0 = 1.4x
+  double get _actualFontMultiplier {
+    if (_fontScale == 1.0) {
+      return 1.0;  // Normal size
+    } else if (_fontScale == 1.5) {
+      return 1.2;  // 1.2x the normal size
+    } else if (_fontScale == 2.0) {
+      return 1.4;  // 1.4x the normal size
+    } else {
+      return 1.0;  // Fallback to normal size
+    }
+  }
+
   /// Get font scale as a percentage string for display
   String get fontScalePercentage => '${(_fontScale * 100).round()}%';
 
@@ -17,11 +31,20 @@ class FontProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     _selectedFont = prefs.getString('selected_font') ?? 'Inconsolata';
     _fontScale = prefs.getDouble('font_scale') ?? 1.0;
-    // Ensure font scale is within the new range
-    if (_fontScale < 1.0 || _fontScale > 2.0) {
-      _fontScale = 1.0;
-      await prefs.setDouble('font_scale', 1.0);
+    
+    // Ensure font scale is one of the valid values (1.0, 1.5, 2.0)
+    if (_fontScale != 1.0 && _fontScale != 1.5 && _fontScale != 2.0) {
+      // Normalize to closest valid value
+      if (_fontScale < 1.25) {
+        _fontScale = 1.0;
+      } else if (_fontScale < 1.75) {
+        _fontScale = 1.5;
+      } else {
+        _fontScale = 2.0;
+      }
+      await prefs.setDouble('font_scale', _fontScale);
     }
+    
     notifyListeners();
   }
 
@@ -39,16 +62,25 @@ class FontProvider extends ChangeNotifier {
 
   /// Change the font scale and save to preferences
   Future<void> setFontScale(double scale) async {
-    // Limit scale between 1.0 and 2.0 for usability
-    // Round to nearest 0.5 increment (1.0, 1.5, 2.0)
-    final roundedScale = (scale * 2).round() / 2;
-    final clampedScale = roundedScale.clamp(1.0, 2.0);
+    // Only accept the three valid scale values: 1.0, 1.5, 2.0
+    double validScale;
+    if (scale == 1.0) {
+      validScale = 1.0;
+    } else if (scale == 1.5) {
+      validScale = 1.5;
+    } else if (scale == 2.0) {
+      validScale = 2.0;
+    } else {
+      // If an invalid value is passed, don't change anything
+      print('Warning: Invalid font scale value: $scale. Must be 1.0, 1.5, or 2.0');
+      return;
+    }
 
-    if (_fontScale != clampedScale) {
-      _fontScale = clampedScale;
+    if (_fontScale != validScale) {
+      _fontScale = validScale;
 
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setDouble('font_scale', clampedScale);
+      await prefs.setDouble('font_scale', validScale);
 
       notifyListeners();
     }
@@ -104,7 +136,7 @@ class FontProvider extends ChangeNotifier {
 
     // Scale the fontSize safely
     return style.copyWith(
-      fontSize: style.fontSize! * _fontScale,
+      fontSize: style.fontSize! * _actualFontMultiplier,
     );
   }
 
@@ -157,7 +189,7 @@ class FontProvider extends ChangeNotifier {
 
     // Apply font scaling
     return baseStyle.copyWith(
-      fontSize: baseStyle.fontSize! * _fontScale,
+      fontSize: baseStyle.fontSize! * _actualFontMultiplier,
     );
   }
 
@@ -258,7 +290,7 @@ class FontProvider extends ChangeNotifier {
 
     // Apply font scaling
     return baseStyle.copyWith(
-      fontSize: (baseStyle.fontSize ?? 14) * _fontScale,
+      fontSize: (baseStyle.fontSize ?? 14) * _actualFontMultiplier,
     );
   }
 
@@ -308,14 +340,14 @@ class FontProvider extends ChangeNotifier {
     }
 
     return style.copyWith(
-      fontSize: style.fontSize! * _fontScale,
+      fontSize: style.fontSize! * _actualFontMultiplier,
     );
   }
 
   /// Scale a font size value with the current font scale
   /// This is useful for inline fontSize values
   double scaleFontSize(double fontSize) {
-    return fontSize * _fontScale;
+    return fontSize * _actualFontMultiplier;
   }
 
   /// Get a scaled text style for common use cases
@@ -336,5 +368,12 @@ class FontProvider extends ChangeNotifier {
       height: height,
       decoration: decoration,
     );
+  }
+
+  /// Debug method to check current font scale state
+  void debugFontScale() {
+    print('🔍 Current font scale: $_fontScale');
+    print('🔍 Valid scale values: [1.0, 1.5, 2.0]');
+    print('🔍 Actual font multiplier: ${_actualFontMultiplier}x');
   }
 }
