@@ -452,19 +452,12 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (context, fontProvider, child) {
         return Padding(
           padding: const EdgeInsets.only(right: 8),
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20), // Match ActionChip's default radius
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black,
-                  offset: const Offset(2, 2),
-                  blurRadius: 0,      // No blur
-                  spreadRadius: 0,    // No spread
-                ),
-              ],
-            ),
+          child: Material(
+            elevation: 2,
+            shadowColor: Colors.black,
+            borderRadius: BorderRadius.circular(20),
             child: ActionChip(
+              elevation: 0,  // Remove ActionChip's built-in elevation
               label: Text(genreName),
               onPressed: () {
                 if (genreName == 'Phổ biến') {
@@ -869,7 +862,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                           child: ClipRRect(
                                             borderRadius:
                                                 const BorderRadius.vertical(
-                                                    top: Radius.circular(8)),
+                                                    top: Radius.circular(6)),
                                             child: CachedNetworkImage(
                                               cacheManager: _thumbCacheManager,
                                               imageUrl: comic.imageUrl,
@@ -952,14 +945,14 @@ class _HomeScreenState extends State<HomeScreen> {
                                     flex: 3,
                                     child: Container(
                                       width: double.infinity,
-                                      //padding: const EdgeInsets.all(4),
+                                      padding: const EdgeInsets.all(6),
                                                                           decoration: BoxDecoration(
                                       color: Theme.of(context).brightness == Brightness.dark
                                           ? Colors.grey[800]                    // ← Dark theme: Dark grey background
                                           : Colors.grey[100],                   // ← Light theme: Light grey background
                                       borderRadius: const BorderRadius.only(
-                                        bottomLeft: Radius.circular(8),         // ← Bottom left corner
-                                        bottomRight: Radius.circular(8),        // ← Bottom right corner
+                                        bottomLeft: Radius.circular(6),         // ← Bottom left corner
+                                        bottomRight: Radius.circular(6),        // ← Bottom right corner
                                       ),
                                     ),
                                       child: Center(
