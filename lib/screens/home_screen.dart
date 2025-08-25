@@ -470,6 +470,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           child: ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: InkWell(
+              borderRadius: BorderRadius.circular(8),
               onTap: () {
                 if (genreName == 'Phổ biến') {
                   _showAllComics();
@@ -615,7 +616,8 @@ class _HomeScreenState extends State<HomeScreen> {
             // Popular Genres Section
             SliverToBoxAdapter(
               child: Container(
-                padding: const EdgeInsets.all(16),
+
+                padding: const EdgeInsets.symmetric(vertical: 16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -624,11 +626,14 @@ class _HomeScreenState extends State<HomeScreen> {
                       children: [
                         Consumer<FontProvider>(
                           builder: (context, fontProvider, child) {
-                            return Text(
-                              'Thể loại: $_selectedGenre',
-                              style: fontProvider.getScaledTextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                              child: Text(
+                                'Thể loại: $_selectedGenre',
+                                style: fontProvider.getScaledTextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             );
                           },
