@@ -41,6 +41,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     {'name': 'Comfortaa', 'family': 'Comfortaa'},
     {'name': 'Josefin Sans', 'family': 'Josefin Sans'},
     {'name': 'Sono', 'family': 'Sono'},
+    {'name': 'Space Grotesk', 'family': 'Space Grotesk'},
   ];
 
   @override

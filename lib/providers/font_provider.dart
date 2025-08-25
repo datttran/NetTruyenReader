@@ -173,6 +173,8 @@ class FontProvider extends ChangeNotifier {
         return GoogleFonts.josefinSansTextTheme(baseTheme.textTheme);
       case 'Sono':
         return GoogleFonts.sonoTextTheme(baseTheme.textTheme);
+      case 'Space Grotesk':
+        return GoogleFonts.spaceGroteskTextTheme(baseTheme.textTheme);
       default:
         return GoogleFonts.inconsolataTextTheme(baseTheme.textTheme);
     }
@@ -271,6 +273,11 @@ class FontProvider extends ChangeNotifier {
           fontSize: 20,
           fontWeight: FontWeight.w600,
         );
+      case 'Space Grotesk':
+        return GoogleFonts.spaceGrotesk(
+          fontSize: 20,
+          fontWeight: FontWeight.w600,
+        );
       default:
         return GoogleFonts.inconsolata(
           fontSize: 20,
@@ -327,6 +334,8 @@ class FontProvider extends ChangeNotifier {
         return GoogleFonts.josefinSans(color: color, fontSize: 14);
       case 'Sono':
         return GoogleFonts.sono(color: color, fontSize: 14);
+      case 'Space Grotesk':
+        return GoogleFonts.spaceGrotesk(color: color, fontSize: 14);
       default:
         return GoogleFonts.inconsolata(color: color, fontSize: 14);
     }
