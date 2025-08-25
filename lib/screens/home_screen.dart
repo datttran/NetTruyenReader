@@ -685,22 +685,22 @@ class _HomeScreenState extends State<HomeScreen> {
                               Flexible(
                                 flex: 8,
                                 child: FadeShimmer(
-                                  radius: 8,
-                                  width: double.infinity,
                                   height: double.infinity,
-                                  baseColor: Colors.white,
-                                  highlightColor: Colors.blue[300]!,
+                                  width: double.infinity,
+                                  radius: 8,
+                                  millisecondsDelay: 0,
+                                  fadeTheme: FadeTheme.light,
                                 ),
                               ),
                               // Text placeholder that takes 20% of card height (flex: 2)
                               Flexible(
                                 flex: 2,
                                 child: FadeShimmer(
-                                  radius: 8,
-                                  width: double.infinity,
                                   height: double.infinity,
-                                  baseColor: Colors.black,
-                                  highlightColor: Colors.red[300]!,
+                                  width: double.infinity,
+                                  radius: 8,
+                                  millisecondsDelay: 200,
+                                  fadeTheme: FadeTheme.dark,
                                 ),
                               ),
                             ],
@@ -733,22 +733,22 @@ class _HomeScreenState extends State<HomeScreen> {
                                 Flexible(
                                   flex: 8,
                                   child: FadeShimmer(
-                                    radius: 8,
-                                    width: double.infinity,
                                     height: double.infinity,
-                                    baseColor: Colors.white,
-                                    highlightColor: Colors.blue[300]!,
+                                    width: double.infinity,
+                                    radius: 8,
+                                    millisecondsDelay: 0,
+                                    fadeTheme: FadeTheme.light,
                                   ),
                                 ),
                                 // Text placeholder that takes 20% of card height (flex: 2)
                                 Flexible(
                                   flex: 2,
                                   child: FadeShimmer(
-                                    radius: 8,
-                                    width: double.infinity,
                                     height: double.infinity,
-                                    baseColor: Colors.black,
-                                    highlightColor: Colors.red[300]!,
+                                    width: double.infinity,
+                                    radius: 8,
+                                    millisecondsDelay: 200,
+                                    fadeTheme: FadeTheme.dark,
                                   ),
                                 ),
                               ],
