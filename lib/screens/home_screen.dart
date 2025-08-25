@@ -682,54 +682,46 @@ class _HomeScreenState extends State<HomeScreen> {
                   return SliverGrid(
                     delegate: SliverChildBuilderDelegate(
                       (context, index) {
-                        return LayoutBuilder(
-                          builder: (context, constraints) {
-                            final totalHeight = constraints.maxHeight;
-                            final upperHeight = totalHeight * 0.85; // 85% of total height
-                            final lowerHeight = totalHeight * 0.15; // 15% of total height
-                            
-                            return Container(
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(8),
-                                color: Colors.grey[100],
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  // Upper section: 85% height with grey color
-                                  SizedBox(
-                                    height: upperHeight,
-                                    child: CardLoading(
-                                      height: upperHeight,
-                                      width: double.infinity,
-                                      borderRadius: const BorderRadius.vertical(
-                                        top: Radius.circular(8),
-                                      ),
-                                      cardLoadingTheme: CardLoadingTheme(
-                                        colorOne: Colors.grey[300]!,
-                                        colorTwo: Colors.grey[400]!,
-                                      ),
-                                    ),
+                        return Card(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          elevation: 4,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              // Upper section: 85% height with grey color
+                              Flexible(
+                                flex: 17,
+                                child: CardLoading(
+                                  height: double.infinity,
+                                  width: double.infinity,
+                                  borderRadius: const BorderRadius.vertical(
+                                    top: Radius.circular(8),
                                   ),
-                                  // Lower section: 15% height with white color
-                                  SizedBox(
-                                    height: lowerHeight,
-                                    child: CardLoading(
-                                      height: lowerHeight,
-                                      width: double.infinity,
-                                      borderRadius: const BorderRadius.vertical(
-                                        bottom: Radius.circular(8),
-                                      ),
-                                      cardLoadingTheme: CardLoadingTheme(
-                                        colorOne: Colors.white,
-                                        colorTwo: Colors.grey[200]!,
-                                      ),
-                                    ),
+                                  cardLoadingTheme: CardLoadingTheme(
+                                    colorOne: Colors.grey[300]!,
+                                    colorTwo: Colors.grey[400]!,
                                   ),
-                                ],
+                                ),
                               ),
-                            );
-                          },
+                              // Lower section: 15% height with white color
+                              Flexible(
+                                flex: 3,
+                                child: CardLoading(
+                                  height: double.infinity,
+                                  width: double.infinity,
+                                  borderRadius: const BorderRadius.vertical(
+                                    bottom: Radius.circular(8),
+                                  ),
+                                  cardLoadingTheme: CardLoadingTheme(
+                                    colorOne: Colors.white,
+                                    colorTwo: Colors.grey[200]!,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         );
                       },
                       childCount: _pageSize,
