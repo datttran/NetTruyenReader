@@ -642,10 +642,9 @@ class _HomeScreenState extends State<HomeScreen> {
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
                           padding: const EdgeInsets.all(8),
-                          gridDelegate:
-                              const SliverGridDelegateWithFixedCrossAxisCount(
+                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                             crossAxisCount: 3,
-                            childAspectRatio: 0.65,
+                            childAspectRatio: _calculateOptimalAspectRatio(), // Use same aspect ratio as loaded cards
                             crossAxisSpacing: 8,
                             mainAxisSpacing: 8,
                           ),
