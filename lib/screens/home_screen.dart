@@ -41,7 +41,6 @@ class _HomeScreenState extends State<HomeScreen> {
   String _selectedGenre = 'Phổ biến'; // Default to popular
   String? _selectedGenrePath;
   bool _isFilteringByGenre = false;
-  String? _loadingGenre; // Track which specific genre is loading
 
   // Genre caching
   final Map<String, List<Comic>> _genreCache = {};
@@ -152,7 +151,6 @@ class _HomeScreenState extends State<HomeScreen> {
       _selectedGenrePath = genrePath;
       _isFilteringByGenre = true;
       _currentPage = 1; // Reset to first page when filtering
-      _loadingGenre = genreName; // Set loading genre
     });
 
     // Auto-scroll to top when filtering (only if not already at top)
@@ -205,7 +203,6 @@ class _HomeScreenState extends State<HomeScreen> {
         _displayComics = newItems;
         _hasMore = _filteredComics.length > _pageSize;
         _isLoading = false;
-        _loadingGenre = null; // Clear loading genre after filtering
       });
     } catch (e) {
       setState(() {
@@ -213,7 +210,6 @@ class _HomeScreenState extends State<HomeScreen> {
         _isFilteringByGenre = false;
         _selectedGenre = 'Phổ biến';
         _selectedGenrePath = null;
-        _loadingGenre = null; // Clear loading genre on error
       });
     }
   }
@@ -226,7 +222,6 @@ class _HomeScreenState extends State<HomeScreen> {
       _selectedGenre = 'Phổ biến';
       _selectedGenrePath = null;
       _currentPage = 1; // Reset to first page when showing all comics
-      _loadingGenre = 'Phổ biến'; // Set loading genre for popular
     });
 
     // Auto-scroll to top when showing all comics (only if not already at top)
@@ -260,7 +255,6 @@ class _HomeScreenState extends State<HomeScreen> {
       _displayComics = newItems;
       _hasMore = _allComics.length > _pageSize;
       _isLoading = false;
-      _loadingGenre = null; // Clear loading genre
     });
   }
 
@@ -451,44 +445,20 @@ class _HomeScreenState extends State<HomeScreen> {
   /// Build a genre chip with proper styling
   Widget _buildGenreChip(String genreName, String genrePath) {
     final isSelected = _selectedGenre == genreName;
-    final isLoading = _loadingGenre == genreName;
 
     return Consumer<FontProvider>(
       builder: (context, fontProvider, child) {
         return Padding(
           padding: const EdgeInsets.only(right: 8),
           child: ActionChip(
-            label: isLoading
-                ? Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      SizedBox(
-                        width: 12,
-                        height: 12,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            isSelected
-                                ? Colors.white
-                                : ThemeConstants.netflixRed,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(genreName),
-                    ],
-                  )
-                : Text(genreName),
-            onPressed: isLoading
-                ? null
-                : () {
-                    // Prevent taps while loading
-                    if (genreName == 'Phổ biến') {
-                      _showAllComics();
-                    } else {
-                      _filterByGenre(genreName, genrePath);
-                    }
-                  },
+            label: Text(genreName),
+            onPressed: () {
+              if (genreName == 'Phổ biến') {
+                _showAllComics();
+              } else {
+                _filterByGenre(genreName, genrePath);
+              }
+            },
             backgroundColor: isSelected
                 ? ThemeConstants.netflixRed
                 : ThemeConstants.netflixRed.withValues(
@@ -787,70 +757,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                           strokeWidth: 4,
                                         ),
                                       ),
-                                      const SizedBox(height: 20),
-                                      // Main loading text
-                                      Consumer<FontProvider>(
-                                        builder:
-                                            (context, fontProvider, child) {
-                                          return Text(
-                                            'Đang tải dữ liệu...',
-                                            style:
-                                                fontProvider.getScaledTextStyle(
-                                              fontSize: 18,
-                                              fontWeight: FontWeight.w600,
-                                              color: Theme.of(context)
-                                                          .brightness ==
-                                                      Brightness.dark
-                                                  ? Colors.white
-                                                  : Colors.grey[800],
-                                            ),
-                                          );
-                                        },
-                                      ),
                                       const SizedBox(height: 12),
-                                      // Descriptive loading text
-                                      Consumer<FontProvider>(
-                                        builder:
-                                            (context, fontProvider, child) {
-                                          return Text(
-                                            _isFilteringByGenre
-                                                ? 'Đang tải truyện $_selectedGenre...'
-                                                : 'Đang tải truyện phổ biến...',
-                                            style:
-                                                fontProvider.getScaledTextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w500,
-                                              color: Theme.of(context)
-                                                          .brightness ==
-                                                      Brightness.dark
-                                                  ? Colors.white70
-                                                  : Colors.grey[600],
-                                            ),
-                                            textAlign: TextAlign.center,
-                                          );
-                                        },
-                                      ),
-                                      const SizedBox(height: 16),
-                                      // Additional loading info
-                                      Consumer<FontProvider>(
-                                        builder:
-                                            (context, fontProvider, child) {
-                                          return Text(
-                                            'Vui lòng chờ trong giây lát...',
-                                            style: fontProvider.scaleTextStyle(
-                                              TextStyle(
-                                                fontSize: 14,
-                                                fontStyle: FontStyle.italic,
-                                                color: Theme.of(context)
-                                                            .brightness ==
-                                                        Brightness.dark
-                                                    ? Colors.white54
-                                                    : Colors.grey[500],
-                                              ),
-                                            ),
-                                          );
-                                        },
-                                      ),
+                                      // Loading text removed - cleaner UI
                                     ],
                                   ),
                                 ),
