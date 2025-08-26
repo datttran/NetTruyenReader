@@ -62,6 +62,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   late Animation<double> _logoSlideAnimation;
   late Animation<double> _logoBounceAnimation;
   late Animation<double> _thunderAnimation;
+  
+  // Thunder Lottie animation controller for playing 2 times
+  late AnimationController _thunderLottieController;
+  int _thunderPlayCount = 0;
+  final int _maxThunderPlays = 1; // Play exactly 1 time
 
   @override
   void initState() {
@@ -99,6 +104,20 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
     // Start logo animation
     _logoAnimationController.forward();
+    
+    // Initialize thunder Lottie controller after logo animation completes
+    _thunderLottieController = AnimationController(vsync: this);
+    _thunderLottieController.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        _thunderPlayCount++;
+        if (_thunderPlayCount < _maxThunderPlays) {
+          _thunderLottieController.forward(from: 0.0); // Restart the animation
+        } else {
+          // Animation has played the desired number of times
+          print('✅ Thunder animation completed after $_maxThunderPlays plays');
+        }
+      }
+    });
 
     // Use initial comics if provided, otherwise load them
     if (widget.initialComics != null && widget.initialComics!.isNotEmpty) {
@@ -508,6 +527,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   void dispose() {
     _scrollController.dispose();
     _logoAnimationController.dispose();
+    _thunderLottieController.dispose();
     super.dispose();
   }
 
@@ -646,38 +666,56 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                               child: Stack(
                                 alignment: Alignment.center,
                                 children: [
-                                  // Logo as the base layer
-                                  SizedBox(
-                                    height: 30 *
-                                        (scale *
-                                            2), // Scale logo height (x2 at 1.0, x4 at 2.0)
-                                    width: 45 *
-                                        (scale *
-                                            2), // Scale logo width (x2 at 1.0, x4 at 2.0)
-                                    child: Hero(
-                                      tag: 'app_logo',
-                                      child: Image.asset(
-                                        'assets/images/logo.png',
-                                        fit: BoxFit.contain,
-                                        errorBuilder: (context, error, stackTrace) {
-                                          // Debug: Print error info
-                                          print('Logo loading error: $error');
-                                          print('Logo stack trace: $stackTrace');
-                                          // Fallback to icon if logo fails to load
-                                          return Icon(
-                                            Icons.auto_stories,
-                                            color: Colors.white,
-                                            size: 12 *
-                                                (scale *
-                                                    2), // Scale fallback icon (x2 at 1.0, x4 at 2.0)
-                                          );
-                                        },
-                                        frameBuilder: (context, child, frame,
-                                            wasSynchronouslyLoaded) {
-                                          print(
-                                              'Logo frame loaded: frame=$frame, sync=$wasSynchronouslyLoaded');
-                                          return child;
-                                        },
+                                  // Logo as the base layer with tap to pause/start animation
+                                  GestureDetector(
+                                    behavior: HitTestBehavior.opaque, // Ensures background receives taps
+                                    onTap: () {
+                                      if (_thunderLottieController.isAnimating) {
+                                        _thunderLottieController.stop(); // Stop thunder if already playing
+                                        print('⏸️ Thunder animation stopped');
+                                      } else if (_thunderLottieController.isCompleted) {
+                                        _thunderPlayCount = 0; // Reset play count
+                                        _thunderLottieController.reset(); // Reset thunder animation
+                                        _thunderLottieController.forward(); // Play thunder again
+                                        print('🔄 Thunder animation reset and restarted');
+                                      } else {
+                                        _thunderPlayCount = 0; // Reset play count
+                                        _thunderLottieController.forward(); // Start thunder from beginning
+                                        print('▶️ Thunder animation started');
+                                      }
+                                    },
+                                    child: SizedBox(
+                                      height: 30 *
+                                          (scale *
+                                              2), // Scale logo height (x2 at 1.0, x4 at 2.0)
+                                      width: 45 *
+                                          (scale *
+                                              2), // Scale logo width (x2 at 1.0, x4 at 2.0)
+                                      child: Hero(
+                                        tag: 'app_logo',
+                                        child: Image.asset(
+                                          'assets/images/logo.png',
+                                          fit: BoxFit.contain,
+                                          errorBuilder: (context, error, stackTrace) {
+                                            // Debug: Print error info
+                                            print('Logo loading error: $error');
+                                            print('Logo stack trace: $stackTrace');
+                                            // Fallback to icon if logo fails to load
+                                            return Icon(
+                                              Icons.auto_stories,
+                                              color: Colors.white,
+                                              size: 12 *
+                                                  (scale *
+                                                      2), // Scale fallback icon (x2 at 1.0, x4 at 2.0)
+                                            );
+                                          },
+                                          frameBuilder: (context, child, frame,
+                                              wasSynchronouslyLoaded) {
+                                            print(
+                                                'Logo frame loaded: frame=$frame, sync=$wasSynchronouslyLoaded');
+                                            return child;
+                                          },
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -686,30 +724,42 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                   AnimatedOpacity(
                                     opacity: _thunderAnimation.value,  // Fades in after logo finishes
                                     duration: const Duration(milliseconds: 200),
-                                    child: Lottie.asset(
-                                      'assets/animations/RL.json',
-                                      width: scale == 1.0 ? 250 : 150 * scale,   // Larger for 1.0x scale
-                                      height: scale == 1.0 ? 200 : 150 * scale,  // Larger for 1.0x scale
-                                      repeat: true,
-                                      animate: true,
-                                      onLoaded: (composition) {
-                                        print('✅ Thunder Lottie animation loaded successfully!');
-                                        print('   - Duration: ${composition.duration}');
-                                        print('   - Frame rate: ${composition.frameRate}');
-                                        print('   - Bounds: ${composition.bounds}');
-                                      },
-                                      errorBuilder: (context, error, stackTrace) {
-                                        print('❌ Thunder Lottie animation failed to load:');
-                                        print('   - Error: $error');
-                                        print('   - Stack trace: $stackTrace');
-                                        // Fallback to static icon
-                                        return Icon(
-                                          Icons.flash_on,
-                                          color: Colors.yellow,
-                                          size: 20 * scale,
-                                        );
-                                      },
-                                    ),
+                                                                            child: IgnorePointer( // Prevents thunder animation from blocking logo taps
+                                          child: Lottie.asset(
+                                            'assets/animations/RL.json',
+                                            width: scale == 1.0 ? 250 : 150 * scale,   // Larger for 1.0x scale
+                                            height: scale == 1.0 ? 200 : 150 * scale,  // Larger for 1.0x scale
+                                            controller: _thunderLottieController,
+                                            repeat: false, // Don't repeat automatically
+                                            animate: true,
+                                            onLoaded: (composition) {
+                                              print('✅ Thunder Lottie animation loaded successfully!');
+                                              print('   - Duration: ${composition.duration}');
+                                              print('   - Frame rate: ${composition.frameRate}');
+                                              print('   - Bounds: ${composition.bounds}');
+                                              
+                                              // Set the duration and start the animation
+                                              _thunderLottieController.duration = composition.duration;
+                                              // Start thunder animation after logo animation completes
+                                              Future.delayed(const Duration(milliseconds: 1200), () {
+                                                if (mounted) {
+                                                  _thunderLottieController.forward();
+                                                }
+                                              });
+                                            },
+                                            errorBuilder: (context, error, stackTrace) {
+                                              print('❌ Thunder Lottie animation failed to load:');
+                                              print('   - Error: $error');
+                                              print('   - Stack trace: $stackTrace');
+                                              // Fallback to static icon
+                                              return Icon(
+                                                Icons.flash_on,
+                                                color: Colors.yellow,
+                                                size: 20 * scale,
+                                              );
+                                            },
+                                          ),
+                                        ),
                                   ),
                                 ],
                               ),
