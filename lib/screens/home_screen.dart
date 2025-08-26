@@ -6,6 +6,7 @@ import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:card_loading/card_loading.dart';
 import 'package:provider/provider.dart';
 import 'package:lottie/lottie.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import '../models/comic.dart';
 import '../services/nettruyen_service.dart';
 import '../constants/app_constants.dart';
@@ -595,6 +596,103 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     }
   }
 
+  /// Build a chapter badge with conditional rainbow effect for high chapters
+  Widget _buildChapterBadge(int chapterCount, BuildContext context) {
+    final isHighChapter = chapterCount > 500;
+    
+    return Consumer<FontProvider>(
+      builder: (context, fontProvider, child) {
+        Widget badge = Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(
+            color: isHighChapter
+                ? Colors.purple.withValues(alpha: 0.9) // Special color for high chapters
+                : Colors.red.withValues(alpha: 0.9),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Text(
+            'Ch.$chapterCount',
+            style: fontProvider.getScaledTextStyle(
+              fontSize: 8,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+        );
+
+        // Only apply rainbow effect for high chapters
+        if (isHighChapter) {
+          badge = badge
+              .animate(
+                onPlay: (controller) => controller.repeat(),
+              )
+              .shimmer(
+                duration: 2000.ms,
+                color: Colors.red,
+                size: 2.0,
+              )
+              .then()
+              .shimmer(
+                duration: 2000.ms,
+                color: Colors.orange,
+                size: 2.0,
+              )
+              .then()
+              .shimmer(
+                duration: 2000.ms,
+                color: Colors.yellow,
+                size: 2.0,
+              )
+              .then()
+              .shimmer(
+                duration: 2000.ms,
+                color: Colors.green,
+                size: 2.0,
+              )
+              .then()
+              .shimmer(
+                duration: 2000.ms,
+                color: Colors.blue,
+                size: 2.0,
+              )
+              .then()
+              .shimmer(
+                duration: 2000.ms,
+                color: Colors.indigo,
+                size: 2.0,
+              )
+              .then()
+              .shimmer(
+                duration: 2000.ms,
+                color: Colors.purple,
+                size: 2.0,
+              );
+        }
+
+        // Use Stack to layer text above the badge
+        return Stack(
+          children: [
+            // Animated badge background at the bottom
+            badge,
+            // Chapter text positioned above the badge
+            Positioned.fill(
+              child: Center(
+                child: Text(
+                  'Ch.$chapterCount',
+                  style: fontProvider.getScaledTextStyle(
+                    fontSize: 8,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   /// Build a genre chip with proper styling and icon
   Widget _buildGenreChip(String genreName, String genrePath) {
     final isSelected = _selectedGenre == genreName;
@@ -915,7 +1013,21 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                 Icons.flash_on,
                                 color: Colors.yellow,
                                 size: 24 * fontProvider.fontScale,
-                              ),
+                              )
+                                .animate(
+                                  onPlay: (controller) => controller.repeat(),
+                                )
+                                .shimmer(
+                                  duration: 1500.ms,
+                                  color: Colors.orange,
+                                  size: 1.5,
+                                )
+                                .then()
+                                .shimmer(
+                                  duration: 1500.ms,
+                                  color: Colors.yellow,
+                                  size: 1.5,
+                                ),
                               const SizedBox(width: 8),
                               Text(
                                 'Truyện Nổi Bật',
@@ -923,7 +1035,51 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                   fontSize: 20,
                                   fontWeight: FontWeight.bold,
                                 ),
-                              ),
+                              )
+                                .animate(
+                                  onPlay: (controller) => controller.repeat(),
+                                )
+                                .shimmer(
+                                  duration: 2000.ms,
+                                  color: Colors.red,
+                                  size: 2.0,
+                                )
+                                .then()
+                                .shimmer(
+                                  duration: 2000.ms,
+                                  color: Colors.orange,
+                                  size: 2.0,
+                                )
+                                .then()
+                                .shimmer(
+                                  duration: 2000.ms,
+                                  color: Colors.yellow,
+                                  size: 2.0,
+                                )
+                                .then()
+                                .shimmer(
+                                  duration: 2000.ms,
+                                  color: Colors.green,
+                                  size: 2.0,
+                                )
+                                .then()
+                                .shimmer(
+                                  duration: 2000.ms,
+                                  color: Colors.blue,
+                                  size: 2.0,
+                                )
+                                .then()
+                                .shimmer(
+                                  duration: 2000.ms,
+                                  color: Colors.indigo,
+                                  size: 2.0,
+                                )
+                                .then()
+                                .shimmer(
+                                  duration: 2000.ms,
+                                  color: Colors.purple,
+                                  size: 2.0,
+                                ),
                             ],
                           );
                         },
@@ -1287,33 +1443,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                             Positioned(
                                               top: 8,
                                               left: 8,
-                                              child: Container(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                        horizontal: 6,
-                                                        vertical: 2),
-                                                decoration: BoxDecoration(
-                                                  color: Colors.red
-                                                      .withValues(alpha: 0.9),
-                                                  borderRadius:
-                                                      BorderRadius.circular(10),
-                                                ),
-                                                child: Consumer<FontProvider>(
-                                                  builder: (context,
-                                                      fontProvider, child) {
-                                                    return Text(
-                                                      'Ch.${comic.chapterCount}',
-                                                      style: fontProvider
-                                                          .getScaledTextStyle(
-                                                        fontSize: 8,
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                        color: Colors.white,
-                                                      ),
-                                                    );
-                                                  },
-                                                ),
-                                              ),
+                                              child: _buildChapterBadge(comic.chapterCount!, context),
                                             ),
                                         ],
                                       ),
@@ -1998,28 +2128,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                             Positioned(
                               top: 8,
                               left: 8,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.red.withValues(alpha: 0.9),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Consumer<FontProvider>(
-                                  builder: (context, fontProvider, child) {
-                                    return Text(
-                                      'Ch.${comic.chapterCount}',
-                                      style: fontProvider.getScaledTextStyle(
-                                        fontSize: 8,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white,
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ),
+                              child: _buildChapterBadge(comic.chapterCount!, context),
                             ),
                         ],
                       ),
