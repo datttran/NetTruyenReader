@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:lottie/lottie.dart';
+import 'dart:math';
 import '../models/comic.dart';
 import '../services/nettruyen_service.dart';
 import '../screens/detail_screen.dart';
@@ -239,67 +241,156 @@ class ComicSearchDelegate extends SearchDelegate<Comic?> {
   Widget _buildGenreChip(String genreName, String genrePath, BuildContext context) {
     return Padding(
       padding: const EdgeInsets.all(8.0),
-      child: GestureDetector(
-        onTap: () {
-          // Navigate to genre page (don't close search, let user navigate back naturally)
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => GenreComicsScreen(
-                genreName: genreName,
-                genreUrl: genrePath,
-              ),
+      child: _AnimatedGenreChip(
+        genreName: genreName,
+        genrePath: genrePath,
+      ),
+    );
+  }
+}
+
+class _AnimatedGenreChip extends StatefulWidget {
+  final String genreName;
+  final String genrePath;
+
+  const _AnimatedGenreChip({
+    required this.genreName,
+    required this.genrePath,
+  });
+
+  @override
+  State<_AnimatedGenreChip> createState() => _AnimatedGenreChipState();
+}
+
+class _AnimatedGenreChipState extends State<_AnimatedGenreChip>
+    with TickerProviderStateMixin {
+  late AnimationController _shineController;
+  bool _showShine = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _shineController = AnimationController(
+      duration: const Duration(milliseconds: 2500), // Slower animation
+      vsync: this,
+    );
+    
+    // Random delay between 1-10 seconds using proper random
+    final random = Random();
+    final randomDelay = 1 + random.nextInt(10); // 1 to 10 seconds
+    Future.delayed(Duration(seconds: randomDelay), () {
+      if (mounted) {
+        _startShineAnimation();
+      }
+    });
+  }
+
+  void _startShineAnimation() {
+    if (!mounted) return;
+    
+    setState(() {
+      _showShine = true;
+    });
+    
+    _shineController.forward().then((_) {
+      if (mounted) {
+        setState(() {
+          _showShine = false;
+        });
+        
+        // Schedule next shine animation with random delay
+        final random = Random();
+        final randomDelay = 1 + random.nextInt(10); // 1 to 10 seconds
+        Future.delayed(Duration(seconds: randomDelay), () {
+          if (mounted) {
+            _startShineAnimation();
+          }
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _shineController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        // Navigate to genre page (don't close search, let user navigate back naturally)
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => GenreComicsScreen(
+              genreName: widget.genreName,
+              genreUrl: widget.genrePath,
             ),
-          );
-        },
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-
-            borderRadius: BorderRadius.circular(8),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black,
-                offset: const Offset(4, 4),
-                blurRadius: 0,
-                spreadRadius: 0,
-              ),
-            ],
           ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-
-                color: ThemeConstants.netflixWhite,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
+        );
+      },
+      child: Stack(
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: [
+                BoxShadow(
                   color: Colors.black,
-                  width: 2.0,
+                  offset: const Offset(4, 4),
+                  blurRadius: 0,
+                  spreadRadius: 0,
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: ThemeConstants.netflixWhite,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: Colors.black,
+                    width: 2.0,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      _getGenreIcon(widget.genreName),
+                      size: 16,
+                      color: _getGenreIconColor(widget.genreName),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      widget.genreName,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: ThemeConstants.netflixRed,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    _getGenreIcon(genreName),
-                    size: 16,
-                    color: _getGenreIconColor(genreName),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    genreName,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: ThemeConstants.netflixRed,
-                    ),
-                  ),
-                ],
-              ),
             ),
           ),
-        ),
+          if (_showShine)
+            Positioned.fill(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Lottie.asset(
+                  'assets/animations/shine.json',
+                  controller: _shineController,
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -378,6 +469,8 @@ class ComicSearchDelegate extends SearchDelegate<Comic?> {
     }
   }
 
+}
+
   Widget _buildComicCard(Comic comic, BuildContext context) {
     return FutureBuilder<String>(
       future: DomainHelper.getCurrentDomain(),
@@ -386,7 +479,6 @@ class ComicSearchDelegate extends SearchDelegate<Comic?> {
           return CustomComicCard(
             comic: comic,
             onTap: () {
-              close(context, comic);
               Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -402,7 +494,6 @@ class ComicSearchDelegate extends SearchDelegate<Comic?> {
           domain: domainSnapshot.data!,
           columnCount: 2, // Search results use 2 columns
           onTap: () {
-            close(context, comic);
             Navigator.push(
               context,
               MaterialPageRoute(
@@ -414,6 +505,3 @@ class ComicSearchDelegate extends SearchDelegate<Comic?> {
       },
     );
   }
-
-
-}
