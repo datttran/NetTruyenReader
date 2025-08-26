@@ -84,7 +84,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   final Map<String, AnimationController> _chipAnimationControllers = {};
 
 
-  @override
+    @override
   void initState() {
     super.initState();
 
@@ -135,15 +135,33 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       }
     });
 
+    print('🔍 HomeScreen: initState called');
+    
     // Use initial comics if provided, otherwise load them
     if (widget.initialComics != null && widget.initialComics!.isNotEmpty) {
-      _allComics = List.from(widget.initialComics!);
+      print('🔍 HomeScreen: Using initial comics (${widget.initialComics!.length} items)');
+      _allComics = _filterComicsWithThumbnails(List.from(widget.initialComics!));
+      print('🔍 HomeScreen: After filtering: ${_allComics.length} comics');
       _displayComics = _allComics.take(_pageSize).toList();
       _hasMore = _allComics.length > _pageSize;
       _currentPage = 1;
     } else {
+      print('🔍 HomeScreen: No initial comics, will load them');
       _loadMore();
     }
+    
+    // Use initial top comics if provided, otherwise load them
+    if (widget.initialTopComics != null && widget.initialTopComics!.isNotEmpty) {
+      print('🔍 HomeScreen: Using initial top comics (${widget.initialTopComics!.length} items)');
+      // Use preloaded top comics from loading screen
+      _topComics = _filterComicsWithThumbnails(List.from(widget.initialTopComics!));
+      print('🔍 HomeScreen: After filtering top comics: ${_topComics.length} comics');
+      _topComicsCacheTimestamp = DateTime.now();
+      print('✅ HomeScreen: Using preloaded top comics (${_topComics.length} items)');
+      print('✅ HomeScreen: First top comic: ${_topComics.first.title}');
+    }
+    
+    _initializeLastUsedDomain();
 
     _scrollController.addListener(() {
       if (_scrollController.position.pixels >=
@@ -154,8 +172,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       }
     });
 
-    _initializeLastUsedDomain();
-
     // Clear expired cache entries on app start
     _clearExpiredCache();
     _clearExpiredTopComicsCache();
@@ -164,7 +180,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       if (_topComics.isEmpty) {
         if (widget.initialTopComics != null && widget.initialTopComics!.isNotEmpty) {
           // Use preloaded top comics from loading screen
-          _topComics = List.from(widget.initialTopComics!);
+          _topComics = _filterComicsWithThumbnails(List.from(widget.initialTopComics!));
           _topComicsCacheTimestamp = DateTime.now();
           print('✅ HomeScreen: Using preloaded top comics (${_topComics.length} items)');
           print('✅ HomeScreen: First top comic: ${_topComics.first.title}');
@@ -176,6 +192,73 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       } else {
         print('✅ HomeScreen: Top comics already loaded (${_topComics.length} items)');
       }
+  }
+
+  /// Filter out comics without valid thumbnails
+  List<Comic> _filterComicsWithThumbnails(List<Comic> comics) {
+    print('🔍 _filterComicsWithThumbnails: Starting with ${comics.length} comics');
+    
+    final filteredComics = comics.where((comic) {
+      // Basic URL validation
+      if (comic.imageUrl.isEmpty || 
+          comic.imageUrl == 'null' || 
+          comic.imageUrl == 'undefined') {
+        print('❌ Filtered out: Empty/null/undefined URL - ${comic.title}');
+        return false;
+      }
+      
+      // Check for common broken image patterns
+      if (comic.imageUrl.contains('thumb-default.jpg') ||
+          comic.imageUrl.contains('placeholder') ||
+          comic.imageUrl.contains('no-image') ||
+          comic.imageUrl.contains('broken') ||
+          comic.imageUrl.contains('error') ||
+          comic.imageUrl.contains('default') ||
+          comic.imageUrl.contains('missing') ||
+          comic.imageUrl.contains('thumb-default') ||
+          comic.imageUrl.contains('noimage') ||
+          comic.imageUrl.contains('404') ||
+          comic.imageUrl.contains('not-found')) {
+        print('❌ Filtered out: Contains broken image pattern - ${comic.title} - URL: ${comic.imageUrl}');
+        return false;
+      }
+      
+      // Check for invalid URL patterns
+      if (!comic.imageUrl.startsWith('http://') && 
+          !comic.imageUrl.startsWith('https://')) {
+        print('❌ Filtered out: Invalid URL pattern - ${comic.title} - URL: ${comic.imageUrl}');
+        return false;
+      }
+      
+      // Check for extremely short URLs (likely invalid)
+      if (comic.imageUrl.length < 20) {
+        print('❌ Filtered out: URL too short - ${comic.title} - URL: ${comic.imageUrl}');
+        return false;
+      }
+      
+      // Check for URLs that are too long (might be malformed)
+      if (comic.imageUrl.length > 500) {
+        print('❌ Filtered out: URL too long - ${comic.title} - URL: ${comic.imageUrl}');
+        return false;
+      }
+      
+      // Check for common CDN patterns that indicate valid images
+      if (comic.imageUrl.contains('.jpg') || 
+          comic.imageUrl.contains('.jpeg') ||
+          comic.imageUrl.contains('.png') ||
+          comic.imageUrl.contains('.webp') ||
+          comic.imageUrl.contains('.gif')) {
+        print('✅ Allowed: Has image extension - ${comic.title} - URL: ${comic.imageUrl}');
+        return true;
+      }
+      
+      // Only allow comics with clear image extensions - be very strict
+      print('❌ Filtered out: No clear image extension - ${comic.title} - URL: ${comic.imageUrl}');
+      return false;
+    }).toList();
+    
+    print('🔍 _filterComicsWithThumbnails: Filtered to ${filteredComics.length} comics');
+    return filteredComics;
   }
 
   /// CRITICAL: DO NOT CHANGE THIS METHOD! This method initializes the last used domain
@@ -200,9 +283,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       return _lastUsedDomain!;
     }
     
-    // If no cached domain, return the default fallback
+    // If no cached domain, return the primary domain from constants
     // This will be updated once _checkAndReloadIfNeeded() completes
-    return 'https://nettruyen.com';
+    return AppConstants.PRIMARY_DOMAIN;
   }
 
   @override
@@ -290,11 +373,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       // Check cache first
       final cachedData = _getCachedGenreData(genrePath);
       if (cachedData != null) {
-        _filteredComics = cachedData;
+        _filteredComics = _filterComicsWithThumbnails(cachedData);
       } else {
         final startTime = DateTime.now();
-        _filteredComics =
-            await NetTruyenService().fetchComicsByGenre(genrePath);
+        _filteredComics = _filterComicsWithThumbnails(
+            await NetTruyenService().fetchComicsByGenre(genrePath));
         final endTime = DateTime.now();
         final duration = endTime.difference(startTime);
         print(
@@ -427,9 +510,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           // Check cache first for popular comics
           final cachedPopularData = _getCachedGenreData(_popularCacheKey);
           if (cachedPopularData != null) {
-            _allComics = cachedPopularData;
+            _allComics = _filterComicsWithThumbnails(cachedPopularData);
           } else {
-            _allComics = await NetTruyenService().fetchComics();
+            _allComics = _filterComicsWithThumbnails(await NetTruyenService().fetchComics());
             print('🔍 Loaded ${_allComics.length} comics from service');
             // Debug: Print first few comics with chapter info
             for (int i = 0; i < _allComics.length && i < 3; i++) {
@@ -486,7 +569,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         );
       }
     }
-    _allComics = map.values.toList();
+    _allComics = _filterComicsWithThumbnails(map.values.toList());
   }
 
   /// Check if cached genre data is still valid
@@ -574,7 +657,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     } else {
       // Refresh popular comics (clear cache and re-fetch)
       _clearGenreCache(_popularCacheKey);
-      _allComics = await NetTruyenService().fetchComics();
+      _allComics = _filterComicsWithThumbnails(await NetTruyenService().fetchComics());
       _applyDeduplication();
 
       // Cache the fresh popular comics
@@ -1693,7 +1776,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       final response = await NetTruyenService().fetchComicsFromUrl(url);
       
       if (response.isNotEmpty) {
-        _topComics = response.take(10).toList();
+        _topComics = _filterComicsWithThumbnails(response.take(10).toList());
         _topComicsCacheTimestamp = DateTime.now();
       }
       

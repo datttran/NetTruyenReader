@@ -184,6 +184,7 @@ class CustomComicCard extends StatelessWidget {
         );
       },
       errorWidget: (ctx, url, error) {
+        // Show error state since broken comics should be filtered out at data level
         return Container(
           width: double.infinity,
           height: double.infinity,
@@ -199,6 +200,7 @@ class CustomComicCard extends StatelessWidget {
     );
   }
 
+  /// Build chapter badge with rainbow effect for high chapter counts
   Widget _buildChapterBadge(int chapterCount, BuildContext context) {
     return Consumer<FontProvider>(
       builder: (context, fontProvider, child) {
@@ -227,12 +229,9 @@ class CustomComicCard extends StatelessWidget {
           badge = badge.animate(onPlay: (controller) => controller.repeat())
               .shimmer(duration: 2000.ms, color: Colors.red, size: 2.0)
               .then()
-              .shimmer(duration: 2000.ms, color: Colors.orange, size: 2.0)
-              .then()
-              .shimmer(duration: 2000.ms, color: Colors.yellow, size: 2.0)
-              .then()
-              .shimmer(duration: 2000.ms, color: Colors.green, size: 2.0)
-              .then()
+
+
+               
               .shimmer(duration: 2000.ms, color: Colors.blue, size: 2.0)
               .then()
               .shimmer(duration: 2000.ms, color: Colors.purple, size: 2.0);
@@ -259,6 +258,7 @@ class CustomComicCard extends StatelessWidget {
     );
   }
 
+  /// Clean comic title by removing common prefixes
   String _cleanTitle(String title) {
     // Remove common prefixes and clean up the title
     return title
