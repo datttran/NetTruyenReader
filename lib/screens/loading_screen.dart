@@ -21,6 +21,7 @@ class _LoadingScreenState extends State<LoadingScreen> with TickerProviderStateM
   late Animation<double> _thunderAnimation;
   
   List<Comic> _comics = [];
+  List<Comic> _topComics = [];
   
   // Thunder Lottie animation controller for playing 2 times
   int _thunderPlayCount = 0;
@@ -109,18 +110,25 @@ class _LoadingScreenState extends State<LoadingScreen> with TickerProviderStateM
 
   Future<void> _loadComicsInBackground() async {
     try {
-      print('🔄 LoadingScreen: Starting to load comics in background...');
+      print('🔄 LoadingScreen: Starting to load comics and top comics in background...');
       final netTruyenService = NetTruyenService();
-      final comics = await netTruyenService.fetchComics();
       
-      print('✅ LoadingScreen: Successfully loaded ${comics.length} comics');
+      // Load both main comics and top comics in parallel
+      // First get the current domain to ensure consistency
+      final currentDomain = await netTruyenService.getCurrentDomain();
+      print('🌐 LoadingScreen: Using domain: $currentDomain');
+      final comics = await netTruyenService.fetchComics();
+      final topComics = await netTruyenService.fetchComicsFromUrl('$currentDomain/tim-truyen?status=&sort=10');
+      
+      print('✅ LoadingScreen: Successfully loaded ${comics.length} comics and ${topComics.length} top comics');
       
       if (mounted) {
         setState(() {
           _comics = comics;
+          _topComics = topComics;
         });
         
-        print('📱 LoadingScreen: Comics loaded, scheduling navigation with ${_comics.length} comics');
+        print('📱 LoadingScreen: All comics loaded, scheduling navigation with ${_comics.length} comics and ${_topComics.length} top comics');
         // Wait for animation to complete, then navigate with comics
         _scheduleNavigationWithComics();
       }
@@ -135,14 +143,17 @@ class _LoadingScreenState extends State<LoadingScreen> with TickerProviderStateM
   }
 
   void _scheduleNavigationWithComics() {
-    print('⏰ LoadingScreen: Scheduling navigation with ${_comics.length} comics');
+    print('⏰ LoadingScreen: Scheduling navigation with ${_comics.length} comics and ${_topComics.length} top comics');
     // Wait for animation to complete, then navigate with comics
     Future.delayed(const Duration(milliseconds: 1200), () {
       if (mounted) {
-        print('🚀 LoadingScreen: Navigating to HomeScreen with ${_comics.length} comics');
+        print('🚀 LoadingScreen: Navigating to HomeScreen with ${_comics.length} comics and ${_topComics.length} top comics');
         Navigator.of(context).pushReplacement(
           PageRouteBuilder(
-            pageBuilder: (context, animation, secondaryAnimation) => HomeScreen(initialComics: _comics),
+            pageBuilder: (context, animation, secondaryAnimation) => HomeScreen(
+              initialComics: _comics,
+              initialTopComics: _topComics,
+            ),
             transitionsBuilder: (context, animation, secondaryAnimation, child) {
               return FadeTransition(
                 opacity: animation,

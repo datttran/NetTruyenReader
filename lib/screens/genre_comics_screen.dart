@@ -1,12 +1,11 @@
 // lib/screens/genre_comics_screen.dart
 
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../models/comic.dart';
 import '../services/nettruyen_service.dart';
-import '../constants/app_constants.dart';
 import 'detail_screen.dart';
-import 'package:flutter_cache_manager/flutter_cache_manager.dart';
+import '../widgets/custom_comic_card.dart';
+import '../utils/domain_helper.dart';
 
 class GenreComicsScreen extends StatefulWidget {
   final String genreName;
@@ -24,10 +23,6 @@ class GenreComicsScreen extends StatefulWidget {
 
 class _GenreComicsScreenState extends State<GenreComicsScreen> {
   late Future<List<Comic>> _comicsFuture;
-  final _thumbCache = CacheManager(
-    Config('genre_thumb_cache_${DateTime.now().millisecondsSinceEpoch}',
-        maxNrOfCacheObjects: AppConstants.CACHE_MAX_OBJECTS),
-  );
 
   @override
   void initState() {
@@ -35,15 +30,7 @@ class _GenreComicsScreenState extends State<GenreComicsScreen> {
     _comicsFuture = NetTruyenService().fetchComicsByGenre(widget.genreUrl);
   }
 
-  Future<bool> _isImageCached(String imageUrl) async {
-    try {
-      final fileInfo = await _thumbCache.getFileFromCache(imageUrl);
-      return fileInfo != null;
-    } catch (e) {
-      print('🔍 Cache check error for $imageUrl: $e');
-      return false;
-    }
-  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -121,8 +108,6 @@ class _GenreComicsScreenState extends State<GenreComicsScreen> {
 
           return RefreshIndicator(
             onRefresh: () async {
-              await _thumbCache.emptyCache();
-              print('🔍 Cleared genre thumbnail cache for fresh loading');
               setState(() {
                 _comicsFuture =
                     NetTruyenService().fetchComicsByGenre(widget.genreUrl);
@@ -139,125 +124,35 @@ class _GenreComicsScreenState extends State<GenreComicsScreen> {
               itemCount: comics.length,
               itemBuilder: (context, index) {
                 final comic = comics[index];
-                return GestureDetector(
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => DetailScreen(comic: comic),
-                    ),
-                  ),
-                  child: Card(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    elevation: 4,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        // Image container that takes 80% of card height
-                        Flexible(
-                          flex: 8,
-                          child: Hero(
-                            tag: comic.imageUrl,
-                            child: ClipRRect(
-                              borderRadius: const BorderRadius.vertical(
-                                  top: Radius.circular(8)),
-                              child: FutureBuilder<bool>(
-                                future: _isImageCached(comic.imageUrl),
-                                builder: (context, snapshot) {
-                                  if (snapshot.connectionState ==
-                                      ConnectionState.waiting) {
-                                    return Container(
-                                      width: double.infinity,
-                                      height: double.infinity,
-                                      color: Colors.grey[300],
-                                      child: const Center(
-                                          child: CircularProgressIndicator()),
-                                    );
-                                  }
-
-                                  final isCached = snapshot.data ?? false;
-
-                                  if (isCached) {
-                                    // Use cached image
-                                    return CachedNetworkImage(
-                                      cacheManager: _thumbCache,
-                                      imageUrl: comic.imageUrl,
-                                      fit: BoxFit.cover,
-                                      width: double.infinity,
-                                      height: double.infinity,
-                                      placeholder: (_, __) => Container(
-                                        width: double.infinity,
-                                        height: double.infinity,
-                                        color: Colors.grey[300],
-                                        child: const Center(
-                                            child: CircularProgressIndicator()),
-                                      ),
-                                      errorWidget: (_, __, ___) => Container(
-                                        width: double.infinity,
-                                        height: double.infinity,
-                                        color: Colors.grey[300],
-                                        child: const Center(
-                                            child: Icon(Icons.broken_image,
-                                                size: 40)),
-                                      ),
-                                    );
-                                  } else {
-                                    // Load from web and cache it
-                                    return CachedNetworkImage(
-                                      cacheManager: _thumbCache,
-                                      imageUrl: comic.imageUrl,
-                                      fit: BoxFit.cover,
-                                      width: double.infinity,
-                                      height: double.infinity,
-                                      placeholder: (_, __) => Container(
-                                        width: double.infinity,
-                                        height: double.infinity,
-                                        color: Colors.grey[700],
-                                        child: const Center(
-                                            child: CircularProgressIndicator()),
-                                      ),
-                                      errorWidget: (_, __, ___) => Container(
-                                        width: double.infinity,
-                                        height: double.infinity,
-                                        color: Colors.grey[700],
-                                        child: const Center(
-                                            child: Icon(Icons.broken_image,
-                                                size: 40)),
-                                      ),
-                                      httpHeaders: const {
-                                        'Referer': 'https://nettruyenvia.com',
-                                      },
-                                    );
-                                  }
-                                },
-                              ),
-                            ),
+                final columnCount = _calculateColumnCount();
+                return FutureBuilder<String>(
+                  future: DomainHelper.getCurrentDomain(),
+                  builder: (context, domainSnapshot) {
+                    if (!domainSnapshot.hasData) {
+                      return CustomComicCard(
+                        comic: comic,
+                        columnCount: columnCount,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => DetailScreen(comic: comic),
                           ),
                         ),
-                        // Text section that takes 20% of card height
-                        Flexible(
-                          flex: 2,
-                          child: Container(
-                            padding: const EdgeInsets.all(4),
-                            child: Text(
-                              comic.title,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Theme.of(context).brightness ==
-                                        Brightness.dark
-                                    ? Colors.white
-                                    : Theme.of(context).colorScheme.onSurface,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
+                      );
+                    }
+                    
+                    return CustomComicCard(
+                      comic: comic,
+                      domain: domainSnapshot.data!,
+                      columnCount: columnCount,
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => DetailScreen(comic: comic),
                         ),
-                      ],
-                    ),
-                  ),
+                      ),
+                    );
+                  },
                 );
               },
             ),
@@ -305,6 +200,19 @@ class _GenreComicsScreenState extends State<GenreComicsScreen> {
     } else {
       // Standard mobile portrait - use balanced aspect ratio
       return 0.65;
+    }
+  }
+
+  /// Calculate the number of columns based on screen size
+  int _calculateColumnCount() {
+    final screenWidth = MediaQuery.of(context).size.width;
+    
+    if (screenWidth < 600.0) {
+      return 2; // Mobile: 2 columns
+    } else if (screenWidth < 900.0) {
+      return 3; // Tablet: 3-4 columns
+    } else {
+      return 4; // Desktop: 4-5 columns
     }
   }
 }

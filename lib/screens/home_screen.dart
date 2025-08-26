@@ -1,8 +1,6 @@
 // lib/screens/home_screen.dart
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:card_loading/card_loading.dart';
 import 'package:provider/provider.dart';
 import 'package:lottie/lottie.dart';
@@ -15,11 +13,14 @@ import 'detail_screen.dart';
 import 'settings_screen.dart';
 import '../services/comic_search_delegate.dart';
 import '../providers/font_provider.dart';
+import '../widgets/custom_comic_card.dart';
+import '../utils/domain_helper.dart';
 
 class HomeScreen extends StatefulWidget {
   final List<Comic>? initialComics;
+  final List<Comic>? initialTopComics;
 
-  const HomeScreen({super.key, this.initialComics});
+  const HomeScreen({super.key, this.initialComics, this.initialTopComics});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -37,7 +38,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   int _currentPage = 1;
 
   String? _lastUsedDomain;
-  final _thumbCacheManager = DefaultCacheManager();
 
   // Genre filtering state
   String _selectedGenre = 'Phổ biến'; // Default to popular
@@ -71,7 +71,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   final int _maxThunderPlays = 1; // Play exactly 1 time
   
   // Refresh state for showing reload.json animation
-  bool _isRefreshing = false;
   bool _showCompletionAnimation = false; // Show completion animation briefly
 
   // Map to store animation controllers for genre chips
@@ -154,10 +153,22 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     _clearExpiredCache();
     _clearExpiredTopComicsCache();
     
-    // Initialize top comics if not already loaded
-    if (_topComics.isEmpty) {
-      _fetchTopComics();
-    }
+          // Initialize top comics if not already loaded
+      if (_topComics.isEmpty) {
+        if (widget.initialTopComics != null && widget.initialTopComics!.isNotEmpty) {
+          // Use preloaded top comics from loading screen
+          _topComics = List.from(widget.initialTopComics!);
+          _topComicsCacheTimestamp = DateTime.now();
+          print('✅ HomeScreen: Using preloaded top comics (${_topComics.length} items)');
+          print('✅ HomeScreen: First top comic: ${_topComics.first.title}');
+        } else {
+          // Fetch top comics if not preloaded
+          print('🔄 HomeScreen: No preloaded top comics, fetching...');
+          _fetchTopComics();
+        }
+      } else {
+        print('✅ HomeScreen: Top comics already loaded (${_topComics.length} items)');
+      }
   }
 
   /// CRITICAL: DO NOT CHANGE THIS METHOD! This method initializes the last used domain
@@ -170,7 +181,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   /// CRITICAL: DO NOT CHANGE THIS METHOD! This method gets the current domain for use in headers.
   /// It ensures that thumbnails are loaded with the correct Referer header.
   String _getCurrentDomainForHeaders() {
-    return _lastUsedDomain ?? AppConstants.PRIMARY_DOMAIN;
+    return DomainHelper.getCachedDomain(_lastUsedDomain);
   }
 
   @override
@@ -184,9 +195,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   /// the automatic content refresh functionality when returning from settings.
   Future<void> _checkAndReloadIfNeeded() async {
     final currentDomain = await NetTruyenService().getCurrentDomain();
+    print('🔍 HomeScreen: Checking domain - Last: $_lastUsedDomain, Current: $currentDomain');
 
     if (_lastUsedDomain != null && _lastUsedDomain != currentDomain) {
+      print('🔄 HomeScreen: Domain changed, triggering reload');
       _reloadContent();
+    } else {
+      print('✅ HomeScreen: Domain unchanged, no reload needed');
     }
     _lastUsedDomain = currentDomain;
   }
@@ -195,28 +210,28 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   /// by clearing existing comics and triggering a fresh load. It's essential for
   /// ensuring that content from the new domain is displayed properly.
   Future<void> _reloadContent() async {
+    print('🔄 HomeScreen: _reloadContent() called - clearing main comics');
     setState(() {
       _allComics.clear();
       _displayComics.clear();
       _hasMore = true;
     });
     
-    // Also clear top comics cache to ensure consistency with new domain
-    _clearTopComicsCache();
+    // Only clear top comics cache if we don't have preloaded data
+    // This prevents clearing the data that was just passed from loading screen
+    if (widget.initialTopComics == null || widget.initialTopComics!.isEmpty) {
+      print('🔄 HomeScreen: Clearing top comics cache (no preloaded data)');
+      _clearTopComicsCache();
+    } else {
+      print('✅ HomeScreen: Preserving preloaded top comics (${widget.initialTopComics!.length} items)');
+    }
     
     await _loadMore();
   }
 
   /// CRITICAL: DO NOT CHANGE THIS METHOD! This method handles thumbnail loading failures
   /// by silently removing the failed comic from both the all comics list and display list.
-  /// It's essential for maintaining a clean UI without broken thumbnails.
-  void _onThumbnailFailed(String imageUrl) {
-    setState(() {
-      _allComics.removeWhere((comic) => comic.imageUrl == imageUrl);
-      _displayComics.removeWhere((comic) => comic.imageUrl == imageUrl);
-      _hasMore = _displayComics.length < _allComics.length;
-    });
-  }
+
 
   String _cleanTitle(String title) {
     return title.replaceFirst(RegExp(r'^[Tt]ruyện tranh\s*'), '').trim();
@@ -522,7 +537,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   /// Refresh content (pull to refresh)
   Future<void> _onRefresh() async {
     setState(() {
-      _isRefreshing = true;
       _isLoadingTopComics = true; // Set loading state BEFORE clearing cache
     });
     
@@ -548,7 +562,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       setState(() {
         _displayComics = _allComics.take(_pageSize).toList();
         _hasMore = _allComics.length > _pageSize;
-        _isRefreshing = false;
         _showCompletionAnimation = true; // Show completion animation
       });
       
@@ -596,102 +609,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     }
   }
 
-  /// Build a chapter badge with conditional rainbow effect for high chapters
-  Widget _buildChapterBadge(int chapterCount, BuildContext context) {
-    final isHighChapter = chapterCount > 500;
-    
-    return Consumer<FontProvider>(
-      builder: (context, fontProvider, child) {
-        Widget badge = Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-          decoration: BoxDecoration(
-            color: isHighChapter
-                ? Colors.purple.withValues(alpha: 0.9) // Special color for high chapters
-                : Colors.red.withValues(alpha: 0.9),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Text(
-            'Ch.$chapterCount',
-            style: fontProvider.getScaledTextStyle(
-              fontSize: 8,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          ),
-        );
 
-        // Only apply rainbow effect for high chapters
-        if (isHighChapter) {
-          badge = badge
-              .animate(
-                onPlay: (controller) => controller.repeat(),
-              )
-              .shimmer(
-                duration: 2000.ms,
-                color: Colors.red,
-                size: 2.0,
-              )
-              .then()
-              .shimmer(
-                duration: 2000.ms,
-                color: Colors.orange,
-                size: 2.0,
-              )
-              .then()
-              .shimmer(
-                duration: 2000.ms,
-                color: Colors.yellow,
-                size: 2.0,
-              )
-              .then()
-              .shimmer(
-                duration: 2000.ms,
-                color: Colors.green,
-                size: 2.0,
-              )
-              .then()
-              .shimmer(
-                duration: 2000.ms,
-                color: Colors.blue,
-                size: 2.0,
-              )
-              .then()
-              .shimmer(
-                duration: 2000.ms,
-                color: Colors.indigo,
-                size: 2.0,
-              )
-              .then()
-              .shimmer(
-                duration: 2000.ms,
-                color: Colors.purple,
-                size: 2.0,
-              );
-        }
-
-        // Use Stack to layer text above the badge
-        return Stack(
-          children: [
-            // Animated badge background at the bottom
-            badge,
-            // Chapter text positioned above the badge
-            Positioned.fill(
-              child: Center(
-                child: Text(
-                  'Ch.$chapterCount',
-                  style: fontProvider.getScaledTextStyle(
-                    fontSize: 8,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
 
   /// Build a genre chip with proper styling and icon
   Widget _buildGenreChip(String genreName, String genrePath) {
@@ -1349,155 +1267,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                             );
                           }
                           final comic = _displayComics[index];
-                          return GestureDetector(
-                            onTap: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (_) => DetailScreen(comic: comic)),
-                            ),
-                            child: Card(
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              elevation: 0,
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                    color: Colors.black,
-                                    width: 2.0,
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black,
-                                      offset: const Offset(4, 4),
-                                      blurRadius: 0, // No blur
-                                      spreadRadius: 0, // No spread
-                                    ),
-                                  ],
-                                ),
-                                child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.stretch,
-                                  children: [
-                                    // Image container that takes 85% of card height
-                                    Flexible(
-                                      flex: 17,
-                                      child: Stack(
-                                        children: [
-                                          // Main image with fixed dimensions
-                                          Hero(
-                                            tag: comic.imageUrl,
-                                            child: ClipRRect(
-                                              borderRadius:
-                                                  const BorderRadius.vertical(
-                                                      top: Radius.circular(6)),
-                                              child: CachedNetworkImage(
-                                                cacheManager:
-                                                    _thumbCacheManager,
-                                                imageUrl: comic.imageUrl,
-                                                httpHeaders: {
-                                                  'Referer':
-                                                      _getCurrentDomainForHeaders()
-                                                },
-                                                imageBuilder: (ctx, provider) {
-                                                  return Image(
-                                                    image: provider,
-                                                    fit: BoxFit.cover,
-                                                    width: double.infinity,
-                                                    height: double.infinity,
-                                                  );
-                                                },
-                                                placeholder: (ctx, url) {
-                                                  return Container(
-                                                    width: double.infinity,
-                                                    height: double.infinity,
-                                                    color: Colors.grey[700],
-                                                    child: CardLoading(
-                                                      height: double.infinity,
-                                                      width: double.infinity,
-                                                    ),
-                                                  );
-                                                },
-                                                errorWidget: (ctx, url, error) {
-                                                  WidgetsBinding.instance
-                                                      .addPostFrameCallback(
-                                                          (_) {
-                                                    _onThumbnailFailed(url);
-                                                  });
-                                                  return Container(
-                                                    width: double.infinity,
-                                                    height: double.infinity,
-                                                    color: Colors.grey[700],
-                                                    child: const Center(
-                                                        child: Icon(
-                                                            Icons.broken_image,
-                                                            size: 40)),
-                                                  );
-                                                },
-                                              ),
-                                            ),
-                                          ),
-                                          // Chapter number badge on top left (shows Ch. prefix)
-                                          if (comic.chapterCount != null)
-                                            Positioned(
-                                              top: 8,
-                                              left: 8,
-                                              child: _buildChapterBadge(comic.chapterCount!, context),
-                                            ),
-                                        ],
-                                      ),
-                                    ),
-                                    // Text section that takes 15% of card height
-                                    Flexible(
-                                      flex: 3,
-                                      child: Container(
-                                        width: double.infinity,
-                                        padding: const EdgeInsets.all(6),
-                                        decoration: BoxDecoration(
-                                          color: Theme.of(context).brightness ==
-                                                  Brightness.dark
-                                              ? ThemeConstants.netflixDarkGray // ← Dark theme: Dark grey background
-                                              : Colors.grey[
-                                                  100], // ← Light theme: Light grey background
-                                          borderRadius: const BorderRadius.only(
-                                            bottomLeft: Radius.circular(
-                                                6), // ← Bottom left corner
-                                            bottomRight: Radius.circular(
-                                                6), // ← Bottom right corner
-                                          ),
-                                        ),
-                                        child: Center(
-                                          child: Consumer<FontProvider>(
-                                            builder:
-                                                (context, fontProvider, child) {
-                                              return Text(
-                                                _cleanTitle(comic.title),
-                                                style: fontProvider
-                                                    .getScaledTextStyle(
-                                                  fontSize: 12,
-                                                  color: Theme.of(context)
-                                                              .brightness ==
-                                                          Brightness.dark
-                                                      ? Colors.white
-                                                      : Theme.of(context)
-                                                          .colorScheme
-                                                          .onSurface,
-                                                ),
-                                                maxLines: 2,
-                                                overflow: TextOverflow.ellipsis,
-                                                textAlign: TextAlign.center,
-                                              );
-                                            },
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          );
+                                                     return CustomComicCard(
+                             comic: comic,
+                             domain: _getCurrentDomainForHeaders(),
+                             columnCount: 2, // Home screen uses 2 columns
+                             onTap: () => Navigator.push(
+                               context,
+                               MaterialPageRoute(
+                                   builder: (_) => DetailScreen(comic: comic)),
+                             ),
+                           );
                         },
                         childCount: _displayComics.length + (_hasMore ? 1 : 0),
                       ),
@@ -2032,147 +1811,20 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       itemCount: comics.length,
       itemBuilder: (context, index) {
         final comic = comics[index];
-        return Container(
+                return Container(
           width: cardWidth,
           margin: const EdgeInsets.only(right: 12),
-          child: GestureDetector(
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => DetailScreen(comic: comic),
-              ),
-            ),
-            child: Card(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              elevation: 0,
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: Colors.black,
-                    width: 2.0,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black,
-                      offset: const Offset(4, 4),
-                      blurRadius: 0, // No blur
-                      spreadRadius: 0, // No spread
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Image container that takes 85% of card height
-                    Flexible(
-                      flex: 17,
-                      child: Stack(
-                        children: [
-                          // Main image with fixed dimensions - using same cache manager as main grid
-                          Hero(
-                            tag: comic.imageUrl,
-                            child: ClipRRect(
-                              borderRadius: const BorderRadius.vertical(
-                                top: Radius.circular(6),
-                              ),
-                              child: CachedNetworkImage(
-                                cacheManager: _thumbCacheManager, // Same cache manager as main grid
-                                imageUrl: comic.imageUrl,
-                                httpHeaders: {
-                                  'Referer': _getCurrentDomainForHeaders() // Same headers as main grid
-                                },
-                                imageBuilder: (ctx, provider) {
-                                  return Image(
-                                    image: provider,
-                                    fit: BoxFit.cover,
-                                    width: double.infinity,
-                                    height: double.infinity,
-                                  );
-                                },
-                                placeholder: (ctx, url) {
-                                  return Container(
-                                    width: double.infinity,
-                                    height: double.infinity,
-                                    color: Colors.grey[700],
-                                    child: CardLoading(
-                                      height: double.infinity,
-                                      width: double.infinity,
-                                    ),
-                                  );
-                                },
-                                errorWidget: (ctx, url, error) {
-                                  // Same error handling as main grid
-                                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                                    _onThumbnailFailed(url);
-                                  });
-                                  return Container(
-                                    width: double.infinity,
-                                    height: double.infinity,
-                                    color: Colors.grey[700],
-                                    child: const Center(
-                                      child: Icon(
-                                        Icons.broken_image,
-                                        size: 40,
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                          ),
-                          // Chapter number badge on top left (shows Ch. prefix)
-                          if (comic.chapterCount != null)
-                            Positioned(
-                              top: 8,
-                              left: 8,
-                              child: _buildChapterBadge(comic.chapterCount!, context),
-                            ),
-                        ],
-                      ),
-                    ),
-                    // Text section that takes 15% of card height
-                    Flexible(
-                      flex: 3,
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).brightness == Brightness.dark
-                              ? ThemeConstants.netflixDarkGray
-                              : Colors.grey[100],
-                          borderRadius: const BorderRadius.only(
-                            bottomLeft: Radius.circular(6),
-                            bottomRight: Radius.circular(6),
-                          ),
-                        ),
-                        child: Center(
-                          child: Consumer<FontProvider>(
-                            builder: (context, fontProvider, child) {
-                              return Text(
-                                _cleanTitle(comic.title),
-                                style: fontProvider.getScaledTextStyle(
-                                  fontSize: 12,
-                                  color: Theme.of(context).brightness == Brightness.dark
-                                      ? Colors.white
-                                      : Theme.of(context).colorScheme.onSurface,
-                                ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                textAlign: TextAlign.center,
-                              );
-                            },
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
+                     child: CustomComicCard(
+             comic: comic,
+             domain: _getCurrentDomainForHeaders(),
+             columnCount: 3, // Top comics section uses 3 columns
+             onTap: () => Navigator.push(
+               context,
+               MaterialPageRoute(
+                 builder: (_) => DetailScreen(comic: comic),
+               ),
+             ),
+           ),
         );
       },
     );

@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../models/comic.dart';
 import '../services/nettruyen_service.dart';
 import '../screens/detail_screen.dart';
-import '../constants/app_constants.dart';
 import '../constants/theme_constants.dart';
 import '../screens/cloudflare_bypass_screen.dart';
-import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import '../screens/genre_comics_screen.dart'; // Added import for GenreComicsScreen
+import '../widgets/custom_comic_card.dart';
+import '../utils/domain_helper.dart';
 
 class ComicSearchDelegate extends SearchDelegate<Comic?> {
   final NetTruyenService _service = NetTruyenService();
@@ -316,175 +315,41 @@ class ComicSearchDelegate extends SearchDelegate<Comic?> {
   }
 
   Widget _buildComicCard(Comic comic, BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        close(context, comic);
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => DetailScreen(comic: comic),
-          ),
+    return FutureBuilder<String>(
+      future: DomainHelper.getCurrentDomain(),
+      builder: (context, domainSnapshot) {
+        if (!domainSnapshot.hasData) {
+          return CustomComicCard(
+            comic: comic,
+            onTap: () {
+              close(context, comic);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => DetailScreen(comic: comic),
+                ),
+              );
+            },
+          );
+        }
+
+        return CustomComicCard(
+          comic: comic,
+          domain: domainSnapshot.data!,
+          columnCount: 2, // Search results use 2 columns
+          onTap: () {
+            close(context, comic);
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => DetailScreen(comic: comic),
+              ),
+            );
+          },
         );
       },
-      child: Card(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
-        elevation: 0,
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: Colors.black,
-              width: 2.0,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black,
-                offset: const Offset(4, 4),
-                blurRadius: 0, // No blur
-                spreadRadius: 0, // No spread
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Image container that takes 85% of card height
-              Flexible(
-                flex: 17,
-                child: Stack(
-                  children: [
-                    // Main image with fixed dimensions
-                    Hero(
-                      tag: comic.imageUrl,
-                      child: ClipRRect(
-                        borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(6),
-                        ),
-                        child: FutureBuilder<String>(
-                          future: _service.getCurrentDomain(),
-                          builder: (context, domainSnapshot) {
-                            if (!domainSnapshot.hasData) {
-                              return Container(
-                                width: double.infinity,
-                                height: double.infinity,
-                                color: Colors.grey[700],
-                                child: const Center(
-                                  child: CircularProgressIndicator(),
-                                ),
-                              );
-                            }
-
-                            return CachedNetworkImage(
-                              cacheManager: CacheManager(
-                                Config(AppConstants.THUMB_CACHE_KEY),
-                              ),
-                              imageUrl: comic.imageUrl,
-                              httpHeaders: {'Referer': domainSnapshot.data!},
-                              imageBuilder: (ctx, provider) {
-                                return Image(
-                                  image: provider,
-                                  fit: BoxFit.cover,
-                                  width: double.infinity,
-                                  height: double.infinity,
-                                );
-                              },
-                              placeholder: (ctx, url) {
-                                return Container(
-                                  width: double.infinity,
-                                  height: double.infinity,
-                                  color: Colors.grey[700],
-                                  child: const Center(
-                                    child: CircularProgressIndicator(),
-                                  ),
-                                );
-                              },
-                              errorWidget: (ctx, url, error) {
-                                return Container(
-                                  width: double.infinity,
-                                  height: double.infinity,
-                                  color: Colors.grey[700],
-                                  child: const Center(
-                                    child: Icon(
-                                      Icons.broken_image,
-                                      size: 40,
-                                    ),
-                                  ),
-                                );
-                              },
-                            );
-                          },
-                        ),
-                      ),
-                    ),
-                    // Chapter number badge on top left (shows Ch. prefix)
-                    if (comic.chapterCount != null)
-                      Positioned(
-                        top: 8,
-                        left: 8,
-                        child: _buildChapterBadge(comic.chapterCount!),
-                      ),
-                  ],
-                ),
-              ),
-              // Text section that takes 15% of card height
-              Flexible(
-                flex: 3,
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).brightness == Brightness.dark
-                        ? ThemeConstants.netflixDarkGray // ← Dark theme: Dark grey background
-                        : Colors.grey[100], // ← Light theme: Light grey background
-                    borderRadius: const BorderRadius.only(
-                      bottomLeft: Radius.circular(6), // ← Bottom left corner
-                      bottomRight: Radius.circular(6), // ← Bottom right corner
-                    ),
-                  ),
-                  child: Center(
-                    child: Text(
-                      comic.title,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Theme.of(context).brightness == Brightness.dark
-                            ? Colors.white
-                            : Theme.of(context).colorScheme.onSurface,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 
-  Widget _buildChapterBadge(int chapterCount) {
-    final isHighChapter = chapterCount > 500;
-    
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: isHighChapter
-            ? Colors.purple.withValues(alpha: 0.9)
-            : Colors.red.withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Text(
-        'Ch.$chapterCount',
-        style: const TextStyle(
-          fontSize: 8,
-          fontWeight: FontWeight.bold,
-          color: Colors.white,
-        ),
-      ),
-    );
-  }
+
 }
