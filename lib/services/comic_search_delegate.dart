@@ -4,6 +4,7 @@ import '../models/comic.dart';
 import '../services/nettruyen_service.dart';
 import '../screens/detail_screen.dart';
 import '../constants/app_constants.dart';
+import '../constants/theme_constants.dart';
 import '../screens/cloudflare_bypass_screen.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import '../screens/genre_comics_screen.dart'; // Added import for GenreComicsScreen
@@ -66,7 +67,7 @@ class ComicSearchDelegate extends SearchDelegate<Comic?> {
       {'name': 'Music', 'path': '/tim-truyen/music'},
     ];
 
-    return Padding(
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -75,42 +76,34 @@ class ComicSearchDelegate extends SearchDelegate<Comic?> {
             'Thể loại phổ biến',
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.bold,
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? ThemeConstants.netflixWhite
+                      : ThemeConstants.netflixNavy,
                 ),
           ),
           const SizedBox(height: 16),
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: popularGenres.map((genre) {
-              return ActionChip(
-                label: Text(genre['name']!),
-                onPressed: () {
-                  // Navigate to genre page instead of search
-                  close(context, null);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => GenreComicsScreen(
-                        genreName: genre['name']!,
-                        genreUrl: genre['path']!,
-                      ),
-                    ),
-                  );
-                },
-                backgroundColor:
-                    Theme.of(context).primaryColor.withValues(alpha: 0.1),
-                labelStyle: TextStyle(
-                  color: Theme.of(context).primaryColor,
-                  fontWeight: FontWeight.w500,
-                ),
-              );
-            }).toList(),
+          ScrollConfiguration(
+            behavior: ScrollConfiguration.of(context).copyWith(
+              scrollbars: false,
+              physics: const ClampingScrollPhysics(),
+            ),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: popularGenres.map((genre) {
+                  return _buildGenreChip(genre['name']!, genre['path']!, context);
+                }).toList(),
+              ),
+            ),
           ),
           const SizedBox(height: 24),
           Text(
             'Tìm kiếm nhanh',
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.bold,
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? ThemeConstants.netflixWhite
+                      : ThemeConstants.netflixNavy,
                 ),
           ),
           const SizedBox(height: 16),
@@ -119,7 +112,9 @@ class ComicSearchDelegate extends SearchDelegate<Comic?> {
             '• Nhấn vào thể loại để xem truyện cùng loại\n'
             '• Sử dụng từ khóa tiếng Việt hoặc tiếng Anh',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Colors.grey[600],
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? ThemeConstants.netflixLightGray
+                      : ThemeConstants.netflixDarkGray,
                   height: 1.5,
                 ),
           ),
@@ -129,7 +124,7 @@ class ComicSearchDelegate extends SearchDelegate<Comic?> {
   }
 
   Widget _buildSearchTips(BuildContext context) {
-    return Padding(
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -138,6 +133,9 @@ class ComicSearchDelegate extends SearchDelegate<Comic?> {
             'Tìm kiếm: "$query"',
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.bold,
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? ThemeConstants.netflixWhite
+                      : ThemeConstants.netflixNavy,
                 ),
           ),
           const SizedBox(height: 16),
@@ -145,7 +143,9 @@ class ComicSearchDelegate extends SearchDelegate<Comic?> {
             'Nhấn Enter để tìm kiếm\n'
             'Hoặc tiếp tục gõ để tinh chỉnh từ khóa',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Colors.grey[600],
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? ThemeConstants.netflixLightGray
+                      : ThemeConstants.netflixDarkGray,
                   height: 1.5,
                 ),
           ),
@@ -204,65 +204,287 @@ class ComicSearchDelegate extends SearchDelegate<Comic?> {
           itemCount: results.length,
           itemBuilder: (_, i) {
             final comic = results[i];
-            return GestureDetector(
-              onTap: () {
-                close(context, comic);
-                Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => DetailScreen(comic: comic)));
-              },
-              child: Card(
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8)),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+            return _buildComicCard(comic, context);
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildGenreChip(String genreName, String genrePath, BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: GestureDetector(
+        onTap: () {
+          // Navigate to genre page instead of search
+          close(context, null);
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => GenreComicsScreen(
+                genreName: genreName,
+                genreUrl: genrePath,
+              ),
+            ),
+          );
+        },
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black,
+                offset: const Offset(4, 4),
+                blurRadius: 0,
+                spreadRadius: 0,
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: ThemeConstants.netflixWhite,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: Colors.black,
+                  width: 2.0,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    _getGenreIcon(genreName),
+                    size: 16,
+                    color: ThemeConstants.netflixRed,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    genreName,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: ThemeConstants.netflixRed,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  IconData _getGenreIcon(String genreName) {
+    switch (genreName.toLowerCase()) {
+      case 'action':
+        return Icons.flash_on;
+      case 'comedy':
+        return Icons.sentiment_satisfied;
+      case 'drama':
+        return Icons.theater_comedy;
+      case 'romance':
+        return Icons.favorite;
+      case 'fantasy':
+        return Icons.auto_fix_high;
+      case 'adventure':
+        return Icons.explore;
+      case 'slice of life':
+        return Icons.home;
+      case 'psychological':
+        return Icons.psychology;
+      case 'mystery':
+        return Icons.psychology;
+      case 'horror':
+        return Icons.warning;
+      case 'sci-fi':
+        return Icons.rocket;
+      case 'supernatural':
+        return Icons.auto_fix_high;
+      case 'historical':
+        return Icons.history;
+      case 'sports':
+        return Icons.sports_soccer;
+      case 'music':
+        return Icons.music_note;
+      default:
+        return Icons.category;
+    }
+  }
+
+  Widget _buildComicCard(Comic comic, BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        close(context, comic);
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => DetailScreen(comic: comic),
+          ),
+        );
+      },
+      child: Card(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+        elevation: 0,
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: Colors.black,
+              width: 2.0,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black,
+                offset: const Offset(4, 4),
+                blurRadius: 0, // No blur
+                spreadRadius: 0, // No spread
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Image container that takes 85% of card height
+              Flexible(
+                flex: 17,
+                child: Stack(
                   children: [
-                    Expanded(
+                    // Main image with fixed dimensions
+                    Hero(
+                      tag: comic.imageUrl,
                       child: ClipRRect(
                         borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(8)),
+                          top: Radius.circular(6),
+                        ),
                         child: FutureBuilder<String>(
                           future: _service.getCurrentDomain(),
                           builder: (context, domainSnapshot) {
                             if (!domainSnapshot.hasData) {
                               return Container(
-                                color: Colors.grey[300],
+                                width: double.infinity,
+                                height: double.infinity,
+                                color: Colors.grey[700],
                                 child: const Center(
-                                    child: CircularProgressIndicator()),
+                                  child: CircularProgressIndicator(),
+                                ),
                               );
                             }
 
                             return CachedNetworkImage(
                               cacheManager: CacheManager(
-                                  Config(AppConstants.THUMB_CACHE_KEY)),
+                                Config(AppConstants.THUMB_CACHE_KEY),
+                              ),
                               imageUrl: comic.imageUrl,
                               httpHeaders: {'Referer': domainSnapshot.data!},
-                              fit: BoxFit.cover,
-                              placeholder: (_, __) => const Center(
-                                  child: CircularProgressIndicator()),
-                              errorWidget: (_, __, ___) =>
-                                  const Icon(Icons.broken_image),
+                              imageBuilder: (ctx, provider) {
+                                return Image(
+                                  image: provider,
+                                  fit: BoxFit.cover,
+                                  width: double.infinity,
+                                  height: double.infinity,
+                                );
+                              },
+                              placeholder: (ctx, url) {
+                                return Container(
+                                  width: double.infinity,
+                                  height: double.infinity,
+                                  color: Colors.grey[700],
+                                  child: const Center(
+                                    child: CircularProgressIndicator(),
+                                  ),
+                                );
+                              },
+                              errorWidget: (ctx, url, error) {
+                                return Container(
+                                  width: double.infinity,
+                                  height: double.infinity,
+                                  color: Colors.grey[700],
+                                  child: const Center(
+                                    child: Icon(
+                                      Icons.broken_image,
+                                      size: 40,
+                                    ),
+                                  ),
+                                );
+                              },
                             );
                           },
                         ),
                       ),
                     ),
-                    Padding(
-                      padding: const EdgeInsets.all(4),
-                      child: Text(
-                        comic.title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+                    // Chapter number badge on top left (shows Ch. prefix)
+                    if (comic.chapterCount != null)
+                      Positioned(
+                        top: 8,
+                        left: 8,
+                        child: _buildChapterBadge(comic.chapterCount!),
                       ),
-                    ),
                   ],
                 ),
               ),
-            );
-          },
-        );
-      },
+              // Text section that takes 15% of card height
+              Flexible(
+                flex: 3,
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? ThemeConstants.netflixDarkGray // ← Dark theme: Dark grey background
+                        : Colors.grey[100], // ← Light theme: Light grey background
+                    borderRadius: const BorderRadius.only(
+                      bottomLeft: Radius.circular(6), // ← Bottom left corner
+                      bottomRight: Radius.circular(6), // ← Bottom right corner
+                    ),
+                  ),
+                  child: Center(
+                    child: Text(
+                      comic.title,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? Colors.white
+                            : Theme.of(context).colorScheme.onSurface,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChapterBadge(int chapterCount) {
+    final isHighChapter = chapterCount > 500;
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: isHighChapter
+            ? Colors.purple.withValues(alpha: 0.9)
+            : Colors.red.withValues(alpha: 0.9),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        'Ch.$chapterCount',
+        style: const TextStyle(
+          fontSize: 8,
+          fontWeight: FontWeight.bold,
+          color: Colors.white,
+        ),
+      ),
     );
   }
 }
