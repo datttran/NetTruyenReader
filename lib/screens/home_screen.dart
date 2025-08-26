@@ -73,6 +73,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   bool _isRefreshing = false;
   bool _showCompletionAnimation = false; // Show completion animation briefly
 
+  // Map to store animation controllers for genre chips
+  final Map<String, AnimationController> _chipAnimationControllers = {};
 
 
   @override
@@ -235,7 +237,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     });
 
     // Auto-scroll to top when filtering (only if not already at top)
-    if (_scrollController.hasClients && _scrollController.offset > 100) {
+    if (_scrollController.hasClients && _scrollController.offset > 500) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           _scrollController.animateTo(
@@ -307,7 +309,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     });
 
     // Auto-scroll to top when showing all comics (only if not already at top)
-    if (_scrollController.hasClients && _scrollController.offset > 100) {
+    if (_scrollController.hasClients && _scrollController.offset > 500) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           _scrollController.animateTo(
@@ -560,6 +562,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     _scrollController.dispose();
     _logoAnimationController.dispose();
     _thunderLottieController.dispose();
+    
+    // Dispose all chip animation controllers
+    _chipAnimationControllers.forEach((_, controller) => controller.dispose());
+    
     super.dispose();
   }
 
@@ -597,63 +603,106 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       builder: (context, fontProvider, child) {
         return Padding(
           padding: const EdgeInsets.all(8.0),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black,      // shadow color
-                  offset: const Offset(4, 4),     // shadow position
-                  blurRadius: 0,            // no blur → hard edge
-                  spreadRadius: 0,          // no extra spread
-                ),
-              ],
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(8),
+          child: Stack(
+            children: [
+              // Main chip button
+              GestureDetector(
                 onTap: () {
+                  // Play tap animation if controller exists
+                  if (_chipAnimationControllers.containsKey(genreName)) {
+                    final controller = _chipAnimationControllers[genreName]!;
+                    controller.forward();
+                  }
+                  
+                  // Handle genre selection
                   if (genreName == 'Phổ biến') {
                     _showAllComics();
                   } else {
                     _filterByGenre(genreName, genrePath);
                   }
                 },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: DecoratedBox(
                   decoration: BoxDecoration(
-                    color: isSelected
-                        ? ThemeConstants.netflixRed
-                        : ThemeConstants.netflixWhite,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: Colors.black,
-                      width: 2.0,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        _getGenreIcon(genreName),
-                        size: 16 * fontProvider.fontScale,
-                        color: isSelected ? Colors.white : ThemeConstants.netflixRed,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        genreName,
-                        style: fontProvider.getScaledTextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: isSelected ? Colors.white : ThemeConstants.netflixRed,
-                        ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black,      // shadow color
+                        offset: const Offset(4, 4),     // shadow position
+                        blurRadius: 0,            // no blur → hard edge
+                        spreadRadius: 0,          // no extra spread
                       ),
                     ],
                   ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? ThemeConstants.netflixRed
+                            : ThemeConstants.netflixWhite,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: Colors.black,
+                          width: 2.0,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            _getGenreIcon(genreName),
+                            size: 16 * fontProvider.fontScale,
+                            color: isSelected ? Colors.white : ThemeConstants.netflixRed,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            genreName,
+                            style: fontProvider.getScaledTextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: isSelected ? Colors.white : ThemeConstants.netflixRed,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
               ),
-            ),
+              
+              // Tap animation overlay
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: Lottie.asset(
+                    'assets/animations/tap.json',
+                    width: double.infinity,
+                    height: double.infinity,
+                    fit: BoxFit.contain,
+                    repeat: false,
+                    animate: true,
+                    controller: _chipAnimationControllers[genreName],
+                    onLoaded: (composition) {
+                      // Create animation controller for this chip
+                      final controller = AnimationController(
+                        duration: composition.duration,
+                        vsync: this,
+                      );
+                      
+                      // Store controller reference for this chip
+                      _chipAnimationControllers[genreName] = controller;
+                      
+                      // Reset controller after completion
+                      controller.addStatusListener((status) {
+                        if (status == AnimationStatus.completed) {
+                          controller.reset();
+                        }
+                      });
+                    },
+                  ),
+                ),
+              ),
+            ],
           ),
         );
       },
@@ -928,24 +977,30 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          _buildGenreChip(
-                              'Phổ biến', ''), // Popular tab - shows all comics
-                          _buildGenreChip('Action', '/tim-truyen/action-95'),
-                          _buildGenreChip('Comedy', '/tim-truyen/comedy-99'),
-                          _buildGenreChip('Drama', '/tim-truyen/drama-103'),
-                          _buildGenreChip('Romance', '/tim-truyen/romance-121'),
-                          _buildGenreChip('Fantasy', '/tim-truyen/fantasy-100'),
-                          _buildGenreChip(
-                              'Adventure', '/tim-truyen/adventure-101'),
-                          _buildGenreChip(
-                              'Slice of Life', '/tim-truyen/slice-of-life'),
-                          _buildGenreChip(
-                              'Psychological', '/tim-truyen/psychological'),
-                        ],
+                    ScrollConfiguration(
+                      behavior: ScrollConfiguration.of(context).copyWith(
+                        scrollbars: false,
+                        physics: const ClampingScrollPhysics(),
+                      ),
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
+                            _buildGenreChip(
+                                'Phổ biến', ''), // Popular tab - shows all comics
+                            _buildGenreChip('Action', '/tim-truyen/action-95'),
+                            _buildGenreChip('Comedy', '/tim-truyen/comedy-99'),
+                            _buildGenreChip('Drama', '/tim-truyen/drama-103'),
+                            _buildGenreChip('Romance', '/tim-truyen/romance-121'),
+                            _buildGenreChip('Fantasy', '/tim-truyen/fantasy-100'),
+                            _buildGenreChip(
+                                'Adventure', '/tim-truyen/adventure-101'),
+                            _buildGenreChip(
+                                'Slice of Life', '/tim-truyen/slice-of-life'),
+                            _buildGenreChip(
+                                'Psychological', '/tim-truyen/psychological'),
+                          ],
+                        ),
                       ),
                     ),
                   ],
