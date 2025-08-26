@@ -215,8 +215,7 @@ class ComicSearchDelegate extends SearchDelegate<Comic?> {
       padding: const EdgeInsets.all(8.0),
       child: GestureDetector(
         onTap: () {
-          // Navigate to genre page instead of search
-          close(context, null);
+          // Navigate to genre page (don't close search, let user navigate back naturally)
           Navigator.push(
             context,
             MaterialPageRoute(

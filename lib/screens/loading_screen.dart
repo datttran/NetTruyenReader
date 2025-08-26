@@ -22,6 +22,7 @@ class _LoadingScreenState extends State<LoadingScreen> with TickerProviderStateM
   
   List<Comic> _comics = [];
   List<Comic> _topComics = [];
+  String? _currentDomain; // Store the domain for navigation
   
   // Thunder Lottie animation controller for playing 2 times
   int _thunderPlayCount = 0;
@@ -115,10 +116,10 @@ class _LoadingScreenState extends State<LoadingScreen> with TickerProviderStateM
       
       // Load both main comics and top comics in parallel
       // First get the current domain to ensure consistency
-      final currentDomain = await netTruyenService.getCurrentDomain();
-      print('🌐 LoadingScreen: Using domain: $currentDomain');
+      _currentDomain = await netTruyenService.getCurrentDomain();
+      print('🌐 LoadingScreen: Using domain: $_currentDomain');
       final comics = await netTruyenService.fetchComics();
-      final topComics = await netTruyenService.fetchComicsFromUrl('$currentDomain/tim-truyen?status=&sort=10');
+      final topComics = await netTruyenService.fetchComicsFromUrl('$_currentDomain/tim-truyen?status=&sort=10');
       
       print('✅ LoadingScreen: Successfully loaded ${comics.length} comics and ${topComics.length} top comics');
       
@@ -153,6 +154,7 @@ class _LoadingScreenState extends State<LoadingScreen> with TickerProviderStateM
             pageBuilder: (context, animation, secondaryAnimation) => HomeScreen(
               initialComics: _comics,
               initialTopComics: _topComics,
+              initialDomain: _currentDomain, // Pass the domain used to fetch comics
             ),
             transitionsBuilder: (context, animation, secondaryAnimation, child) {
               return FadeTransition(

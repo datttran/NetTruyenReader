@@ -14,13 +14,20 @@ import 'settings_screen.dart';
 import '../services/comic_search_delegate.dart';
 import '../providers/font_provider.dart';
 import '../widgets/custom_comic_card.dart';
-import '../utils/domain_helper.dart';
+
+import 'genre_comics_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final List<Comic>? initialComics;
   final List<Comic>? initialTopComics;
+  final String? initialDomain; // Add domain parameter
 
-  const HomeScreen({super.key, this.initialComics, this.initialTopComics});
+  const HomeScreen({
+    super.key, 
+    this.initialComics, 
+    this.initialTopComics,
+    this.initialDomain,
+  });
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -175,13 +182,27 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   /// to track changes when returning from settings. It's essential for the auto-reload
   /// functionality to work properly.
   Future<void> _initializeLastUsedDomain() async {
-    _lastUsedDomain = await NetTruyenService().getCurrentDomain();
+    // Use initial domain from loading screen if available, otherwise fetch fresh
+    if (widget.initialDomain != null) {
+      _lastUsedDomain = widget.initialDomain;
+      print('✅ HomeScreen: Using initial domain from loading screen: $_lastUsedDomain');
+    } else {
+      _lastUsedDomain = await NetTruyenService().getCurrentDomain();
+      print('🔄 HomeScreen: Fetched fresh domain: $_lastUsedDomain');
+    }
   }
 
   /// CRITICAL: DO NOT CHANGE THIS METHOD! This method gets the current domain for use in headers.
   /// It ensures that thumbnails are loaded with the correct Referer header.
   String _getCurrentDomainForHeaders() {
-    return DomainHelper.getCachedDomain(_lastUsedDomain);
+    // If we have a cached domain, use it for immediate response
+    if (_lastUsedDomain != null) {
+      return _lastUsedDomain!;
+    }
+    
+    // If no cached domain, return the default fallback
+    // This will be updated once _checkAndReloadIfNeeded() completes
+    return 'https://nettruyen.com';
   }
 
   @override
@@ -635,6 +656,20 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     _showAllComics();
                   } else {
                     _filterByGenre(genreName, genrePath);
+                  }
+                },
+                onLongPress: () {
+                  // Long press navigates to full genre comics screen
+                  if (genreName != 'Phổ biến') {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => GenreComicsScreen(
+                          genreName: genreName,
+                          genreUrl: genrePath,
+                        ),
+                      ),
+                    );
                   }
                 },
                 child: DecoratedBox(
@@ -1267,16 +1302,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                             );
                           }
                           final comic = _displayComics[index];
-                                                     return CustomComicCard(
-                             comic: comic,
-                             domain: _getCurrentDomainForHeaders(),
-                             columnCount: 2, // Home screen uses 2 columns
-                             onTap: () => Navigator.push(
-                               context,
-                               MaterialPageRoute(
-                                   builder: (_) => DetailScreen(comic: comic)),
-                             ),
-                           );
+                          return CustomComicCard(
+                            comic: comic,
+                            domain: _getCurrentDomainForHeaders(),
+                            columnCount: 2, // Home screen uses 2 columns
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (_) => DetailScreen(comic: comic)),
+                            ),
+                          );
                         },
                         childCount: _displayComics.length + (_hasMore ? 1 : 0),
                       ),
@@ -1814,17 +1849,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 return Container(
           width: cardWidth,
           margin: const EdgeInsets.only(right: 12),
-                     child: CustomComicCard(
-             comic: comic,
-             domain: _getCurrentDomainForHeaders(),
-             columnCount: 3, // Top comics section uses 3 columns
-             onTap: () => Navigator.push(
-               context,
-               MaterialPageRoute(
-                 builder: (_) => DetailScreen(comic: comic),
-               ),
-             ),
-           ),
+          child: CustomComicCard(
+            comic: comic,
+            domain: _getCurrentDomainForHeaders(),
+            columnCount: 3, // Top comics section uses 3 columns
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => DetailScreen(comic: comic),
+              ),
+            ),
+          ),
         );
       },
     );
