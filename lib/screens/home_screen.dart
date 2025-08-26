@@ -67,6 +67,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   late AnimationController _thunderLottieController;
   int _thunderPlayCount = 0;
   final int _maxThunderPlays = 1; // Play exactly 1 time
+  
+  // Refresh state for showing reload.json animation
+  bool _isRefreshing = false;
+  bool _showReloadAnimation = false; // Controls animation visibility
+
+
 
   @override
   void initState() {
@@ -500,6 +506,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   /// Refresh content (pull to refresh)
   Future<void> _onRefresh() async {
+    setState(() {
+      _isRefreshing = true;
+    });
+    
     // Clear top comics cache on refresh
     _clearTopComicsCache();
     
@@ -521,6 +531,20 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         _hasMore = _allComics.length > _pageSize;
       });
     }
+    
+    setState(() {
+      _isRefreshing = false;
+      _showReloadAnimation = true; // Show animation after reload completes
+    });
+    
+    // Hide animation after it plays
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) {
+        setState(() {
+          _showReloadAnimation = false;
+        });
+      }
+    });
   }
 
   @override
@@ -631,10 +655,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: RefreshIndicator(
-        onRefresh: _onRefresh,
-        child: CustomScrollView(
-          controller: _scrollController,
+      body: Stack(
+        children: [
+          RefreshIndicator(
+            onRefresh: _onRefresh,
+            color: Colors.white,
+            backgroundColor: Colors.transparent,
+            strokeWidth: 0, // Hide default spinner
+            child: CustomScrollView(
+              controller: _scrollController,
           slivers: [
             // App Bar that hides when scrolling up
             SliverAppBar(
@@ -1307,7 +1336,49 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
+      
+      // YT.json animation overlay during refresh
+      // reload.json animation overlay (invisible during reload, visible after completion)
+      if (_showReloadAnimation)
+        Stack(
+          children: [
+            // Top animation
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              height: MediaQuery.of(context).size.height * .6, // Take up top 60% of screen
+              child: IgnorePointer( // Allows user to interact with app underneath
+                child: Lottie.asset(
+                  'assets/animations/reload.json',
+                  width: double.infinity,
+                  height: double.infinity,
+                  fit: BoxFit.contain, // Cover entire screen
+                  repeat: false, // Play once and stop
+                  animate: true,
+                  onLoaded: (composition) {
+                    print('✅ reload.json completion animation loaded successfully!');
+                    print('   - Duration: ${composition.duration}');
+                    print('   - Frame rate: ${composition.frameRate}');
+                  },
+                  errorBuilder: (context, error, stackTrace) {
+                    print('❌ reload.json completion animation failed to load: $error');
+                    return const Icon(
+                      Icons.check_circle,
+                      size: 200,
+                      color: Colors.green,
+                    );
+                  },
+                ),
+              ),
+            ),
+            // Bottom inverted animation
+
+          ],
+        ),
+      ],
+    ),
+    floatingActionButton: FloatingActionButton(
         onPressed: () async {
           final comic = await showSearch(
             context: context,
