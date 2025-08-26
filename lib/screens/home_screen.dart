@@ -55,8 +55,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   // Top comics caching
   List<Comic> _topComics = [];
   DateTime? _topComicsCacheTimestamp;
-  static const Duration _topComicsCacheExpiry = Duration(minutes: 10);
-
+  // Use same cache expiry as main grid for consistency
+  bool _isLoadingTopComics = false; // Track loading state for top comics
+  
   // Logo animation variables
   late AnimationController _logoAnimationController;
   late Animation<double> _logoSlideAnimation;
@@ -70,7 +71,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   
   // Refresh state for showing reload.json animation
   bool _isRefreshing = false;
-  bool _showReloadAnimation = false; // Controls animation visibility
+  bool _showCompletionAnimation = false; // Show completion animation briefly
 
 
 
@@ -149,6 +150,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     // Clear expired cache entries on app start
     _clearExpiredCache();
     _clearExpiredTopComicsCache();
+    
+    // Initialize top comics if not already loaded
+    if (_topComics.isEmpty) {
+      _fetchTopComics();
+    }
   }
 
   /// CRITICAL: DO NOT CHANGE THIS METHOD! This method initializes the last used domain
@@ -191,6 +197,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       _displayComics.clear();
       _hasMore = true;
     });
+    
+    // Also clear top comics cache to ensure consistency with new domain
+    _clearTopComicsCache();
+    
     await _loadMore();
   }
 
@@ -491,9 +501,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   void _clearExpiredTopComicsCache() {
     if (_topComicsCacheTimestamp != null) {
       final now = DateTime.now();
-      if (now.difference(_topComicsCacheTimestamp!) >= _topComicsCacheExpiry) {
+      if (now.difference(_topComicsCacheTimestamp!) >= _cacheExpiry) {
         _topComics.clear();
         _topComicsCacheTimestamp = null;
+        _isLoadingTopComics = false; // Clear loading state
       }
     }
   }
@@ -502,16 +513,21 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   void _clearTopComicsCache() {
     _topComics.clear();
     _topComicsCacheTimestamp = null;
+    // Don't clear loading state here - let the calling method control it
   }
 
   /// Refresh content (pull to refresh)
   Future<void> _onRefresh() async {
     setState(() {
       _isRefreshing = true;
+      _isLoadingTopComics = true; // Set loading state BEFORE clearing cache
     });
     
     // Clear top comics cache on refresh
     _clearTopComicsCache();
+    
+    // Fetch fresh top comics
+    _fetchTopComics();
     
     if (_isFilteringByGenre) {
       // Refresh filtered comics (clear cache and re-fetch)
@@ -529,22 +545,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       setState(() {
         _displayComics = _allComics.take(_pageSize).toList();
         _hasMore = _allComics.length > _pageSize;
+        _isRefreshing = false;
+        _showCompletionAnimation = true; // Show completion animation
       });
+      
+      // Animation will hide automatically when it completes via onLoaded callback
     }
     
-    setState(() {
-      _isRefreshing = false;
-      _showReloadAnimation = true; // Show animation after reload completes
-    });
-    
-    // Hide animation after it plays
-    Future.delayed(const Duration(seconds: 3), () {
-      if (mounted) {
-        setState(() {
-          _showReloadAnimation = false;
-        });
-      }
-    });
+    // Note: Animation will be hidden automatically when it completes via onLoaded callback
   }
 
   @override
@@ -880,20 +888,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         
                         return SizedBox(
                           height: cardHeight,
-                          child: FutureBuilder<List<Comic>>(
-                            future: _fetchTopComics(),
-                            builder: (context, snapshot) {
-                              if (snapshot.connectionState == ConnectionState.waiting) {
-                                return _buildTopComicsLoading();
-                              } else if (snapshot.hasError) {
-                                return _buildTopComicsError();
-                              } else if (snapshot.hasData && snapshot.data!.isNotEmpty) {
-                                return _buildTopComicsList(snapshot.data!, scale);
-                              } else {
-                                return _buildTopComicsEmpty();
-                              }
-                            },
-                          ),
+                          child: _isLoadingTopComics
+                              ? _buildTopComicsLoading()
+                              : _topComics.isNotEmpty
+                                  ? _buildTopComicsList(_topComics, scale)
+                                  : _buildTopComicsEmpty(),
                         );
                       },
                     ),
@@ -1338,8 +1337,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       ),
       
       // YT.json animation overlay during refresh
-      // reload.json animation overlay (invisible during reload, visible after completion)
-      if (_showReloadAnimation)
+      // reload.json animation overlay (visible after refresh completion)
+      if (_showCompletionAnimation)
         Stack(
           children: [
             // Top animation
@@ -1360,6 +1359,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     print('✅ reload.json completion animation loaded successfully!');
                     print('   - Duration: ${composition.duration}');
                     print('   - Frame rate: ${composition.frameRate}');
+                    
+                    // Hide animation after it completes playing
+                    Future.delayed(composition.duration, () {
+                      if (mounted) {
+                        setState(() {
+                          _showCompletionAnimation = false;
+                        });
+                      }
+                    });
                   },
                   errorBuilder: (context, error, stackTrace) {
                     print('❌ reload.json completion animation failed to load: $error');
@@ -1670,29 +1678,44 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   /// Fetch top comics from the specified URL with caching
   Future<List<Comic>> _fetchTopComics() async {
-    // Check if cache is valid
+    // Return cached data immediately if available and valid
     if (_topComics.isNotEmpty && _topComicsCacheTimestamp != null) {
       final now = DateTime.now();
-      if (now.difference(_topComicsCacheTimestamp!) < _topComicsCacheExpiry) {
-        return _topComics; // Return cached data
+      if (now.difference(_topComicsCacheTimestamp!) < _cacheExpiry) {
+        return _topComics; // Return cached data immediately
       }
     }
     
-    // Fetch fresh data if cache is expired or empty
+    // Set loading state only if not already loading (to avoid conflicts during refresh)
+    if (!_isLoadingTopComics) {
+      setState(() {
+        _isLoadingTopComics = true;
+      });
+    }
+    
     try {
-      final url = 'https://nettruyenvia.com/tim-truyen?status=&sort=10';
+      // Fetch fresh data
+      final currentDomain = _getCurrentDomainForHeaders();
+      final url = '$currentDomain/tim-truyen?status=&sort=10';
       final response = await NetTruyenService().fetchComicsFromUrl(url);
       
       if (response.isNotEmpty) {
         _topComics = response.take(10).toList();
         _topComicsCacheTimestamp = DateTime.now();
-        return _topComics;
       }
-      return [];
+      
+      return _topComics;
     } catch (e) {
       print('Error fetching top comics: $e');
       // Return cached data if available, otherwise empty list
       return _topComics.isNotEmpty ? _topComics : [];
+    } finally {
+      // Clear loading state
+      if (mounted) {
+        setState(() {
+          _isLoadingTopComics = false;
+        });
+      }
     }
   }
 
@@ -1735,9 +1758,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Image placeholder
+                  // Upper section: 85% height with grey color - matching main grid
                   Flexible(
-                    flex: 3,
+                    flex: 17,
                     child: Container(
                       decoration: const BoxDecoration(
                         color: Color(0xFFF5F5F5),
@@ -1745,24 +1768,38 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                           top: Radius.circular(8),
                         ),
                       ),
+                      child: CardLoading(
+                        height: double.infinity,
+                        width: double.infinity,
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(8),
+                        ),
+                        cardLoadingTheme: CardLoadingTheme(
+                          colorOne: Color(0xFFF5F5F5),
+                          colorTwo: Color(0xFFE8E8E8),
+                        ),
+                      ),
                     ),
                   ),
-                  // Text placeholder
+                  // Lower section: 15% height with white color - matching main grid
                   Flexible(
-                    flex: 1,
+                    flex: 3,
                     child: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[100],
-                        borderRadius: const BorderRadius.vertical(
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFF0F0F0),
+                        borderRadius: BorderRadius.vertical(
                           bottom: Radius.circular(8),
                         ),
                       ),
-                      child: Container(
-                        height: 12,
-                        decoration: BoxDecoration(
-                          color: Colors.grey[300],
-                          borderRadius: BorderRadius.circular(4),
+                      child: CardLoading(
+                        height: double.infinity,
+                        width: double.infinity,
+                        borderRadius: const BorderRadius.vertical(
+                          bottom: Radius.circular(8),
+                        ),
+                        cardLoadingTheme: CardLoadingTheme(
+                          colorOne: Color(0xFFF0F0F0),
+                          colorTwo: Color(0xFFE0E0E0),
                         ),
                       ),
                     ),
@@ -1773,30 +1810,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           ),
         );
       },
-    );
-  }
-
-  /// Build error state for top comics
-  Widget _buildTopComicsError() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.error_outline,
-            size: 48,
-            color: Colors.grey[600],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Không thể tải truyện nổi bật',
-            style: TextStyle(
-              color: Colors.grey[600],
-              fontSize: 14,
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -1873,7 +1886,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       flex: 17,
                       child: Stack(
                         children: [
-                          // Main image with fixed dimensions
+                          // Main image with fixed dimensions - using same cache manager as main grid
                           Hero(
                             tag: comic.imageUrl,
                             child: ClipRRect(
@@ -1881,10 +1894,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                 top: Radius.circular(6),
                               ),
                               child: CachedNetworkImage(
-                                cacheManager: _thumbCacheManager,
+                                cacheManager: _thumbCacheManager, // Same cache manager as main grid
                                 imageUrl: comic.imageUrl,
                                 httpHeaders: {
-                                  'Referer': _getCurrentDomainForHeaders()
+                                  'Referer': _getCurrentDomainForHeaders() // Same headers as main grid
                                 },
                                 imageBuilder: (ctx, provider) {
                                   return Image(
@@ -1906,6 +1919,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                   );
                                 },
                                 errorWidget: (ctx, url, error) {
+                                  // Same error handling as main grid
                                   WidgetsBinding.instance.addPostFrameCallback((_) {
                                     _onThumbnailFailed(url);
                                   });

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lottie/lottie.dart';
 import '../services/nettruyen_service.dart';
 import '../models/comic.dart';
 import 'home_screen.dart';
@@ -13,11 +14,17 @@ class LoadingScreen extends StatefulWidget {
 class _LoadingScreenState extends State<LoadingScreen> with TickerProviderStateMixin {
   late AnimationController _animationController;
   late AnimationController _pulseController;
+  late AnimationController _thunderLottieController;
   late Animation<double> _scaleAnimation;
   late Animation<double> _pulseAnimation;
   late Animation<double> _fadeAnimation;
+  late Animation<double> _thunderAnimation;
   
   List<Comic> _comics = [];
+  
+  // Thunder Lottie animation controller for playing 2 times
+  int _thunderPlayCount = 0;
+  final int _maxThunderPlays = 1; // Play exactly 1 time
 
   @override
   void initState() {
@@ -34,6 +41,20 @@ class _LoadingScreenState extends State<LoadingScreen> with TickerProviderStateM
       duration: const Duration(milliseconds: 1200),  // Smooth, gentle zoom
       vsync: this,
     );
+    
+    // Initialize thunder animation controller
+    _thunderLottieController = AnimationController(vsync: this);
+    _thunderLottieController.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        _thunderPlayCount++;
+        if (_thunderPlayCount < _maxThunderPlays) {
+          _thunderLottieController.forward(from: 0.0); // Restart the animation
+        } else {
+          // Animation has played the desired number of times
+          print('✅ Thunder animation completed after $_maxThunderPlays plays');
+        }
+      }
+    });
     
     _scaleAnimation = Tween<double>(
       begin: 0.0,  // Start from invisible
@@ -59,6 +80,15 @@ class _LoadingScreenState extends State<LoadingScreen> with TickerProviderStateM
       curve: Curves.easeInOut,  // Smooth for zoom in/out
     ));
     
+    // Thunder animation that fades in after logo finishes
+    _thunderAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: const Interval(0.83, 1.0, curve: Curves.easeInOut), // 1000-1300ms timing
+    ));
+    
     // Start main animation
     _animationController.forward();
     
@@ -73,6 +103,7 @@ class _LoadingScreenState extends State<LoadingScreen> with TickerProviderStateM
   void dispose() {
     _animationController.dispose();
     _pulseController.dispose();
+    _thunderLottieController.dispose();
     super.dispose();
   }
 
@@ -144,7 +175,7 @@ class _LoadingScreenState extends State<LoadingScreen> with TickerProviderStateM
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Logo with zoom Hero animation
+              // Logo with zoom Hero animation and thunder effect
               Hero(
                 tag: 'app_logo',
                 child: AnimatedBuilder(
@@ -154,25 +185,73 @@ class _LoadingScreenState extends State<LoadingScreen> with TickerProviderStateM
                       scale: _scaleAnimation.value * _pulseAnimation.value,
                       child: Opacity(
                         opacity: _fadeAnimation.value,
-                        child: Image.asset(
-                          'assets/images/logo.png',
-                          width: 200,
-                          height: 200,
-                          fit: BoxFit.contain,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Container(
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            // Logo as the base layer
+                            Image.asset(
+                              'assets/images/logo.png',
                               width: 200,
                               height: 200,
-                              color: Colors.grey[800],
-                              child: const Center(
-                                child: Icon(
-                                  Icons.auto_stories,
-                                  size: 80,
-                                  color: Colors.white,
+                              fit: BoxFit.contain,
+                              errorBuilder: (context, error, stackTrace) {
+                                return Container(
+                                  width: 200,
+                                  height: 200,
+                                  color: Colors.grey[800],
+                                  child: const Center(
+                                    child: Icon(
+                                      Icons.auto_stories,
+                                      size: 80,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                            
+                            // Thunder animation overlaid on top of the logo
+                            AnimatedOpacity(
+                              opacity: _thunderAnimation.value,  // Fades in after logo finishes
+                              duration: const Duration(milliseconds: 200),
+                              child: IgnorePointer( // Prevents thunder animation from blocking logo taps
+                                child: Lottie.asset(
+                                  'assets/animations/RL.json',
+                                  width: 250,
+                                  height: 200,
+                                  controller: _thunderLottieController,
+                                  repeat: false, // Don't repeat automatically
+                                  animate: true,
+                                  onLoaded: (composition) {
+                                    print('✅ Thunder Lottie animation loaded successfully!');
+                                    print('   - Duration: ${composition.duration}');
+                                    print('   - Frame rate: ${composition.frameRate}');
+                                    print('   - Bounds: ${composition.bounds}');
+                                    
+                                    // Set the duration and start the animation
+                                    _thunderLottieController.duration = composition.duration;
+                                    // Start thunder animation after logo animation completes
+                                    Future.delayed(const Duration(milliseconds: 1200), () {
+                                      if (mounted) {
+                                        _thunderLottieController.forward();
+                                      }
+                                    });
+                                  },
+                                  errorBuilder: (context, error, stackTrace) {
+                                    print('❌ Thunder Lottie animation failed to load:');
+                                    print('   - Error: $error');
+                                    print('   - Stack trace: $stackTrace');
+                                    // Fallback to static icon
+                                    return Icon(
+                                      Icons.flash_on,
+                                      color: Colors.yellow,
+                                      size: 40,
+                                    );
+                                  },
                                 ),
                               ),
-                            );
-                          },
+                            ),
+                          ],
                         ),
                       ),
                     );
