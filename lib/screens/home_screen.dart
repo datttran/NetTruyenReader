@@ -11,7 +11,7 @@ import '../constants/app_constants.dart';
 import '../constants/theme_constants.dart';
 import 'detail_screen.dart';
 import 'settings_screen.dart';
-import '../services/comic_search_delegate.dart';
+import 'search_screen.dart';
 import '../providers/font_provider.dart';
 import '../widgets/custom_comic_card.dart';
 
@@ -1386,19 +1386,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       ],
     ),
     floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          final comic = await showSearch(
-            context: context,
-            delegate: ComicSearchDelegate(),
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const SearchScreen(),
+            ),
           );
-          if (comic != null && context.mounted) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => DetailScreen(comic: comic),
-              ),
-            );
-          }
         },
         tooltip: 'Tìm kiếm truyện',
         child: const Icon(Icons.search),

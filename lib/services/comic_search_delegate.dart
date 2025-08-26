@@ -16,18 +16,38 @@ class ComicSearchDelegate extends SearchDelegate<Comic?> {
 
   @override
   List<Widget>? buildActions(BuildContext context) {
-    if (query.isEmpty) return null;
-    return [
-      IconButton(icon: const Icon(Icons.clear), onPressed: () => query = ''),
-    ];
+    List<Widget> actions = [];
+    
+    // Add search icon on the right side
+    actions.add(
+      IconButton(
+        icon: const Icon(Icons.search),
+        onPressed: () {
+          // Focus the search field when search icon is tapped
+          FocusScope.of(context).requestFocus(FocusNode());
+        },
+      ),
+    );
+    
+    // Add clear button when there's text
+    if (query.isNotEmpty) {
+      actions.add(
+        IconButton(
+          icon: const Icon(Icons.clear), 
+          onPressed: () => query = ''
+        ),
+      );
+    }
+    
+    return actions;
   }
 
   @override
   Widget? buildLeading(BuildContext context) {
-    return IconButton(
-        icon: const Icon(Icons.arrow_back),
-        onPressed: () => close(context, null));
+    return null; // No left icon needed
   }
+
+
 
   // Only trigger a search when user hits Enter
   @override
@@ -36,8 +56,12 @@ class ComicSearchDelegate extends SearchDelegate<Comic?> {
     super.showResults(context);
   }
 
-  @override
+    @override
   Widget buildSuggestions(BuildContext context) {
+    return buildSuggestionsContent(context);
+  }
+
+  Widget buildSuggestionsContent(BuildContext context) {
     // Show popular genres and search tips when no query
     if (query.isEmpty) {
       return _buildPopularGenres(context);
@@ -81,28 +105,23 @@ class ComicSearchDelegate extends SearchDelegate<Comic?> {
                 ),
           ),
           const SizedBox(height: 16),
-          ScrollConfiguration(
-            behavior: ScrollConfiguration.of(context).copyWith(
-              scrollbars: false,
-              physics: const ClampingScrollPhysics(),
-            ),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: popularGenres.map((genre) {
-                  return _buildGenreChip(genre['name']!, genre['path']!, context);
-                }).toList(),
-              ),
-            ),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: popularGenres.map((genre) {
+              return _buildGenreChip(genre['name']!, genre['path']!, context);
+            }).toList(),
           ),
           const SizedBox(height: 24),
+          
+          const SizedBox(height: 8),
           Text(
-            'Tìm kiếm nhanh',
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
+            '💡 Vuốt để quay lại',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: Theme.of(context).brightness == Brightness.dark
-                      ? ThemeConstants.netflixWhite
-                      : ThemeConstants.netflixNavy,
+                      ? Colors.grey[400]
+                      : Colors.grey[600],
+                  fontStyle: FontStyle.italic,
                 ),
           ),
           const SizedBox(height: 16),
@@ -153,11 +172,18 @@ class ComicSearchDelegate extends SearchDelegate<Comic?> {
     );
   }
 
-  @override
+    @override
   Widget buildResults(BuildContext context) {
+    return buildSearchResults(context);
+  }
+
+  Widget buildSearchResults(BuildContext context, {String? customQuery}) {
+    // Use custom query if provided, otherwise use delegate's query
+    final searchQuery = customQuery ?? query;
+    
     // This only runs when the user hits Enter/Search
     return FutureBuilder<List<Comic>>(
-      future: _service.searchComics(query.trim()),
+      future: _service.searchComics(searchQuery.trim()),
       builder: (ctx, snap) {
         if (snap.connectionState != ConnectionState.done) {
           return const Center(child: CircularProgressIndicator());
@@ -228,6 +254,7 @@ class ComicSearchDelegate extends SearchDelegate<Comic?> {
         },
         child: DecoratedBox(
           decoration: BoxDecoration(
+
             borderRadius: BorderRadius.circular(8),
             boxShadow: [
               BoxShadow(
@@ -243,6 +270,7 @@ class ComicSearchDelegate extends SearchDelegate<Comic?> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
+
                 color: ThemeConstants.netflixWhite,
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
@@ -256,7 +284,7 @@ class ComicSearchDelegate extends SearchDelegate<Comic?> {
                   Icon(
                     _getGenreIcon(genreName),
                     size: 16,
-                    color: ThemeConstants.netflixRed,
+                    color: _getGenreIconColor(genreName),
                   ),
                   const SizedBox(width: 8),
                   Text(
@@ -310,6 +338,43 @@ class ComicSearchDelegate extends SearchDelegate<Comic?> {
         return Icons.music_note;
       default:
         return Icons.category;
+    }
+  }
+
+  Color _getGenreIconColor(String genreName) {
+    switch (genreName.toLowerCase()) {
+      case 'action':
+        return Colors.orange; // Energetic orange for action
+      case 'comedy':
+        return Colors.yellow.shade700; // Happy yellow for comedy
+      case 'drama':
+        return Colors.purple; // Dramatic purple
+      case 'romance':
+        return Colors.pink; // Romantic pink
+      case 'fantasy':
+        return Colors.indigo; // Magical indigo
+      case 'adventure':
+        return Colors.green; // Nature green for adventure
+      case 'slice of life':
+        return Colors.blue; // Calm blue for everyday life
+      case 'psychological':
+        return Colors.teal; // Deep teal for mind games
+      case 'mystery':
+        return Colors.grey.shade700; // Mysterious grey
+      case 'horror':
+        return Colors.red; // Scary red
+      case 'sci-fi':
+        return Colors.cyan; // Futuristic cyan
+      case 'supernatural':
+        return Colors.deepPurple; // Mystical deep purple
+      case 'historical':
+        return Colors.brown; // Earthy brown for history
+      case 'sports':
+        return Colors.lime; // Energetic lime for sports
+      case 'music':
+        return Colors.amber; // Musical amber
+      default:
+        return ThemeConstants.netflixRed; // Default to app theme
     }
   }
 
