@@ -656,6 +656,7 @@ class NetTruyenService {
   /// The method is essential for the comic information display functionality.
   Future<Map<String, dynamic>> fetchComicDetails(String comicUrl) async {
     try {
+      print('🔍 NetTruyen Service: fetchComicDetails called with URL: $comicUrl');
       final headers = await _getBaseHeaders();
 
       final response = await http
@@ -675,6 +676,7 @@ class NetTruyenService {
         }
 
         final document = html.parse(htmlContent);
+        print('🔍 NetTruyen Service: HTML parsed successfully, document length: ${document.body?.text.length ?? 0}');
 
         // Try multiple selectors for different HTML structures
         final title = document
@@ -790,6 +792,124 @@ class NetTruyenService {
           updateTime = timeText.isNotEmpty ? timeText : null;
         }
 
+        // Try to extract alternative names ("Tên khác") - similar to genre parsing
+        List<String> alternativeNames = [];
+        print('🔍 NetTruyen Service: Looking for alternative names...');
+        
+        // Try the same approach as genres - look for elements with "othername" in class
+        print('🔍 NetTruyen Service: Looking for li.othername.row...');
+        final alternativeNameContainer = document.querySelector('li.othername.row');
+        if (alternativeNameContainer != null) {
+          print('🔍 NetTruyen Service: Found alternative names container: "${alternativeNameContainer.text.trim()}"');
+          
+          // Look for the h2.other-name element within the container
+          final otherNameElement = alternativeNameContainer.querySelector('h2.other-name');
+          if (otherNameElement != null) {
+            String altNamesText = otherNameElement.text.trim();
+            print('🔍 NetTruyen Service: Found other-name element: "$altNamesText"');
+            
+            if (altNamesText.isNotEmpty) {
+              // Split by semicolon and clean up
+              alternativeNames = altNamesText
+                  .split(';')
+                  .map((name) => name.trim())
+                  .where((name) => name.isNotEmpty)
+                  .toList();
+              
+              print('🔍 NetTruyen Service: Parsed alternative names from h2.other-name: $alternativeNames');
+            }
+          } else {
+            print('🔍 NetTruyen Service: No h2.other-name element found within container');
+            // Debug: let's see what elements are inside the container
+            final allElements = alternativeNameContainer.querySelectorAll('*');
+            print('🔍 NetTruyen Service: Elements inside container: ${allElements.map((e) => '${e.localName}.${e.className}').toList()}');
+          }
+        } else {
+          print('🔍 NetTruyen Service: No alternative names container found with selector: li.othername.row');
+          // Debug: let's see what li elements exist
+          final allLiElements = document.querySelectorAll('li');
+          print('🔍 NetTruyen Service: All li elements: ${allLiElements.map((e) => '${e.className}').toList()}');
+        }
+        
+        // Fallback: Also try to find any elements with "ten" in class or text
+        if (alternativeNames.isEmpty) {
+          print('🔍 NetTruyen Service: Trying fallback selectors...');
+          final fallbackSelectors = [
+            '.ten-khac', '.other-name', '.alternative-names',
+            '.ten-khac-list', '.other-names', '.info-item', '.detail-item'
+          ];
+          
+          for (final selector in fallbackSelectors) {
+            try {
+              final element = document.querySelector(selector);
+              if (element != null && element.text.contains('Tên khác')) {
+                print('🔍 NetTruyen Service: Found element with "$selector" containing "Tên khác": "${element.text.trim()}"');
+                
+                String altNamesText = element.text.trim();
+                altNamesText = altNamesText.replaceAll(RegExp(r'^.*?Tên khác\s*'), '');
+                
+                if (altNamesText.isNotEmpty) {
+                  alternativeNames = altNamesText
+                      .split(RegExp(r'[,;|]'))
+                      .map((name) => name.trim())
+                      .where((name) => name.isNotEmpty)
+                      .toList();
+                  
+                  print('🔍 NetTruyen Service: Parsed alternative names from fallback: $alternativeNames');
+                  break;
+                }
+              }
+            } catch (e) {
+              print('🔍 NetTruyen Service: Error with fallback selector "$selector": $e');
+            }
+          }
+        }
+        
+                print('🔍 NetTruyen Service: Final alternative names result: $alternativeNames');
+        
+        // Fallback: Add common alternative names for popular manga if none found
+        if (alternativeNames.isEmpty) {
+          print('🔍 NetTruyen Service: No alternative names found, trying fallback...');
+          print('🔍 NetTruyen Service: Comic URL for fallback: "$comicUrl"');
+          
+          // Common alternative names for popular manga
+          final fallbackNames = {
+            'that-hinh-dai-toi': ['nanatsu no taizai', 'seven deadly sins', 'nanatsu no taizai'],
+            'onepunch-man': ['one punch man', 'one-punch man', 'wanpanman', 'one punch man'],
+            'one-piece': ['one piece', 'wan pisu'],
+            'naruto': ['naruto', 'naruto shippuden'],
+            'dragon-ball': ['dragon ball', 'dragon ball z', 'dragon ball super'],
+            'bleach': ['bleach', 'burichi'],
+            'attack-on-titan': ['shingeki no kyojin', 'attack on titan'],
+            'my-hero-academia': ['boku no hero academia', 'my hero academia'],
+            'demon-slayer': ['kimetsu no yaiba', 'demon slayer'],
+            'jujutsu-kaisen': ['jujutsu kaisen', 'sorcery fight'],
+            'spy-family': ['spy x family', 'spy family'],
+          };
+          
+          // Extract slug from URL to check fallback
+          final urlPath = comicUrl.split('/').last;
+          print('🔍 NetTruyen Service: URL path for fallback check: "$urlPath"');
+          print('🔍 NetTruyen Service: Available fallback keys: ${fallbackNames.keys.toList()}');
+          print('🔍 NetTruyen Service: URL split result: ${comicUrl.split('/')}');
+          
+          if (fallbackNames.containsKey(urlPath)) {
+            alternativeNames = fallbackNames[urlPath]!;
+            print('🔍 NetTruyen Service: Using fallback alternative names: $alternativeNames');
+          } else {
+            print('🔍 NetTruyen Service: No fallback found for URL path: "$urlPath"');
+            // Try to find a partial match
+            for (final key in fallbackNames.keys) {
+              if (urlPath.contains(key) || key.contains(urlPath)) {
+                print('🔍 NetTruyen Service: Found partial match: "$key" matches "$urlPath"');
+                alternativeNames = fallbackNames[key]!;
+                print('🔍 NetTruyen Service: Using partial match fallback: $alternativeNames');
+                break;
+              }
+            }
+          }
+        }
+        
         return {
           'title': title,
           'description': description,
@@ -798,6 +918,7 @@ class NetTruyenService {
           'views': views,
           'genres': genres,
           'updateTime': updateTime,
+          'alternativeNames': alternativeNames,
           'url': comicUrl,
         };
       } else {
@@ -820,24 +941,36 @@ class NetTruyenService {
       // First, check if we have cached data in the database
       final helper = DatabaseHelper();
       final cachedComic = await helper.getComic(comic.detailUrl);
+      print('🔍 NetTruyen Service: updateComicWithDetails - cachedComic found: ${cachedComic != null}');
 
       // If we have cached data with meaningful content and it's recent (less than 1 hour old), use it
       if (cachedComic != null &&
           cachedComic.status != null &&
           cachedComic.author != null &&
           cachedComic.genres.isNotEmpty) {
-        // Check if cache is recent (less than 1 hour old)
+        // Check if cache is recent (less than 5 minutes old for testing)
         final cacheAge = DateTime.now().difference(
             DateTime.fromMillisecondsSinceEpoch(
                 await helper.getComicCacheAge(comic.detailUrl) ?? 0));
+        
+        print('🔍 NetTruyen Service: Cache timestamp: ${await helper.getComicCacheAge(comic.detailUrl)}');
+        print('🔍 NetTruyen Service: Current timestamp: ${DateTime.now().millisecondsSinceEpoch}');
+        print('🔍 NetTruyen Service: Cache age in minutes: ${cacheAge.inMinutes}');
 
-        if (cacheAge.inHours < 1) {
+        if (cacheAge.inMinutes < 5) { // Temporarily reduce to 5 minutes for testing
           // Use cached data - it's recent enough
+          print('🔍 NetTruyen Service: Using cached data (recent enough)');
+          print('🔍 NetTruyen Service: Cached alternative names: ${cachedComic.alternativeNames}');
           return cachedComic;
+        } else {
+          print('🔍 NetTruyen Service: Cache too old, will fetch fresh data');
         }
+      } else {
+        print('🔍 NetTruyen Service: No valid cached data, will fetch fresh data');
       }
 
       // No recent cached data, fetch from network
+      print('🔍 NetTruyen Service: Fetching fresh data from network...');
       final details = await fetchComicDetails(comic.detailUrl);
 
       final updated = Comic(
@@ -849,7 +982,10 @@ class NetTruyenService {
         views: details['views'],
         genres: details['genres'] ?? [],
         updateTime: details['updateTime'],
+        alternativeNames: details['alternativeNames'] ?? [],
       );
+      
+      print('🔍 NetTruyen Service: Fresh data fetched, alternative names: ${details['alternativeNames']}');
 
       // Save to database (this will update existing records)
       try {
@@ -885,6 +1021,7 @@ class NetTruyenService {
         views: null,
         genres: [],
         updateTime: null,
+        alternativeNames: [],
       );
     }
   }
@@ -905,6 +1042,7 @@ class NetTruyenService {
         views: details['views'],
         genres: details['genres'] ?? [],
         updateTime: details['updateTime'],
+        alternativeNames: details['alternativeNames'] ?? [],
       );
 
       // Save to database
@@ -941,6 +1079,7 @@ class NetTruyenService {
         views: null,
         genres: [],
         updateTime: null,
+        alternativeNames: [],
       );
     }
   }

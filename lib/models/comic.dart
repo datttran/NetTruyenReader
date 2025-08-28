@@ -21,6 +21,7 @@ class Comic {
   final String? updateTime;
   final String? chapterInfo;
   final int? chapterCount;
+  final List<String> alternativeNames;
 
   Comic({
     required this.title,
@@ -33,10 +34,12 @@ class Comic {
     this.updateTime,
     this.chapterInfo,
     this.chapterCount,
-  }) : genres = genres ?? [];
+    List<String>? alternativeNames,
+  }) : genres = genres ?? [],
+       alternativeNames = alternativeNames ?? [];
 
   @override
   String toString() {
-    return 'Comic{title: $title, status: $status, author: $author, views: $views, genres: ${genres.map((g) => g.name).join(', ')}, updateTime: $updateTime, chapterInfo: $chapterInfo, chapterCount: $chapterCount}';
+    return 'Comic{title: $title, status: $status, author: $author, views: $views, genres: ${genres.map((g) => g.name).join(', ')}, updateTime: $updateTime, chapterInfo: $chapterInfo, chapterCount: $chapterCount, alternativeNames: $alternativeNames}';
   }
 }
