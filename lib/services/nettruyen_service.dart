@@ -575,7 +575,11 @@ class NetTruyenService {
     Function(String imageUrl)? onImageFound,
   }) async {
     try {
+      print('🔍 NetTruyen Service: fetchChapterPagesWithCallback called with URL: $chapterUrl');
       final headers = await _getBaseHeaders();
+      print('🔍 NetTruyen Service: Headers loaded: $headers');
+      
+      print('🔍 NetTruyen Service: Making HTTP request...');
       final response = await http
           .get(
             Uri.parse(chapterUrl),
@@ -583,27 +587,82 @@ class NetTruyenService {
           )
           .timeout(const Duration(seconds: 30));
 
+      print('🔍 NetTruyen Service: HTTP response status: ${response.statusCode}');
       if (response.statusCode == 200) {
         final htmlContent = response.body;
+        print('🔍 NetTruyen Service: HTML content length: ${htmlContent.length}');
+        
         final document = html.parse(htmlContent);
         final imageElements = document.querySelectorAll('.page-chapter img');
+        print('🔍 NetTruyen Service: Found ${imageElements.length} image elements');
 
-        final imageUrls = <String>[];
-        for (final img in imageElements) {
-          final src = img.attributes['src'] ?? '';
-          if (src.isNotEmpty) {
-            imageUrls.add(src);
-            // Call the callback for each image as it's found
-            onImageFound?.call(src);
+        // Debug: Let's see what the HTML structure looks like
+        print('🔍 NetTruyen Service: Looking for .page-chapter container...');
+        final pageChapterContainer = document.querySelector('.page-chapter');
+        if (pageChapterContainer != null) {
+          print('🔍 NetTruyen Service: .page-chapter container found');
+          final containerHtml = pageChapterContainer.outerHtml;
+          final previewLength = containerHtml.length > 500 ? 500 : containerHtml.length;
+          print('🔍 NetTruyen Service: Container HTML: ${containerHtml.substring(0, previewLength)}...');
+        } else {
+          print('🔍 NetTruyen Service: .page-chapter container NOT found');
+          // Try to find any containers with images
+          final allContainers = document.querySelectorAll('div');
+          print('🔍 NetTruyen Service: Found ${allContainers.length} div elements');
+          for (int i = 0; i < allContainers.length; i++) {
+            final container = allContainers[i];
+            final images = container.querySelectorAll('img');
+            if (images.isNotEmpty) {
+              print('🔍 NetTruyen Service: Div $i has ${images.length} images');
+              print('🔍 NetTruyen Service: Div $i class: ${container.className}');
+              final containerHtml = container.outerHtml;
+              final previewLength = containerHtml.length > 200 ? 200 : containerHtml.length;
+              print('🔍 NetTruyen Service: Div $i HTML preview: ${containerHtml.substring(0, previewLength)}...');
+            }
           }
         }
 
+        final imageUrls = <String>[];
+        for (int i = 0; i < imageElements.length; i++) {
+          final img = imageElements[i];
+          
+          // For lazy-loaded images, use data-src as primary source
+          String? imageUrl = img.attributes['data-src'];
+          
+          // Fallback to src if data-src is empty
+          if (imageUrl == null || imageUrl.isEmpty) {
+            imageUrl = img.attributes['src'];
+          }
+          
+          // Additional fallbacks
+          if (imageUrl == null || imageUrl.isEmpty) {
+            imageUrl = img.attributes['data-sv1'];
+          }
+          if (imageUrl == null || imageUrl.isEmpty) {
+            imageUrl = img.attributes['data-sv2'];
+          }
+          
+          print('🔍 NetTruyen Service: Image $i - data-src: ${img.attributes['data-src']}');
+          print('🔍 NetTruyen Service: Image $i - src: ${img.attributes['src']}');
+          print('🔍 NetTruyen Service: Image $i - data-sv1: ${img.attributes['data-sv1']}');
+          print('🔍 NetTruyen Service: Image $i - data-sv2: ${img.attributes['data-sv2']}');
+          print('🔍 NetTruyen Service: Image $i - Final URL: $imageUrl');
+          
+          if (imageUrl != null && imageUrl.isNotEmpty) {
+            imageUrls.add(imageUrl);
+            onImageFound?.call(imageUrl);
+          }
+        }
+
+        print('🔍 NetTruyen Service: Returning ${imageUrls.length} image URLs');
         return imageUrls;
       } else {
+        print('🔍 NetTruyen Service: HTTP error: ${response.statusCode}');
         throw Exception('Failed to load chapter: HTTP ${response.statusCode}');
       }
     } catch (e) {
-      throw Exception('Failed to load chapter pages');
+      print('🔍 NetTruyen Service: Exception in fetchChapterPagesWithCallback: $e');
+      throw Exception('Failed to load chapter pages: $e');
     }
   }
 

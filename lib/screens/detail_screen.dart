@@ -1,26 +1,20 @@
 // lib/screens/detail_screen.dart
 
-
-
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:lottie/lottie.dart';
 import 'package:shimmer/shimmer.dart';
-
-
+import 'dart:typed_data';
 import '../models/comic.dart';
-
 import '../services/nettruyen_service.dart';
-import '../constants/app_constants.dart';
-import '../constants/theme_constants.dart';
 import '../services/mangadex_service.dart';
-
+import '../services/database_helper.dart';
+import '../constants/theme_constants.dart';
+import '../constants/app_constants.dart';
 import '../widgets/mangadex_shimmer_loading.dart';
 import '../widgets/full_screen_shimmer.dart';
 import 'reader_screen.dart';
-import '../services/comic_search_delegate.dart';
 import 'genre_comics_screen.dart';
 
 class _ImageResult {
@@ -48,13 +42,18 @@ class DetailScreen extends StatefulWidget {
 class DetailScreenState extends State<DetailScreen> {
   late Future<Comic> _comicFuture;
   late Future<List<String>> _chaptersFuture;
-  late CacheManager _thumbCache;
-  String? _lastUsedDomain;
-  
-  // 👇 Cache the futures so shimmer won't flash on rebuilds
+  // MangaDex image loading
   late Future<_ImageResult> _imageFuture;
-  Future<Uint8List?>? _downloadFuture;
-  
+  late Future<Uint8List?> _downloadFuture;
+  final CacheManager _thumbCache =
+      CacheManager(Config(AppConstants.THUMB_CACHE_KEY));
+
+  // Reading progress tracking
+  Map<String, dynamic>? _readingProgress;
+  final DatabaseHelper _databaseHelper = DatabaseHelper();
+
+  // Domain management
+  String? _lastUsedDomain;
   // New state variables for "See More" functionality
   List<String> _allChapters = [];
   bool _isLoadingMore = false;
@@ -65,32 +64,171 @@ class DetailScreenState extends State<DetailScreen> {
   @override
   void initState() {
     super.initState();
-    _comicFuture = NetTruyenService().updateComicWithDetails(widget.comic);
-    _thumbCache = CacheManager(Config(AppConstants.THUMB_CACHE_KEY));
-    
-    // Load initial chapters
-    _chaptersFuture = _loadInitialChapters();
-    
-    // Memoized future — won't restart on rebuild
+    _comicFuture = _loadComicData();
+    _chaptersFuture = _loadChapters();
     _imageFuture = _loadImage();
+    _loadReadingProgress();
+  }
+
+  // Load reading progress for this comic
+  Future<void> _loadReadingProgress() async {
+    try {
+      final progress =
+          await _databaseHelper.getReadingProgress(widget.comic.detailUrl);
+      setState(() {
+        _readingProgress = progress;
+      });
+      print('🔍 DetailScreen: Reading progress loaded: $_readingProgress');
+    } catch (e) {
+      print('❌ DetailScreen: Error loading reading progress: $e');
+    }
+  }
+
+  // Save reading progress when a chapter is opened
+  Future<void> _saveReadingProgress(
+      String chapterUrl, int chapterNumber) async {
+    try {
+      // Get the last available chapter number for completion calculation
+      final chapters = _allChapters.isNotEmpty ? _allChapters : 
+          (await _chaptersFuture);
+      
+      // Find the highest chapter number available
+      int lastAvailableChapter = 0;
+      for (final chapterUrl in chapters) {
+        final chapterNum = _extractChapterNumber(chapterUrl);
+        if (chapterNum > lastAvailableChapter) {
+          lastAvailableChapter = chapterNum;
+        }
+      }
+      
+      // If we couldn't extract chapter numbers, fall back to total count
+      if (lastAvailableChapter == 0) {
+        lastAvailableChapter = chapters.length;
+      }
+      
+      await _databaseHelper.saveReadingProgress(
+        comicDetailUrl: widget.comic.detailUrl,
+        chapterUrl: chapterUrl,
+        chapterNumber: chapterNumber,
+        lastAvailableChapter: lastAvailableChapter,
+      );
+      
+      // Reload reading progress to update UI
+      await _loadReadingProgress();
+      print(
+          '✅ DetailScreen: Reading progress saved for chapter $chapterNumber (${chapterNumber}/${lastAvailableChapter})');
+    } catch (e) {
+      print('❌ DetailScreen: Error saving reading progress: $e');
+    }
+  }
+
+  // Format last read time for display
+  String _formatLastReadTime(int timestamp) {
+    final now = DateTime.now();
+    final lastRead = DateTime.fromMillisecondsSinceEpoch(timestamp);
+    final difference = now.difference(lastRead);
+
+    if (difference.inDays > 0) {
+      return '${difference.inDays} ngày trước';
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours} giờ trước';
+    } else if (difference.inMinutes > 0) {
+      return '${difference.inMinutes} phút trước';
+    } else {
+      return 'Vừa xong';
+    }
+  }
+
+  // Clear reading progress for this comic
+  Future<void> _clearReadingProgress() async {
+    try {
+      await _databaseHelper.clearReadingProgress(widget.comic.detailUrl);
+      setState(() {
+        _readingProgress = null;
+      });
+      print('✅ DetailScreen: Reading progress cleared');
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Đã xóa tiến độ đọc'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      print('❌ DetailScreen: Error clearing reading progress: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi khi xóa tiến độ: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  // Get rainbow color based on completion percentage
+  Color _getRainbowColor(double percentage) {
+    if (percentage < 25) {
+      return Colors.red; // Red for low completion
+    } else if (percentage < 50) {
+      return Colors.orange; // Orange for quarter completion
+    } else if (percentage < 75) {
+      return Colors.yellow; // Yellow for half completion
+    } else if (percentage < 100) {
+      return Colors.green; // Green for near completion
+    } else {
+      return Colors.blue; // Blue for 100% completion
+    }
+  }
+
+  // Get the last available chapter number for display
+  int _getLastAvailableChapter() {
+    final chapters = _allChapters.isNotEmpty ? _allChapters : [];
+    if (chapters.isEmpty) return 0;
+    
+    int lastChapter = 0;
+    for (final chapterUrl in chapters) {
+      final chapterNum = _extractChapterNumber(chapterUrl);
+      if (chapterNum > lastChapter) {
+        lastChapter = chapterNum;
+      }
+    }
+    
+    // If we couldn't extract chapter numbers, fall back to total count
+    return lastChapter > 0 ? lastChapter : chapters.length;
+  }
+
+  // Load comic data with details
+  Future<Comic> _loadComicData() async {
+    return await NetTruyenService().updateComicWithDetails(widget.comic);
+  }
+
+  // Load initial chapters
+  Future<List<String>> _loadChapters() async {
+    return await _loadInitialChapters();
   }
 
   /// Load initial chapters and set up state for "See More"
   Future<List<String>> _loadInitialChapters() async {
     try {
-      final chapters = await NetTruyenService().fetchChapters(widget.comic.detailUrl);
+      final chapters =
+          await NetTruyenService().fetchChapters(widget.comic.detailUrl);
       _allChapters = chapters;
       _currentOffset = chapters.length;
-      
+
       // More lenient logic: show button if we have a reasonable number of chapters
       // This assumes most comics have more than what's visible in HTML
-      _hasMoreChapters = chapters.length >= 10; // Show button for comics with 10+ chapters
-      
+      _hasMoreChapters =
+          chapters.length >= 10; // Show button for comics with 10+ chapters
+
       // Debug logging
       print('🔍 DetailScreen: Initial chapters loaded: ${chapters.length}');
       print('🔍 DetailScreen: _hasMoreChapters: $_hasMoreChapters');
       print('🔍 DetailScreen: _currentOffset: $_currentOffset');
-      
+
       return chapters;
     } catch (e) {
       print('Error loading initial chapters: $e');
@@ -121,8 +259,9 @@ class DetailScreenState extends State<DetailScreen> {
           _currentOffset = moreChapters.length;
           _hasMoreChapters = moreChapters.length >= _chaptersPerBatch;
         });
-        
-        print('🔍 DetailScreen: Replaced list with ${moreChapters.length} chapters from API');
+
+        print(
+            '🔍 DetailScreen: Replaced list with ${moreChapters.length} chapters from API');
       } else {
         setState(() {
           _hasMoreChapters = false;
@@ -139,55 +278,57 @@ class DetailScreenState extends State<DetailScreen> {
     }
   }
 
-
-  
   /// Load image with smart caching logic
   Future<_ImageResult> _loadImage() async {
     try {
       // Wait for comic data to be loaded first (this ensures we have fresh alternative names)
       final comic = await _comicFuture;
-      print('🔍 DetailScreen: _loadImage using fresh comic data with ${comic.alternativeNames.length} alternative names');
-      
+      print(
+          '🔍 DetailScreen: _loadImage using fresh comic data with ${comic.alternativeNames.length} alternative names');
+
       // First, check if we have a cached MangaDex thumbnail
       if (await MangaDexService.hasCachedThumbnail(comic.detailUrl)) {
         final cache = await MangaDexService.getCachedThumbnail(comic.detailUrl);
         if (cache != null) {
           print('🔍 DetailScreen: ✅ Using cached MangaDex thumbnail');
-          return _ImageResult(isCached: true, isHq: false, imageUrl: '', cachedImage: cache);
+          return _ImageResult(
+              isCached: true, isHq: false, imageUrl: '', cachedImage: cache);
         }
       }
-      
+
       // If no cache, try to get high-quality URL using fresh comic data
       final hqUrl = await _getHighQualityImageUrl(comic);
       if (hqUrl.isNotEmpty && hqUrl != comic.imageUrl) {
         print('🔍 DetailScreen: 📥 Found high-quality URL: $hqUrl');
         return _ImageResult(isCached: false, isHq: true, imageUrl: hqUrl);
       }
-      
+
       // Fallback to original image
       print('🔍 DetailScreen: 🔄 Using original image');
-      return _ImageResult(isCached: false, isHq: false, imageUrl: comic.imageUrl);
+      return _ImageResult(
+          isCached: false, isHq: false, imageUrl: comic.imageUrl);
     } catch (e) {
       print('🔍 DetailScreen: ❌ Error in _loadImage: $e');
-      return _ImageResult(isCached: false, isHq: false, imageUrl: widget.comic.imageUrl);
+      return _ImageResult(
+          isCached: false, isHq: false, imageUrl: widget.comic.imageUrl);
     }
   }
-  
+
   /// Download and cache MangaDex image from URL
   Future<Uint8List?> _downloadAndCacheMangaDexImage(String mangadexUrl) async {
     try {
       print('🔍 DetailScreen: 📥 Downloading and caching MangaDex image');
       final downloadedImage = await MangaDexService.downloadMangaDexImage(
-        mangadexUrl, 
-        comicUrl: widget.comic.detailUrl
-      );
-      
+          mangadexUrl,
+          comicUrl: widget.comic.detailUrl);
+
       if (downloadedImage != null) {
-        print('🔍 DetailScreen: ✅ Successfully downloaded and cached MangaDex image');
+        print(
+            '🔍 DetailScreen: ✅ Successfully downloaded and cached MangaDex image');
       } else {
         print('🔍 DetailScreen: ❌ Failed to download MangaDex image');
       }
-      
+
       return downloadedImage;
     } catch (e) {
       print('🔍 DetailScreen: ❌ Error downloading MangaDex image: $e');
@@ -204,18 +345,23 @@ class DetailScreenState extends State<DetailScreen> {
     return AppConstants.PRIMARY_DOMAIN;
   }
 
-  void _openReader(List<String> chapters, int chapterIndex) {
-    if (chapterIndex >= 0 && chapterIndex < chapters.length) {
+  void _openReader(String chapterUrl) {
+    print('🔍 DetailScreen: _openReader called with URL: $chapterUrl');
+
+    // Extract chapter number for progress tracking
+    final chapterNumber = _extractChapterNumber(chapterUrl);
+    if (chapterNumber > 0) {
+      _saveReadingProgress(chapterUrl, chapterNumber);
+    }
+
     Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => ReaderScreen(
-            chapters: chapters,
-            initialIndex: chapterIndex,
-          ),
+        builder: (context) => ReaderScreen(
+          chapterUrl: chapterUrl,
         ),
-      );
-    }
+      ),
+    );
   }
 
   // Extract chapter number from chapter URL or title
@@ -228,22 +374,20 @@ class DetailScreenState extends State<DetailScreen> {
       if (match != null && match.groupCount >= 1) {
         return int.parse(match.group(1)!);
       }
-      
+
       // Try to find any number in the URL
       final numberRegex = RegExp(r'(\d+)');
       final numberMatch = numberRegex.firstMatch(chapterUrl);
       if (numberMatch != null) {
         return int.parse(numberMatch.group(1)!);
       }
-      
+
       // If no pattern found, return 0 as fallback
       return 0;
     } catch (e) {
       return 0;
     }
   }
-
-
 
   /// Get high-quality image URL (MangaDex search result, fallback to original)
   Future<String> _getHighQualityImageUrl(Comic comic) async {
@@ -252,30 +396,32 @@ class DetailScreenState extends State<DetailScreen> {
     print('   Title: "${comic.title}"');
     print('   Detail URL: ${comic.detailUrl}');
     print('   Image URL: ${comic.imageUrl}');
-    
-          // Try to find manga on MangaDex first using the new service
-      // Use the new method that can take advantage of alternative names
-      print('🔍 DetailScreen: Comic has ${comic.alternativeNames.length} alternative names');
-      if (comic.alternativeNames.isNotEmpty) {
-        for (int i = 0; i < comic.alternativeNames.length; i++) {
-          print('🔍 DetailScreen: Alternative name $i: "${comic.alternativeNames[i]}"');
-        }
+
+    // Try to find manga on MangaDex first using the new service
+    // Use the new method that can take advantage of alternative names
+    print(
+        '🔍 DetailScreen: Comic has ${comic.alternativeNames.length} alternative names');
+    if (comic.alternativeNames.isNotEmpty) {
+      for (int i = 0; i < comic.alternativeNames.length; i++) {
+        print(
+            '🔍 DetailScreen: Alternative name $i: "${comic.alternativeNames[i]}"');
       }
-      
-      final mangaDexUrl = await MangaDexService.getMangaDexCoverUrlFromComic(comic);
-    
+    }
+
+    final mangaDexUrl =
+        await MangaDexService.getMangaDexCoverUrlFromComic(comic);
+
     // If we found a MangaDex cover, use it
     if (mangaDexUrl != null) {
       print('🔍 DetailScreen: ✅ Found MangaDex cover: $mangaDexUrl');
       return mangaDexUrl;
     }
-    
+
     // Otherwise, return the original URL
-    print('🔍 DetailScreen: ❌ No MangaDex cover found or validation failed, using original: ${comic.imageUrl}');
+    print(
+        '🔍 DetailScreen: ❌ No MangaDex cover found or validation failed, using original: ${comic.imageUrl}');
     return comic.imageUrl;
   }
-
-
 
   @override
   Widget build(BuildContext context) {
@@ -284,21 +430,21 @@ class DetailScreenState extends State<DetailScreen> {
         children: [
           // Main content
           RefreshIndicator(
-            onRefresh: () async {
-              // Force refresh both comic details and chapters
-              setState(() {
-                _comicFuture =
-                    NetTruyenService().forceRefreshComicDetails(widget.comic);
+        onRefresh: () async {
+          // Force refresh both comic details and chapters
+          setState(() {
+            _comicFuture =
+                NetTruyenService().forceRefreshComicDetails(widget.comic);
                 _chaptersFuture = _loadInitialChapters();
                 _imageFuture = _loadImage();
-                _downloadFuture = null; // reset HQ future
+                _downloadFuture = Future.value(null); // reset HQ future
                 // Reset "See More" state
                 _allChapters = [];
                 _currentOffset = 0;
                 _hasMoreChapters = true;
                 _isLoadingMore = false;
-              });
-            },
+          });
+        },
             child: CustomScrollView(
               slivers: [
                 // Content
@@ -309,10 +455,11 @@ class DetailScreenState extends State<DetailScreen> {
                       FutureBuilder<Comic>(
                   future: _comicFuture,
                   builder: (context, snapshot) {
-                    // Show full-screen shimmer until comic data is loaded
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const FullScreenShimmer();
-                    }
+                          // Show full-screen shimmer until comic data is loaded
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return const FullScreenShimmer();
+                          }
 
                     final comic = snapshot.data ?? widget.comic;
                           // Debug: Log which comic data we're using
@@ -320,118 +467,60 @@ class DetailScreenState extends State<DetailScreen> {
                           print('   Title: "${comic.title}"');
                           print('   Detail URL: ${comic.detailUrl}');
                           print('   Image URL: ${comic.imageUrl}');
-                          print('   Source: ${snapshot.data != null ? "_comicFuture" : "widget.comic"}');
+                          print(
+                              '   Source: ${snapshot.data != null ? "_comicFuture" : "widget.comic"}');
 
                     return Column(
                       children: [
                               // Comic image
-                            AspectRatio(
-                              aspectRatio: 2/3, // Standard manga/comic cover ratio
-                            child: FutureBuilder<_ImageResult>(
-                              future: _imageFuture,
-                              builder: (context, imageSnapshot) {
-                                    if (imageSnapshot.connectionState == ConnectionState.waiting) {
+                              AspectRatio(
+                                aspectRatio:
+                                    2 / 3, // Standard manga/comic cover ratio
+                                child: FutureBuilder<_ImageResult>(
+                                  future: _imageFuture,
+                                  builder: (context, imageSnapshot) {
+                                    if (imageSnapshot.connectionState ==
+                                        ConnectionState.waiting) {
                                       return const MangaDexSearchShimmer();
                                     }
 
-                                    if (imageSnapshot.hasError || !imageSnapshot.hasData) {
-                                  // Fallback to original image on error
-                                  return CachedNetworkImage(
-                                    imageUrl: comic.imageUrl,
-                                    fit: BoxFit.cover,
-                                    cacheManager: _thumbCache,
-                                    fadeInDuration: Duration.zero,
-                                    fadeOutDuration: Duration.zero,
-                                    placeholderFadeInDuration: Duration.zero,
-                                    httpHeaders: {
-                                      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-                                    },
-                                    placeholder: (context, url) => const MangaDexShimmerLoading(
-                                      message: 'Đang tải...',
-                                    ),
-                                    errorWidget: (context, url, error) => Container(
-                                      color: Colors.grey[300],
-                                      child: const Center(
-                                        child: Icon(Icons.error, size: 50),
-                                      ),
-                                    ),
-                                  );
-                                }
-
-                                                                    final imageResult = imageSnapshot.data!;
-
-                                if (imageResult.isCached) {
-                                  // Display cached MangaDex image
-                                  return Stack(
-                                    children: [
-                                      Image.memory(
-                                        imageResult.cachedImage!,
+                                    if (imageSnapshot.hasError ||
+                                        !imageSnapshot.hasData) {
+                                      // Fallback to original image on error
+                                      return CachedNetworkImage(
+                                        imageUrl: comic.imageUrl,
                                         fit: BoxFit.cover,
-                                        width: double.infinity,
-                                        height: double.infinity,
-                                      ),
-                                      // Show MangaDex indicator
-                                      Positioned(
-                                        top: 8,
-                                        right: 8,
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: Colors.green.withValues(alpha: 0.9),
-                                            borderRadius: BorderRadius.circular(4),
-                                          ),
-                                          child: const Text(
-                                            'HD',
-                                            style: TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.bold,
-                                            ),
+                                        cacheManager: _thumbCache,
+                                        fadeInDuration: Duration.zero,
+                                        fadeOutDuration: Duration.zero,
+                                        placeholderFadeInDuration:
+                                            Duration.zero,
+                                        httpHeaders: {
+                                          'User-Agent':
+                                              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                                        },
+                                        placeholder: (context, url) =>
+                                            const MangaDexShimmerLoading(
+                                          message: 'Đang tải...',
+                                        ),
+                                        errorWidget: (context, url, error) =>
+                                            Container(
+                                        color: Colors.grey[300],
+                                        child: const Center(
+                                            child: Icon(Icons.error, size: 50),
                                           ),
                                         ),
-                                      ),
-                                    ],
-                                  );
-                                } else if (imageResult.isHq) {
-                                  // Download and display high-quality image
-                                  _downloadFuture ??= _downloadAndCacheMangaDexImage(imageResult.imageUrl);
-                                  return FutureBuilder<Uint8List?>(
-                                    future: _downloadFuture,
-                                    builder: (context, downloadSnapshot) {
-                                      if (downloadSnapshot.connectionState == ConnectionState.waiting) {
-                                        return const MangaDexDownloadShimmer();
-                                      }
+                                      );
+                                    }
 
-                                      if (downloadSnapshot.hasError || downloadSnapshot.data == null) {
-                                        // If download fails, fallback to original
-                                        print('🔍 DetailScreen: MangaDex download failed, using original');
-                                        return CachedNetworkImage(
-                                          imageUrl: comic.imageUrl,
-                                          fit: BoxFit.cover,
-                                          cacheManager: _thumbCache,
-                                          fadeInDuration: Duration.zero,
-                                          fadeOutDuration: Duration.zero,
-                                          placeholderFadeInDuration: Duration.zero,
-                                          httpHeaders: {
-                                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-                                          },
-                                          placeholder: (context, url) => const MangaDexShimmerLoading(
-                                            message: 'Đang tải...',
-                                          ),
-                                          errorWidget: (context, url, error) => Container(
-                                            color: Colors.grey[300],
-                                            child: const Center(
-                                              child: Icon(Icons.error, size: 50),
-                                            ),
-                                          ),
-                                        );
-                                      }
+                                    final imageResult = imageSnapshot.data!;
 
-                                      // Display the downloaded MangaDex image
+                                    if (imageResult.isCached) {
+                                      // Display cached MangaDex image
                                       return Stack(
                                         children: [
                                           Image.memory(
-                                            downloadSnapshot.data!,
+                                            imageResult.cachedImage!,
                                             fit: BoxFit.cover,
                                             width: double.infinity,
                                             height: double.infinity,
@@ -441,10 +530,15 @@ class DetailScreenState extends State<DetailScreen> {
                                             top: 8,
                                             right: 8,
                                             child: Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 6,
+                                                      vertical: 2),
                                               decoration: BoxDecoration(
-                                                color: Colors.green.withValues(alpha: 0.9),
-                                                borderRadius: BorderRadius.circular(4),
+                                                color: Colors.green
+                                                    .withValues(alpha: 0.9),
+                                                borderRadius:
+                                                    BorderRadius.circular(4),
                                               ),
                                               child: const Text(
                                                 'HD',
@@ -458,37 +552,126 @@ class DetailScreenState extends State<DetailScreen> {
                                           ),
                                         ],
                                       );
-                                    },
-                                  );
-                                } else {
-                                  // Display original image
-                                  return CachedNetworkImage(
-                                    imageUrl: imageResult.imageUrl,
-                                    fit: BoxFit.cover,
-                                    cacheManager: _thumbCache,
-                                    fadeInDuration: Duration.zero,
-                                    fadeOutDuration: Duration.zero,
-                                    placeholderFadeInDuration: Duration.zero,
-                                    httpHeaders: {
-                                      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-                                    },
-                                    placeholder: (context, url) => const MangaDexShimmerLoading(
-                                      message: 'Đang tải...',
+                                    } else if (imageResult.isHq) {
+                                      // Download and display high-quality image
+                                      _downloadFuture ??=
+                                          _downloadAndCacheMangaDexImage(
+                                              imageResult.imageUrl);
+                                      return FutureBuilder<Uint8List?>(
+                                        future: _downloadFuture,
+                                        builder: (context, downloadSnapshot) {
+                                          if (downloadSnapshot
+                                                  .connectionState ==
+                                              ConnectionState.waiting) {
+                                            return const MangaDexDownloadShimmer();
+                                          }
+
+                                          if (downloadSnapshot.hasError ||
+                                              downloadSnapshot.data == null) {
+                                            // If download fails, fallback to original
+                                            print(
+                                                '🔍 DetailScreen: MangaDex download failed, using original');
+                                    return CachedNetworkImage(
+                                      imageUrl: comic.imageUrl,
+                                      fit: BoxFit.cover,
+                                              cacheManager: _thumbCache,
+                                              fadeInDuration: Duration.zero,
+                                              fadeOutDuration: Duration.zero,
+                                              placeholderFadeInDuration:
+                                                  Duration.zero,
+                                      httpHeaders: {
+                                                'User-Agent':
+                                                    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                                              },
+                                              placeholder: (context, url) =>
+                                                  const MangaDexShimmerLoading(
+                                                message: 'Đang tải...',
+                                              ),
+                                              errorWidget:
+                                                  (context, url, error) =>
+                                                      Container(
+                                        color: Colors.grey[300],
+                                        child: const Center(
+                                                  child: Icon(Icons.error,
+                                                      size: 50),
+                                                ),
+                                              ),
+                                            );
+                                          }
+
+                                          // Display the downloaded MangaDex image
+                                          return Stack(
+                                      children: [
+                                              Image.memory(
+                                                downloadSnapshot.data!,
+                                                fit: BoxFit.cover,
+                                                width: double.infinity,
+                                                height: double.infinity,
+                                              ),
+                                              // Show MangaDex indicator
+                                              Positioned(
+                                                top: 8,
+                                                right: 8,
+                                                child: Container(
+                                                  padding: const EdgeInsets
+                                                      .symmetric(
+                                                      horizontal: 6,
+                                                      vertical: 2),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.green
+                                                        .withValues(alpha: 0.9),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            4),
+                                                  ),
+                                                  child: const Text(
+                                                    'HD',
+                                                    style: TextStyle(
+                                                      color: Colors.white,
+                                                      fontSize: 10,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                    ),
+                                                  ),
                                     ),
-                                    errorWidget: (context, url, error) => Container(
-                                      color: Colors.grey[300],
-                                      child: const Center(
-                                        child: Icon(Icons.error, size: 50),
-                                      ),
-                                    ),
-                                  );
-                                }
-                                },
-                              ),
                             ),
+                          ],
+                                          );
+                                        },
+                                      );
+                                    } else {
+                                      // Display original image
+                                      return CachedNetworkImage(
+                                        imageUrl: imageResult.imageUrl,
+                                        fit: BoxFit.cover,
+                                        cacheManager: _thumbCache,
+                                        fadeInDuration: Duration.zero,
+                                        fadeOutDuration: Duration.zero,
+                                        placeholderFadeInDuration:
+                                            Duration.zero,
+                                        httpHeaders: {
+                                          'User-Agent':
+                                              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                                        },
+                                        placeholder: (context, url) =>
+                                            const MangaDexShimmerLoading(
+                                          message: 'Đang tải...',
+                                        ),
+                                        errorWidget: (context, url, error) =>
+                                            Container(
+                                          color: Colors.grey[300],
+                                          child: const Center(
+                                            child: Icon(Icons.error, size: 50),
+                                          ),
+                                        ),
+                                      );
+                                    }
+                  },
+                ),
+              ),
 
                               // Comic details
-                              Padding(
+              Padding(
                                 padding: const EdgeInsets.all(16.0),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -496,28 +679,42 @@ class DetailScreenState extends State<DetailScreen> {
                                     // Title
                                     Text(
                                       comic.title,
-                                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                        fontWeight: FontWeight.bold,
-                                      ),
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .headlineSmall
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.bold,
+                                          ),
                                     ),
                                     const SizedBox(height: 16),
 
                                     // Info rows
-                                    _buildInfoRow('Tác giả', comic.author?.isNotEmpty == true ? comic.author! : 'Chưa có thông tin'),
-                                    _buildInfoRow('Trạng thái', comic.status?.isNotEmpty == true ? comic.status! : 'Chưa có thông tin'),
+                                    _buildInfoRow(
+                                        'Tác giả',
+                                        comic.author?.isNotEmpty == true
+                                            ? comic.author!
+                                            : 'Chưa có thông tin'),
+                                    _buildInfoRow(
+                                        'Trạng thái',
+                                        comic.status?.isNotEmpty == true
+                                            ? comic.status!
+                                            : 'Chưa có thông tin'),
                                     _buildGenresRow('Thể loại', comic.genres),
 
                                     const SizedBox(height: 16),
 
-              // Action buttons
+                                    // Action buttons
                                     Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 16),
                 child: FutureBuilder<List<String>>(
                   future: _chaptersFuture,
                   builder: (context, snapshot) {
                     final chapters = snapshot.data ?? [];
-                                          final isLoading = snapshot.connectionState != ConnectionState.done;
-                                          
+                                          final isLoading =
+                                              snapshot.connectionState !=
+                                                  ConnectionState.done;
+
                     return Column(
                       children: [
                                               // Top row: Read from beginning and Read latest
@@ -525,52 +722,206 @@ class DetailScreenState extends State<DetailScreen> {
                           children: [
                             Expanded(
                                                     child: _buildActionButton(
-                                                      onPressed: chapters.isEmpty || isLoading
+                                                      onPressed: chapters
+                                                                  .isEmpty ||
+                                                              isLoading
                                     ? null
-                                    : () => _openReader(chapters, 0),
+                                                          : () => _openReader(
+                                                              chapters[0]),
                                                       text: 'Đọc từ đầu',
                                                       icon: Icons.play_arrow,
-                                                      backgroundColor: isLoading 
-                                                          ? ThemeConstants.netflixRed.withValues(alpha: 0.6)
-                                                          : ThemeConstants.netflixRed,
+                                                      backgroundColor: isLoading
+                                                          ? ThemeConstants
+                                                              .netflixRed
+                                                              .withValues(
+                                                                  alpha: 0.6)
+                                                          : ThemeConstants
+                                                              .netflixRed,
                                                       isPrimary: true,
                                                     ),
                                                   ),
-                                                  const SizedBox(width: 12), // Reduced spacing
+                                                  const SizedBox(
+                                                      width:
+                                                          12), // Reduced spacing
                             Expanded(
                                                     child: _buildActionButton(
-                                                      onPressed: chapters.isEmpty || isLoading
+                                                      onPressed: chapters
+                                                                  .isEmpty ||
+                                                              isLoading
                                     ? null
                                     : () => _openReader(
-                                        chapters, chapters.length - 1),
-                                                      text: 'Đọc mới', // Shortened text
+                                                              chapters[chapters
+                                                                      .length -
+                                                                  1]),
+                                                      text:
+                                                          'Đọc mới', // Shortened text
                                                       icon: Icons.new_releases,
-                                                      backgroundColor: isLoading 
-                                                          ? Colors.orange.withValues(alpha: 0.6)
+                                                      backgroundColor: isLoading
+                                                          ? Colors.orange
+                                                              .withValues(
+                                                                  alpha: 0.6)
                                                           : Colors.orange,
                                                       isPrimary: true,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 16),
+                                              // Bottom row: Find similar comics
+                                              if (_readingProgress != null) ...[
+                                                const SizedBox(height: 24),
+                                                Container(
+                                                  padding: const EdgeInsets.all(16),
+                                                  decoration: BoxDecoration(
+                                                    color: ThemeConstants.netflixDarkGray.withValues(alpha: 0.1),
+                                                    borderRadius: BorderRadius.circular(12),
+                                                    border: Border.all(
+                                                      color: ThemeConstants.netflixRed.withValues(alpha: 0.3),
+                                                      width: 1,
+                                                    ),
+                                                  ),
+                                                  child: Column(
+                                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                                    children: [
+                                                      Row(
+                                                        children: [
+                                                          Icon(
+                                                            Icons.bookmark,
+                                                            color: ThemeConstants.netflixRed,
+                                                            size: 20,
+                                                          ),
+                                                          const SizedBox(width: 8),
+                                                          Text(
+                                                            'Tiến độ đọc',
+                                                            style: ThemeConstants.inconsolataSubheading.copyWith(
+                                                              fontWeight: FontWeight.w600,
+                                                              color: ThemeConstants.netflixRed,
                               ),
                             ),
                           ],
                         ),
-                                              const SizedBox(height: 16),
-                                              // Bottom row: Find similar comics
-                                              _buildActionButton(
-                                                onPressed: isLoading ? null : () {
-                              showSearch(
-                                context: context,
-                                delegate: ComicSearchDelegate(),
-                                query: '',
-                              );
-                            },
-                                                text: 'Tìm truyện tương tự',
-                                                icon: Icons.search,
-                                                backgroundColor: isLoading 
-                                                    ? ThemeConstants.netflixDarkGray.withValues(alpha: 0.6)
-                                                    : ThemeConstants.netflixDarkGray,
-                                                isPrimary: false,
-                                                isFullWidth: true,
-                        ),
+                        const SizedBox(height: 12),
+                                                      Row(
+                                                        children: [
+                                                          Expanded(
+                                                            child: Column(
+                                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                                              children: [
+                                                                Text(
+                                                                  'Chương cuối đã đọc:',
+                                                                  style: TextStyle(
+                                                                    color: Colors.grey[600],
+                                                                    fontSize: 12,
+                                                                  ),
+                                                                ),
+                                                                const SizedBox(height: 4),
+                                                                Text(
+                                                                  'Chapter ${_readingProgress!['last_chapter_number']}',
+                                                                  style: ThemeConstants.inconsolataBody.copyWith(
+                                                                    fontWeight: FontWeight.w600,
+                                                                  ),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          ),
+                                                          Column(
+                                                            crossAxisAlignment: CrossAxisAlignment.end,
+                                                            children: [
+                                                              Text(
+                                                                'Hoàn thành:',
+                                                                style: TextStyle(
+                                                                  color: Colors.grey[600],
+                                                                  fontSize: 12,
+                                                                ),
+                                                              ),
+                                                              const SizedBox(height: 4),
+                                                              Text(
+                                                                '${_readingProgress!['completion_percentage']?.toStringAsFixed(1) ?? '0.0'}%',
+                                                                style: ThemeConstants.inconsolataBody.copyWith(
+                                                                  fontWeight: FontWeight.w600,
+                                                                  color: ThemeConstants.netflixRed,
+                                                                ),
+                                                              ),
+                                                              const SizedBox(height: 2),
+                                                              Text(
+                                                                '${_readingProgress!['last_chapter_number']} / ${_getLastAvailableChapter()} chương',
+                                                                style: TextStyle(
+                                                                  color: Colors.grey[500],
+                                                                  fontSize: 11,
+                                                                ),
+                                                              ),
+                                                              if (_readingProgress!['current_page'] != null) ...[
+                                                                const SizedBox(height: 2),
+                                                                Text(
+                                                                  'Trang ${_readingProgress!['current_page']} / ${_readingProgress!['total_pages'] ?? '?'}',
+                                                                  style: TextStyle(
+                                                                    color: Colors.grey[500],
+                                                                    fontSize: 11,
+                                                                  ),
+                                                                ),
+                                                              ],
+                                                            ],
+                                                          ),
+                                                        ],
+                                                      ),
+                                                      const SizedBox(height: 12),
+                                                      // Rainbow progress bar
+                                                      Container(
+                                                        height: 8,
+                                                        decoration: BoxDecoration(
+                                                          borderRadius: BorderRadius.circular(4),
+                                                          border: Border.all(
+                                                            color: Colors.grey[300]!,
+                                                            width: 1,
+                                                          ),
+                                                        ),
+                                                        child: ClipRRect(
+                                                          borderRadius: BorderRadius.circular(4),
+                                                          child: LinearProgressIndicator(
+                                                            value: (_readingProgress!['completion_percentage'] ?? 0.0) / 100.0,
+                                                            backgroundColor: Colors.grey[100],
+                                                            valueColor: AlwaysStoppedAnimation<Color>(
+                                                              _getRainbowColor(_readingProgress!['completion_percentage'] ?? 0.0),
+                                                            ),
+                                                            minHeight: 8,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      const SizedBox(height: 8),
+                                                      Text(
+                                                        'Lần đọc cuối: ${_formatLastReadTime(_readingProgress!['last_read_at'])}',
+                                                        style: TextStyle(
+                                                          color: Colors.grey[500],
+                                                          fontSize: 11,
+                                                          fontStyle: FontStyle.italic,
+                                                        ),
+                                                      ),
+                                                      const SizedBox(height: 12),
+                                                      Row(
+                                                        children: [
+                                                          Expanded(
+                                                            child: _buildActionButton(
+                                                              onPressed: () => _openReader(_readingProgress!['last_chapter_url']),
+                                                              text: 'Tiếp tục đọc',
+                                                              icon: Icons.play_arrow,
+                                                              backgroundColor: ThemeConstants.netflixRed,
+                                                              isFullWidth: true,
+                                                            ),
+                                                          ),
+                                                          const SizedBox(width: 12),
+                                                          _buildActionButton(
+                                                            onPressed: _clearReadingProgress,
+                                                            text: 'Xóa tiến độ',
+                                                            icon: Icons.clear,
+                                                            backgroundColor: Colors.grey[600]!,
+                                                            isFullWidth: false,
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ],
                       ],
                     );
                   },
@@ -581,60 +932,90 @@ class DetailScreenState extends State<DetailScreen> {
 
               // Chapter list
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 16),
                 child: FutureBuilder<List<String>>(
                   future: _chaptersFuture,
                   builder: (ctx, snap) {
-                    if (snap.connectionState != ConnectionState.done) {
-                      return const Center(child: CircularProgressIndicator());
+                                          if (snap.connectionState !=
+                                              ConnectionState.done) {
+                                            return const Center(
+                                                child:
+                                                    CircularProgressIndicator());
                     }
                     if (snap.hasError) {
                       return Center(
-                        child: Text('Error loading chapters:\n${snap.error}'),
-                      );
-                    }
+                                              child: Text(
+                                                  'Error loading chapters:\n${snap.error}'),
+                                            );
+                                          }
 
-                                          final initialChapters = snap.data ?? [];
+                                          final initialChapters =
+                                              snap.data ?? [];
                                           if (initialChapters.isEmpty) {
-                      return const Center(child: Text('No chapters found.'));
-                    }
+                                            return const Center(
+                                                child:
+                                                    Text('No chapters found.'));
+                                          }
 
                                           // Use local state for chapters (includes loaded + additional)
-                                          final allChapters = _allChapters.isNotEmpty ? _allChapters : initialChapters;
+                                          final allChapters =
+                                              _allChapters.isNotEmpty
+                                                  ? _allChapters
+                                                  : initialChapters;
 
                                           return Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
                                             children: [
                                               // Chapter header
                                               Row(
-                                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment
+                                                        .spaceBetween,
                                                 children: [
                                                   Column(
-                                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
                                                     children: [
                                                       Text(
                                                         'Danh sách chương (${allChapters.length} chương)',
-                                                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                                          fontWeight: FontWeight.w600,
-                                                        ),
+                                                        style: Theme.of(context)
+                                                            .textTheme
+                                                            .titleMedium
+                                                            ?.copyWith(
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w600,
+                                                            ),
                                                       ),
                                                       // Show source indicator
-                                                      if (_allChapters.isNotEmpty && _allChapters != initialChapters)
+                                                      if (_allChapters
+                                                              .isNotEmpty &&
+                                                          _allChapters !=
+                                                              initialChapters)
                                                         Text(
                                                           'Đang hiển thị từ API',
                                                           style: TextStyle(
-                                                            color: ThemeConstants.netflixRed,
+                                                            color:
+                                                                ThemeConstants
+                                                                    .netflixRed,
                                                             fontSize: 12,
-                                                            fontStyle: FontStyle.italic,
+                                                            fontStyle: FontStyle
+                                                                .italic,
                                                           ),
                                                         )
-                                                      else if (initialChapters.isNotEmpty)
+                                                      else if (initialChapters
+                                                          .isNotEmpty)
                                                         Text(
                                                           'Đang hiển thị từ trang web',
                                                           style: TextStyle(
-                                                            color: Colors.grey[600],
+                                                            color: Colors
+                                                                .grey[600],
                                                             fontSize: 12,
-                                                            fontStyle: FontStyle.italic,
+                                                            fontStyle: FontStyle
+                                                                .italic,
                                                           ),
                                                         ),
                                                     ],
@@ -644,51 +1025,82 @@ class DetailScreenState extends State<DetailScreen> {
                                               const SizedBox(height: 16),
 
                                               // Chapter list
-                                              _isLoadingMore 
-                                                  ? _buildShimmerChapterList(allChapters.length)
+                                              _isLoadingMore
+                                                  ? _buildShimmerChapterList(
+                                                      allChapters.length)
                                                   : ListView.builder(
                       shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                                                      itemCount: allChapters.length,
-                      itemBuilder: (context, index) {
-                                                        final chapterUrl = allChapters[index];
-                                                        final actualChapterNumber = _extractChapterNumber(chapterUrl);
-                                                        
+                                                      physics:
+                                                          const NeverScrollableScrollPhysics(),
+                                                      itemCount:
+                                                          allChapters.length,
+                                                      itemBuilder:
+                                                          (context, index) {
+                                                        final chapterUrl =
+                                                            allChapters[index];
+                                                        final actualChapterNumber =
+                                                            _extractChapterNumber(
+                                                                chapterUrl);
+
                                                         // If we can't extract a chapter number, fall back to index-based numbering
-                                                        final displayChapterNumber = actualChapterNumber > 0 
-                                                            ? actualChapterNumber 
-                                                            : (allChapters.length - index);
+                                                        final displayChapterNumber =
+                                                            actualChapterNumber >
+                                                                    0
+                                                                ? actualChapterNumber
+                                                                : (allChapters
+                                                                        .length -
+                                                                    index);
 
                         return ListTile(
-                                                          title: Text('Chapter $displayChapterNumber'),
+                                                          title: Text(
+                                                              'Chapter $displayChapterNumber'),
                                                           subtitle: Text(
                                                             chapterUrl,
                                                             style: TextStyle(
-                                                              color: Colors.grey[600],
+                                                              color: Colors
+                                                                  .grey[600],
                                                               fontSize: 12,
                                                             ),
                                                           ),
-                          trailing: const Icon(Icons.chevron_right),
-                                                          onTap: () => _openReader(allChapters, index),
+                                                          trailing: const Icon(
+                                                              Icons
+                                                                  .chevron_right),
+                                                          onTap: () =>
+                                                              _openReader(
+                                                                  allChapters[
+                                                                      index]),
                                                         );
                                                       },
                                                     ),
 
                                               // "See More" button
-                                              if (_hasMoreChapters || _isLoadingMore || allChapters.length >= 10) ...[
+                                              if (_hasMoreChapters ||
+                                                  _isLoadingMore ||
+                                                  allChapters.length >= 10) ...[
                                                 const SizedBox(height: 24),
                                                 Center(
                                                   child: _buildActionButton(
-                                                    onPressed: _isLoadingMore ? null : _loadMoreChapters,
-                                                    text: _isLoadingMore ? 'Đang tải...' : 'Tải thêm chương từ API',
-                                                    icon: _isLoadingMore ? Icons.hourglass_empty : Icons.cloud_download,
-                                                    backgroundColor: _isLoadingMore 
-                                                        ? ThemeConstants.netflixDarkGray 
-                                                        : ThemeConstants.netflixRed,
+                                                    onPressed: _isLoadingMore
+                                                        ? null
+                                                        : _loadMoreChapters,
+                                                    text: _isLoadingMore
+                                                        ? 'Đang tải...'
+                                                        : 'Tải thêm chương từ API',
+                                                    icon: _isLoadingMore
+                                                        ? Icons.hourglass_empty
+                                                        : Icons.cloud_download,
+                                                    backgroundColor:
+                                                        _isLoadingMore
+                                                            ? ThemeConstants
+                                                                .netflixDarkGray
+                                                            : ThemeConstants
+                                                                .netflixRed,
                                                     isFullWidth: true,
                                                   ),
                                                 ),
                                               ],
+
+                                              // Reading progress section
                                             ],
                     );
                   },
@@ -874,7 +1286,7 @@ class DetailScreenState extends State<DetailScreen> {
         ),
       ),
     );
-    
+
     // Return the button directly - let the parent Row handle the Expanded logic
     return button;
   }
@@ -890,7 +1302,8 @@ class DetailScreenState extends State<DetailScreen> {
           baseColor: Colors.grey[300]!,
           highlightColor: Colors.grey[100]!,
           child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 16.0),
+            padding:
+                const EdgeInsets.symmetric(vertical: 16.0, horizontal: 16.0),
             child: Row(
               children: [
                 Expanded(

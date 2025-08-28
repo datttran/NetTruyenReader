@@ -1,44 +1,84 @@
 // lib/screens/reader_screen.dart
 
 import 'package:flutter/material.dart';
+import 'dart:async';
+import 'package:super_sliver_list/super_sliver_list.dart';
 import '../services/nettruyen_service.dart';
+import '../services/database_helper.dart';
 import '../constants/app_constants.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+
+// Custom SliverPersistentHeaderDelegate for collapsible page indicator
+class _PageIndicatorDelegate extends SliverPersistentHeaderDelegate {
+  final Widget child;
+  final double minHeight;
+  final double maxHeight;
+
+  _PageIndicatorDelegate({
+    required this.child,
+    required this.minHeight,
+    required this.maxHeight,
+  });
+
+  @override
+  double get minExtent => minHeight;
+
+  @override
+  double get maxExtent => maxHeight;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    // Calculate opacity based on scroll position
+    // When shrinkOffset is 0, we're at the top (show indicator)
+    // When shrinkOffset is maxExtent, we're scrolled down (hide indicator)
+    final progress = shrinkOffset / maxExtent;
+    final opacity = (1.0 - progress).clamp(0.0, 1.0);
+    
+    // Add a small threshold to make the transition smoother
+    final threshold = 0.1;
+    final smoothOpacity = opacity < threshold ? 0.0 : opacity;
+    
+    return AnimatedOpacity(
+      opacity: smoothOpacity,
+      duration: const Duration(milliseconds: 150),
+      curve: Curves.easeInOut,
+      child: child,
+    );
+  }
+
+  @override
+  bool shouldRebuild(covariant SliverPersistentHeaderDelegate oldDelegate) {
+    return false;
+  }
+}
 
 class ReaderScreen extends StatefulWidget {
-  final List<String> chapters;
-  final int initialIndex;
+  final String chapterUrl;
 
   const ReaderScreen({
     Key? key,
-    required this.chapters,
-    this.initialIndex = 0,
+    required this.chapterUrl,
   }) : super(key: key);
 
   @override
-  _ReaderScreenState createState() => _ReaderScreenState();
+  State<ReaderScreen> createState() => _ReaderScreenState();
 }
 
 class _ReaderScreenState extends State<ReaderScreen> {
-  // Packed chapters for memory management
-  final Map<int, List<PageItem>> _chapterImages = {};
-
-  // Currently loading chapter images
-  final List<PageItem> _currentLoadingChapter = [];
-
-  // Preloaded next chapter
-  List<PageItem>? _nextChapterImages;
-
-  int _currentChapter = 0;
-  bool _isInitialLoading = true;
-  bool _isAppending = false;
-  bool _isPreloadingNext = false;
-
-  // Track chapter boundaries for accurate chapter detection
-  final Map<int, int> _chapterStartIndices = {};
-
   final ScrollController _scrollCtrl = ScrollController();
-
+  final DatabaseHelper _databaseHelper = DatabaseHelper();
+  
+  List<PageItem> _chapterImages = [];
+  bool _isLoading = true;
+  String? _errorMessage;
+  
+  // Page tracking variables
+  Timer? _debounceTimer;
+  int _currentPage = 1;
+  double _lastSavedOffset = 0.0;
+  String? _comicDetailUrl;
+  
   /// CRITICAL: DO NOT CHANGE THIS METHOD! This method gets the current domain for use in headers.
   /// It ensures that chapter pages are loaded with the correct Referer header.
   Future<String> _getCurrentDomainForHeaders() async {
@@ -49,333 +89,474 @@ class _ReaderScreenState extends State<ReaderScreen> {
   @override
   void initState() {
     super.initState();
-    _currentChapter = widget.initialIndex;
-    _scrollCtrl.addListener(_onScroll);
-    _loadChapter(_currentChapter);
+    print('🔍 ReaderScreen: initState called with chapterUrl: ${widget.chapterUrl}');
+    
+    // Extract comic detail URL from chapter URL
+    _extractComicDetailUrl();
+    
+    // Setup scroll listener for page tracking and progress saving
+    _setupScrollListener();
+    
+    _loadChapter();
+  }
+
+  // Extract comic detail URL from chapter URL
+  void _extractComicDetailUrl() {
+    try {
+      // Example: https://nettruyenvia.com/truyen-tranh/one-piece/chuong-1158
+      // We want: https://nettruyenvia.com/truyen-tranh/one-piece
+      final uri = Uri.parse(widget.chapterUrl);
+      final pathSegments = uri.pathSegments;
+      if (pathSegments.length >= 2) {
+        _comicDetailUrl = '${uri.scheme}://${uri.host}/${pathSegments[0]}/${pathSegments[1]}';
+        print('🔍 ReaderScreen: Extracted comic detail URL: $_comicDetailUrl');
+      }
+    } catch (e) {
+      print('❌ ReaderScreen: Error extracting comic detail URL: $e');
+    }
+  }
+
+  // Setup scroll listener for page tracking and progress saving
+  void _setupScrollListener() {
+    _scrollCtrl.addListener(() {
+      if (_scrollCtrl.hasClients && _chapterImages.isNotEmpty) {
+        final offset = _scrollCtrl.offset;
+        
+        // Simple approach: calculate current page based on scroll progress through total content
+        // We know exactly how many pages we fetched, so use that as the total
+        final totalHeight = _scrollCtrl.position.maxScrollExtent;
+        final progress = offset / totalHeight;
+        final currentPage = (progress * _chapterImages.length).round().clamp(1, _chapterImages.length);
+        
+        // Only update if page actually changed
+        if (_currentPage != currentPage) {
+          setState(() {
+            _currentPage = currentPage;
+          });
+        }
+        
+        // Save progress with debouncing
+        _saveProgressDebounced(offset, _currentPage);
+      }
+    });
+  }
+
+  // Throttled progress saving to avoid excessive database writes
+  void _saveProgressDebounced(double offset, int page) {
+    // Cancel existing timer
+    _debounceTimer?.cancel();
+    
+    // Only save if there's significant change (more than 100 pixels or page change)
+    if ((offset - _lastSavedOffset).abs() < 100 && page == _currentPage) return;
+    
+    _debounceTimer = Timer(const Duration(seconds: 2), () {
+      _saveScrollProgress(offset, page);
+      _lastSavedOffset = offset;
+    });
+  }
+
+  // Save scroll progress to database
+  Future<void> _saveScrollProgress(double offset, int page) async {
+    if (_comicDetailUrl == null) return;
+    
+    try {
+      await _databaseHelper.saveScrollProgress(
+        comicDetailUrl: _comicDetailUrl!,
+        currentPage: page,
+        scrollOffset: offset,
+        totalPages: _chapterImages.length,
+      );
+      print('✅ ReaderScreen: Scroll progress saved - Page: $page, Offset: ${offset.toStringAsFixed(1)}');
+    } catch (e) {
+      print('❌ ReaderScreen: Error saving scroll progress: $e');
+    }
   }
 
   @override
   void dispose() {
+    // Save current reading progress before leaving
+    _saveCurrentPageProgress();
+    
+    _debounceTimer?.cancel();
     _scrollCtrl.dispose();
     super.dispose();
   }
 
-  Future<void> _loadChapter(int chapterIndex) async {
-    // If already loaded, just update current
-    if (_chapterImages.containsKey(chapterIndex)) {
-      setState(() {
-        _currentChapter = chapterIndex;
-      });
-      return;
+  // Save current page progress when leaving the chapter
+  void _saveCurrentPageProgress() {
+    if (_comicDetailUrl != null && _currentPage > 0 && _chapterImages.isNotEmpty) {
+      print('🔍 ReaderScreen: Saving current page progress: page $_currentPage of ${_chapterImages.length}');
+      
+      // Save the current page for this specific chapter
+      _databaseHelper.saveScrollProgress(
+        comicDetailUrl: _comicDetailUrl!,
+        currentPage: _currentPage,
+        scrollOffset: _scrollCtrl.hasClients ? _scrollCtrl.offset : 0.0,
+        totalPages: _chapterImages.length,
+      );
+      
+      print('🔍 ReaderScreen: ✅ Current page progress saved');
     }
-
-    setState(() {
-      _isInitialLoading = true;
-      _currentLoadingChapter.clear();
-      _currentChapter = chapterIndex;
-    });
-
-    // Load chapter with progressive loading
-    await NetTruyenService().fetchChapterPagesWithCallback(
-      widget.chapters[chapterIndex],
-      onImageFound: (imageUrl) {
-        // Add each image as it's found for progressive display
-        final pageItem =
-            PageItem(imageUrl: imageUrl, chapterIndex: chapterIndex);
-        setState(() {
-          _currentLoadingChapter.add(pageItem);
-        });
-      },
-    );
-
-    // After all images are loaded, pack them
-    setState(() {
-      _chapterImages[chapterIndex] =
-          List<PageItem>.from(_currentLoadingChapter);
-      _currentLoadingChapter.clear();
-      _isInitialLoading = false;
-    });
-
-    // Update chapter boundaries
-    _updateChapterBoundaries();
-
-    // Clean up old chapters and preload next
-    _cleanupChapters(chapterIndex);
-    _preloadNextChapter(chapterIndex + 1);
   }
 
-  void _preloadNextChapter(int nextIndex) async {
-    if (_isPreloadingNext ||
-        nextIndex >= widget.chapters.length ||
-        _chapterImages.containsKey(nextIndex)) {
-      return;
+  // Restore scroll position from saved progress
+  Future<void> _restoreScrollPosition() async {
+    if (_comicDetailUrl == null) return;
+    
+    try {
+      final progress = await _databaseHelper.getReadingProgress(_comicDetailUrl!);
+      if (progress != null && progress['current_page'] != null) {
+        final savedPage = progress['current_page'] as int;
+        final savedOffset = progress['scroll_offset'] as double? ?? 0.0;
+        
+        print('🔍 ReaderScreen: Found saved progress - Page: $savedPage, Offset: $savedOffset');
+        
+        // Jump to the latest page read
+        if (savedPage > 1 && _chapterImages.isNotEmpty) {
+          // Calculate the target scroll position for the saved page
+          final progress = (savedPage - 1) / (_chapterImages.length - 1);
+          final targetOffset = _scrollCtrl.position.maxScrollExtent * progress;
+          
+          // Update current page state
+          setState(() {
+            _currentPage = savedPage;
+          });
+          
+          // Jump to the target position
+          if (_scrollCtrl.hasClients) {
+            _scrollCtrl.jumpTo(targetOffset);
+            print('🔍 ReaderScreen: ✅ Jumped to saved page $savedPage at offset ${targetOffset.toStringAsFixed(1)}');
+          }
+        } else {
+          // If no saved page or page 1, just restore scroll offset
+          if (_scrollCtrl.hasClients && savedOffset > 0) {
+            _scrollCtrl.jumpTo(savedOffset);
+            print('🔍 ReaderScreen: ✅ Restored scroll offset: ${savedOffset.toStringAsFixed(1)}');
+          }
+        }
+      }
+    } catch (e) {
+      print('🔍 ReaderScreen: ❌ Error restoring scroll position: $e');
     }
+  }
 
+  Future<void> _loadChapter() async {
+    print('🔍 ReaderScreen: _loadChapter called');
+    print('🔍 ReaderScreen: Chapter URL: ${widget.chapterUrl}');
+    
     setState(() {
-      _isPreloadingNext = true;
+      _isLoading = true;
+      _errorMessage = null;
     });
 
     try {
-      final imageUrls = await NetTruyenService().fetchChapterPagesWithCallback(
-        widget.chapters[nextIndex],
+      print('🔍 ReaderScreen: Starting to fetch chapter pages...');
+      // Load chapter with progressive loading
+      await NetTruyenService().fetchChapterPagesWithCallback(
+        widget.chapterUrl,
         onImageFound: (imageUrl) {
-          // Progressive loading for preloaded chapters
-          // Note: We don't update state here since this is preloading
+          print('🔍 ReaderScreen: Image found: $imageUrl');
+          // Add each image as it's found for progressive display
+          final pageItem = PageItem(imageUrl: imageUrl, chapterIndex: 0);
+          setState(() {
+            _chapterImages.add(pageItem);
+          });
         },
       );
-      final pageItems = imageUrls
-          .map((url) => PageItem(imageUrl: url, chapterIndex: nextIndex))
-          .toList();
 
+      print('🔍 ReaderScreen: Chapter loading completed. Total images: ${_chapterImages.length}');
       setState(() {
-        _nextChapterImages = pageItems;
-        _isPreloadingNext = false;
+        _isLoading = false;
+      });
+      
+      // Wait for the UI to build, then restore scroll position from saved progress
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        await _restoreScrollPosition();
       });
     } catch (e) {
+      print('🔍 ReaderScreen: Error loading chapter: $e');
       setState(() {
-        _isPreloadingNext = false;
+        _isLoading = false;
+        _errorMessage = e.toString();
       });
-    }
-  }
-
-  void _cleanupChapters(int current) {
-    // Keep only previous, current, and next chapter in memory
-    // But be more conservative about removing chapters to prevent scroll jumps
-    final keysToKeep = <int>{current - 1, current, current + 1};
-
-    // Only remove chapters that are far from the current chapter
-    final keysToRemove = <int>[];
-    for (final key in _chapterImages.keys) {
-      if (!keysToKeep.contains(key) &&
-          (key < current - 2 || key > current + 2)) {
-        keysToRemove.add(key);
-      }
-    }
-
-    for (final key in keysToRemove) {
-      _chapterImages.remove(key);
-    }
-
-    _updateChapterBoundaries();
-  }
-
-  void _updateChapterBoundaries() {
-    _chapterStartIndices.clear();
-    int currentIndex = 0;
-
-    final keys = _chapterImages.keys.toList()..sort();
-    for (final chapterIndex in keys) {
-      _chapterStartIndices[chapterIndex] = currentIndex;
-      currentIndex += _chapterImages[chapterIndex]!.length;
-    }
-  }
-
-  void _onScroll() {
-    final pos = _scrollCtrl.position;
-    final cur = pos.pixels;
-
-    // Append next chapter if near bottom
-    if (!_isAppending &&
-        _nextChapterImages != null &&
-        cur >= pos.maxScrollExtent - 100 &&
-        _currentChapter < widget.chapters.length - 1) {
-      setState(() => _isAppending = true);
-      _currentChapter++;
-      _chapterImages[_currentChapter] = _nextChapterImages!;
-      _nextChapterImages = null;
-
-      _cleanupChapters(_currentChapter);
-      _preloadNextChapter(_currentChapter + 1);
-      setState(() => _isAppending = false);
-    }
-
-    // Update current chapter based on visible images - call this more frequently
-    _updateCurrentChapterFromVisible();
-  }
-
-  void _updateCurrentChapterFromVisible() {
-    if (_displayPages.isEmpty) return;
-
-    // Get the first visible item index using a more accurate method
-    final firstVisibleIndex = _getFirstVisibleIndex();
-    if (firstVisibleIndex == -1) return;
-
-    // Find which chapter this index belongs to
-    final newChapter = _getChapterForIndex(firstVisibleIndex);
-    if (_currentChapter != newChapter) {
-      print(
-          'Chapter changed from $_currentChapter to $newChapter at index $firstVisibleIndex');
-
-      // If we're moving to a chapter that's not loaded, load it without resetting scroll
-      if (!_chapterImages.containsKey(newChapter)) {
-        _loadChapterWithoutReset(newChapter);
-      } else {
-        setState(() {
-          _currentChapter = newChapter;
-        });
+      // Show error message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to load chapter: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
   }
 
-  Future<void> _loadChapterWithoutReset(int chapterIndex) async {
-    // Load chapter without changing the current chapter or resetting scroll
-    if (_chapterImages.containsKey(chapterIndex)) return;
 
-    setState(() {
-      _isInitialLoading = true;
-      _currentLoadingChapter.clear();
-    });
 
-    // Load chapter with progressive loading
-    await NetTruyenService().fetchChapterPagesWithCallback(
-      widget.chapters[chapterIndex],
-      onImageFound: (imageUrl) {
-        // Add each image as it's found for progressive display
-        final pageItem =
-            PageItem(imageUrl: imageUrl, chapterIndex: chapterIndex);
-        setState(() {
-          _currentLoadingChapter.add(pageItem);
-        });
+
+
+  // Simple display pages getter
+  List<PageItem> get _displayPages => _chapterImages;
+
+  // Helper to build a single page widget for SuperSliverList
+  Widget _buildPageWidget(int index) {
+    final page = _chapterImages[index];
+    return FutureBuilder<String>(
+      future: _getCurrentDomainForHeaders(),
+      builder: (context, domainSnapshot) {
+        if (!domainSnapshot.hasData) {
+          return Container(
+            height: 200,
+            color: Colors.grey[300],
+            child: const Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        return Container(
+          margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+          child: CachedNetworkImage(
+            imageUrl: page.imageUrl,
+            httpHeaders: {'Referer': domainSnapshot.data!},
+            placeholder: (context, url) => Container(
+              height: 400,
+              color: Colors.grey[300],
+              child: const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 8),
+                    Text('Loading page...'),
+                  ],
+                ),
+              ),
+            ),
+            errorWidget: (context, url, error) => Container(
+              height: 200,
+              color: Colors.red[100],
+              child: const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.broken_image, color: Colors.red, size: 48),
+                    SizedBox(height: 8),
+                    Text(
+                      'Failed to load image',
+                      style: TextStyle(color: Colors.red),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            fit: BoxFit.contain,
+            width: double.infinity,
+            // Use fadeInDuration: Duration.zero to disable placeholder fade animations
+            fadeInDuration: Duration.zero,
+            fadeOutDuration: Duration.zero,
+            placeholderFadeInDuration: Duration.zero,
+          ),
+        );
       },
     );
-
-    // After all images are loaded, pack them
-    setState(() {
-      _chapterImages[chapterIndex] =
-          List<PageItem>.from(_currentLoadingChapter);
-      _currentLoadingChapter.clear();
-      _isInitialLoading = false;
-      _currentChapter = chapterIndex; // Update current chapter after loading
-    });
-
-    // Update chapter boundaries
-    _updateChapterBoundaries();
-
-    // Clean up old chapters and preload next
-    _cleanupChapters(chapterIndex);
-    _preloadNextChapter(chapterIndex + 1);
   }
 
-  int _getFirstVisibleIndex() {
-    if (_scrollCtrl.position.pixels <= 0) return 0;
-
-    // Use a more accurate method to find the first visible item
-    final scrollOffset = _scrollCtrl.position.pixels;
-
-    // Estimate based on average item height (including padding)
-    const estimatedItemHeight = 400.0; // Reduced from 500 to be more responsive
-    final estimatedIndex = (scrollOffset / estimatedItemHeight).floor();
-
-    return estimatedIndex.clamp(0, _displayPages.length - 1);
+  // Build page indicator widget
+  Widget _buildPageIndicator() {
+    if (_chapterImages.isEmpty) return const SizedBox.shrink();
+    
+    // Calculate progress through the current chapter
+    // Page 1 = 0%, Page 17 = 100%
+    final chapterProgress = (_currentPage - 1) / (_chapterImages.length - 1);
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.black87,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white24, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.book, color: Colors.white70, size: 18),
+              const SizedBox(width: 8),
+              Text(
+                'Page $_currentPage of ${_chapterImages.length}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                '(${(chapterProgress * 100).toStringAsFixed(1)}%)',
+                style: TextStyle(
+                  color: Colors.grey[400],
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          // Progress bar showing progress through current chapter
+          Container(
+            height: 4,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(2),
+              color: Colors.grey[800],
+            ),
+            child: FractionallySizedBox(
+              alignment: Alignment.centerLeft,
+              widthFactor: chapterProgress,
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(2),
+                  gradient: LinearGradient(
+                    colors: [Colors.blue, Colors.purple],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
-  int _getChapterForIndex(int index) {
-    // Find the chapter that contains this index
-    final keys = _chapterStartIndices.keys.toList()..sort();
+  // Build page navigation floating action button
+  Widget _buildPageNavigationFAB() {
+    if (_chapterImages.length <= 1) return const SizedBox.shrink();
 
-    for (int i = keys.length - 1; i >= 0; i--) {
-      final chapterIndex = keys[i];
-      final startIndex = _chapterStartIndices[chapterIndex]!;
-      final chapterLength = _chapterImages[chapterIndex]!.length;
-
-      if (index >= startIndex && index < startIndex + chapterLength) {
-        return chapterIndex;
-      }
-    }
-
-    // If not found in packed chapters, check if it's in the loading chapter
-    if (_currentLoadingChapter.isNotEmpty) {
-      final loadingStartIndex =
-          _displayPages.length - _currentLoadingChapter.length;
-      if (index >= loadingStartIndex) {
-        return _currentLoadingChapter.first.chapterIndex;
-      }
-    }
-
-    return _currentChapter; // Fallback
-  }
-
-  // Flatten all images for display
-  List<PageItem> get _displayPages {
-    final keys = _chapterImages.keys.toList()..sort();
-    return [
-      ...keys.expand((k) => _chapterImages[k]!),
-      ..._currentLoadingChapter,
-    ];
-  }
-
-  // Build the list of widgets for ListView
-  List<Widget> _buildPageWidgets() {
-    final widgets = <Widget>[];
-
-    // Add all page images
-    for (final page in _displayPages) {
-      widgets.add(
-        FutureBuilder<String>(
-          future: _getCurrentDomainForHeaders(),
-          builder: (context, domainSnapshot) {
-            if (!domainSnapshot.hasData) {
-              return Container(
-                height: 200,
-                color: Colors.grey[300],
-                child: const Center(child: CircularProgressIndicator()),
-              );
-            }
-
-            return Image.network(
-              page.imageUrl,
-              headers: {'Referer': domainSnapshot.data!},
-              loadingBuilder: (context, child, loadingProgress) {
-                if (loadingProgress == null) return child;
-                return Container(
-                  height: 200,
-                  color: Colors.grey[300],
-                  child: const Center(child: CircularProgressIndicator()),
-                );
-              },
-              errorBuilder: (context, error, stackTrace) {
-                return Container(
-                  height: 200,
-                  color: Colors.grey[300],
-                  child: const Center(child: Icon(Icons.broken_image)),
-                );
-              },
-              fit: BoxFit.contain,
-            );
-          },
-        ),
-      );
-    }
-
-    // Add loading indicator if appending
-    if (_isAppending) {
-      widgets.add(
-        const Padding(
-          padding: EdgeInsets.symmetric(vertical: 16),
-          child: Center(child: CircularProgressIndicator()),
-        ),
-      );
-    }
-
-    return widgets;
+    return FloatingActionButton.extended(
+      onPressed: () {
+        final newPage = _currentPage + 1;
+        if (newPage <= _chapterImages.length) {
+          _scrollCtrl.animateTo(
+            _scrollCtrl.offset + MediaQuery.of(context).size.height * 0.8, // Scroll to the next page
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+          );
+        }
+      },
+      label: const Text('Next Page'),
+      icon: const Icon(Icons.arrow_forward_ios),
+      backgroundColor: Colors.black87,
+      foregroundColor: Colors.white,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isInitialLoading && _displayPages.isEmpty) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
+    print('🔍 ReaderScreen: build called');
+    print('🔍 ReaderScreen: _isLoading: $_isLoading');
+    print('🔍 ReaderScreen: _errorMessage: $_errorMessage');
+    print('🔍 ReaderScreen: _displayPages.length: ${_displayPages.length}');
+    
+    if (_isLoading && _displayPages.isEmpty) {
+      print('🔍 ReaderScreen: Showing loading screen');
+      return Scaffold(
+        backgroundColor: Colors.black,
+        body: const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(color: Colors.white),
+              SizedBox(height: 16),
+              Text(
+                'Loading chapter...',
+                style: TextStyle(color: Colors.white, fontSize: 18),
+              ),
+            ],
+          ),
+        ),
       );
     }
 
+    if (_errorMessage != null) {
+      print('🔍 ReaderScreen: Showing error screen');
+      return Scaffold(
+        backgroundColor: Colors.black,
+        appBar: AppBar(
+          backgroundColor: Colors.black87,
+          foregroundColor: Colors.white,
+          title: const Text('Error', style: TextStyle(color: Colors.white)),
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error, color: Colors.red, size: 64),
+              const SizedBox(height: 16),
+              Text(
+                'Failed to load chapter',
+                style: const TextStyle(color: Colors.white, fontSize: 18),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                _errorMessage!,
+                style: const TextStyle(color: Colors.red, fontSize: 14),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: _loadChapter,
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    print('🔍 ReaderScreen: Showing main reading screen');
     return Scaffold(
-      appBar: AppBar(title: Text('Chapter ${_currentChapter + 1}')),
-      body: ListView(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black87,
+        foregroundColor: Colors.white,
+        title: const Text(
+          'Reading Chapter',
+          style: TextStyle(color: Colors.white),
+        ),
+      ),
+      body: CustomScrollView(
         physics: const BouncingScrollPhysics(),
         controller: _scrollCtrl,
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        children: _buildPageWidgets(),
+        slivers: [
+          // Collapsible page indicator - shows when scrolling up, hides when scrolling down
+          SliverPersistentHeader(
+            pinned: false,
+            floating: true,
+            delegate: _PageIndicatorDelegate(
+              child: _buildPageIndicator(),
+              minHeight: 0,
+              maxHeight: 100, // Slightly taller for better visibility
+            ),
+          ),
+          // Chapter pages with SuperSliverList for better page awareness
+          SuperSliverList(
+            delegate: SliverChildBuilderDelegate(
+              (context, index) {
+                return _buildPageWidget(index);
+              },
+              childCount: _chapterImages.length,
+            ),
+          ),
+        ],
       ),
+      floatingActionButton: _buildPageNavigationFAB(),
     );
   }
 }

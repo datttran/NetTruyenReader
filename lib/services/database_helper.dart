@@ -22,7 +22,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 2, // Updated version for new schema
+      version: 5, // Updated version for scroll tracking fields
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -77,6 +77,22 @@ class DatabaseHelper {
         FOREIGN KEY (comic_id) REFERENCES comics (id) ON DELETE CASCADE
       )
     ''');
+
+    // Reading progress table
+    await db.execute('''
+      CREATE TABLE reading_progress (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        comic_detail_url TEXT NOT NULL UNIQUE,
+        last_chapter_url TEXT NOT NULL,
+        last_chapter_number INTEGER,
+        last_read_at INTEGER NOT NULL,
+        completion_percentage REAL DEFAULT 0.0,
+        current_page INTEGER DEFAULT 1,
+        scroll_offset REAL DEFAULT 0.0,
+        total_pages INTEGER DEFAULT 0,
+        FOREIGN KEY (comic_detail_url) REFERENCES comics (detailUrl) ON DELETE CASCADE
+      )
+    ''');
   }
 
   Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
@@ -95,6 +111,77 @@ class DatabaseHelper {
         // Update existing genres with empty URLs (they will be updated when comics are refreshed)
         await db.execute('UPDATE genres SET url = "" WHERE url IS NULL');
       } catch (e) {
+        // Continue with the upgrade even if there's an error
+      }
+    }
+    
+    if (oldVersion < 3) {
+      try {
+        // Create reading progress table
+        await db.execute('''
+          CREATE TABLE reading_progress (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            comic_detail_url TEXT NOT NULL UNIQUE,
+            last_chapter_url TEXT NOT NULL,
+            last_chapter_number INTEGER,
+            last_read_at INTEGER NOT NULL,
+            completion_percentage REAL DEFAULT 0.0,
+            FOREIGN KEY (comic_detail_url) REFERENCES comics (detailUrl) ON DELETE CASCADE
+          )
+        ''');
+        print('✅ Reading progress table created successfully');
+      } catch (e) {
+        print('❌ Error creating reading progress table: $e');
+        // Continue with the upgrade even if there's an error
+      }
+    }
+    
+    if (oldVersion < 4) {
+      try {
+        // Update reading progress table to use completion_percentage
+        await db.execute('''
+          ALTER TABLE reading_progress 
+          ADD COLUMN completion_percentage REAL DEFAULT 0.0
+        ''');
+        
+        // Remove the old total_chapters_read column if it exists
+        try {
+          await db.execute('''
+            ALTER TABLE reading_progress 
+            DROP COLUMN total_chapters_read
+          ''');
+        } catch (e) {
+          // Column might not exist, continue
+        }
+        
+        print('✅ Reading progress table updated to use completion percentage');
+      } catch (e) {
+        print('❌ Error updating reading progress table: $e');
+        // Continue with the upgrade even if there's an error
+      }
+    }
+    
+    if (oldVersion < 5) {
+      try {
+        // Add scroll tracking fields
+        await db.execute('''
+          ALTER TABLE reading_progress 
+          ADD COLUMN current_page INTEGER DEFAULT 1
+        ''');
+        
+        await db.execute('''
+          ALTER TABLE reading_progress 
+          ADD COLUMN scroll_offset REAL DEFAULT 0.0
+        ''');
+        
+        await db.execute('''
+          ALTER TABLE reading_progress 
+          ADD COLUMN total_pages INTEGER DEFAULT 0
+        ''');
+        
+        print('✅ Reading progress table updated with scroll tracking fields');
+      } catch (e) {
+        print('❌ Error updating reading progress table with scroll tracking: $e');
         // Continue with the upgrade even if there's an error
       }
     }
@@ -354,6 +441,177 @@ class DatabaseHelper {
       }
     } catch (e) {
       return 'Error calculating size';
+    }
+  }
+
+  // Reading progress operations
+  Future<void> saveReadingProgress({
+    required String comicDetailUrl,
+    required String chapterUrl,
+    required int chapterNumber,
+    required int lastAvailableChapter,
+  }) async {
+    final db = await database;
+    
+    try {
+      // Calculate completion percentage
+      // Formula: (last_read_chapter / last_available_chapter) × 100
+      // This shows how much of the available content the user has completed
+      final completionPercentage = (chapterNumber / lastAvailableChapter * 100).clamp(0.0, 100.0);
+      
+      await db.insert(
+        'reading_progress',
+        {
+          'comic_detail_url': comicDetailUrl,
+          'last_chapter_url': chapterUrl,
+          'last_chapter_number': chapterNumber,
+          'last_read_at': DateTime.now().millisecondsSinceEpoch,
+          'completion_percentage': completionPercentage,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+      
+      print('✅ Reading progress saved for comic: $comicDetailUrl, chapter: $chapterNumber, completion: ${completionPercentage.toStringAsFixed(1)}% (${chapterNumber}/${lastAvailableChapter})');
+    } catch (e) {
+      print('❌ Error saving reading progress: $e');
+    }
+  }
+
+  // Save scroll progress (for page tracking and scroll position)
+  Future<void> saveScrollProgress({
+    required String comicDetailUrl,
+    required int currentPage,
+    required double scrollOffset,
+    required int totalPages,
+  }) async {
+    final db = await database;
+    
+    try {
+      // Check if a reading progress record already exists
+      final existingRecord = await db.query(
+        'reading_progress',
+        where: 'comic_detail_url = ?',
+        whereArgs: [comicDetailUrl],
+      );
+      
+      if (existingRecord.isNotEmpty) {
+        // Update existing record
+        await db.execute('''
+          UPDATE reading_progress 
+          SET current_page = ?, scroll_offset = ?, total_pages = ?, last_read_at = ?
+          WHERE comic_detail_url = ?
+        ''', [currentPage, scrollOffset, totalPages, DateTime.now().millisecondsSinceEpoch, comicDetailUrl]);
+        
+        print('✅ Scroll progress updated for comic: $comicDetailUrl, page: $currentPage/$totalPages, offset: ${scrollOffset.toStringAsFixed(1)}');
+      } else {
+        // Insert new record with default values for missing fields
+        await db.insert(
+          'reading_progress',
+          {
+            'comic_detail_url': comicDetailUrl,
+            'last_chapter_url': '', // Default empty string
+            'last_chapter_number': 1, // Default to chapter 1
+            'last_read_at': DateTime.now().millisecondsSinceEpoch,
+            'completion_percentage': 0.0, // Default 0%
+            'current_page': currentPage,
+            'scroll_offset': scrollOffset,
+            'total_pages': totalPages,
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+        
+        print('✅ New scroll progress record created for comic: $comicDetailUrl, page: $currentPage/$totalPages, offset: ${scrollOffset.toStringAsFixed(1)}');
+      }
+    } catch (e) {
+      print('❌ Error saving scroll progress: $e');
+    }
+  }
+
+  // Save both reading and scroll progress in one call
+  Future<void> saveCompleteProgress({
+    required String comicDetailUrl,
+    required String chapterUrl,
+    required int chapterNumber,
+    required int lastAvailableChapter,
+    required int currentPage,
+    required double scrollOffset,
+    required int totalPages,
+  }) async {
+    final db = await database;
+    
+    try {
+      // Calculate completion percentage
+      final completionPercentage = (chapterNumber / lastAvailableChapter * 100).clamp(0.0, 100.0);
+      
+      await db.insert(
+        'reading_progress',
+        {
+          'comic_detail_url': comicDetailUrl,
+          'last_chapter_url': chapterUrl,
+          'last_chapter_number': chapterNumber,
+          'last_read_at': DateTime.now().millisecondsSinceEpoch,
+          'completion_percentage': completionPercentage,
+          'current_page': currentPage,
+          'scroll_offset': scrollOffset,
+          'total_pages': totalPages,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+      
+      print('✅ Complete progress saved for comic: $comicDetailUrl, chapter: $chapterNumber, page: $currentPage/$totalPages, completion: ${completionPercentage.toStringAsFixed(1)}%');
+    } catch (e) {
+      print('❌ Error saving complete progress: $e');
+    }
+  }
+
+  Future<Map<String, dynamic>?> getReadingProgress(String comicDetailUrl) async {
+    final db = await database;
+    
+    try {
+      final result = await db.query(
+        'reading_progress',
+        where: 'comic_detail_url = ?',
+        whereArgs: [comicDetailUrl],
+      );
+      
+      if (result.isNotEmpty) {
+        return result.first;
+      }
+      return null;
+    } catch (e) {
+      print('❌ Error getting reading progress: $e');
+      return null;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getAllReadingProgress() async {
+    final db = await database;
+    
+    try {
+      final result = await db.query(
+        'reading_progress',
+        orderBy: 'last_read_at DESC',
+      );
+      
+      return result;
+    } catch (e) {
+      print('❌ Error getting all reading progress: $e');
+      return [];
+    }
+  }
+
+  Future<void> clearReadingProgress(String comicDetailUrl) async {
+    final db = await database;
+    
+    try {
+      await db.delete(
+        'reading_progress',
+        where: 'comic_detail_url = ?',
+        whereArgs: [comicDetailUrl],
+      );
+      print('✅ Reading progress cleared for comic: $comicDetailUrl');
+    } catch (e) {
+      print('❌ Error clearing reading progress: $e');
     }
   }
 }
