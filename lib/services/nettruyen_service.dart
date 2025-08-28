@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart'; // Needed for ImageProvider
 import 'package:http/http.dart' as http;
 import 'package:html/parser.dart' as html;
@@ -218,6 +219,185 @@ class NetTruyenService {
   /// It parses the HTML content from the comic detail page to extract chapter information.
   /// The method is essential for the chapter navigation functionality.
   Future<List<String>> fetchChapters(String comicUrl) async {
+    try {
+      // First try the direct API endpoint for better performance
+      final apiChapters = await _fetchChaptersFromAPI(comicUrl);
+      if (apiChapters.isNotEmpty) {
+        return apiChapters;
+      }
+      
+      // Fallback to HTML parsing if API fails
+      return await _fetchChaptersFromHTML(comicUrl);
+    } catch (e) {
+      // If API fails, try HTML parsing as fallback
+      try {
+        return await _fetchChaptersFromHTML(comicUrl);
+      } catch (htmlError) {
+        throw Exception('Failed to load chapters from both API and HTML: $e, HTML Error: $htmlError');
+      }
+    }
+  }
+
+  /// NEW: Fetch chapters using the direct API endpoint for better performance
+  Future<List<String>> _fetchChaptersFromAPI(String comicUrl) async {
+    try {
+      // Extract slug from comic URL
+      final slug = _extractSlugFromUrl(comicUrl);
+      if (slug == null) {
+        print('🔍 API: Could not extract slug from URL: $comicUrl');
+        return [];
+      }
+
+      final domain = await getCurrentDomain();
+      final baseUrl = domain.endsWith('/') ? domain.substring(0, domain.length - 1) : domain;
+      final apiUrl = '$baseUrl/Comic/Services/ComicService.asmx/ChapterList?slug=$slug';
+
+      print('🔍 API: Attempting to fetch chapters from: $apiUrl');
+      print('🔍 API: Slug extracted: $slug');
+
+      final headers = await _getBaseHeaders();
+      final response = await http
+          .get(
+            Uri.parse(apiUrl),
+            headers: headers,
+          )
+          .timeout(const Duration(seconds: 120));
+
+      print('🔍 API: Response status: ${response.statusCode}');
+      print('🔍 API: Response headers: ${response.headers}');
+      
+      if (response.statusCode == 200) {
+        print('🔍 API: Response body preview: ${response.body.substring(0, response.body.length > 200 ? 200 : response.body.length)}...');
+        
+        // Parse the API response (likely XML or JSON)
+        final chapters = _parseChaptersFromAPIResponse(response.body, baseUrl, slug);
+        print('🔍 API: Parsed ${chapters.length} chapters from API');
+        return chapters;
+      } else {
+        print('🔍 API: HTTP error ${response.statusCode}, falling back to HTML');
+        return []; // Return empty list to trigger HTML fallback
+      }
+    } catch (e) {
+      print('🔍 API: Exception occurred: $e');
+      // Return empty list to trigger HTML fallback
+      return [];
+    }
+  }
+
+  /// Extract slug from comic URL for API calls
+  String? _extractSlugFromUrl(String comicUrl) {
+    try {
+      print('🔍 Slug: Extracting from URL: $comicUrl');
+      final uri = Uri.parse(comicUrl);
+      final pathSegments = uri.pathSegments;
+      print('🔍 Slug: Path segments: $pathSegments');
+      
+      // Look for slug in path segments
+      for (int i = 0; i < pathSegments.length; i++) {
+        final segment = pathSegments[i];
+        print('🔍 Slug: Checking segment $i: $segment');
+        
+        if (segment == 'truyen-tranh' && i + 1 < pathSegments.length) {
+          final slug = pathSegments[i + 1];
+          print('🔍 Slug: Found slug after "truyen-tranh": $slug');
+          return slug;
+        }
+        if (segment == 'Comic' && i + 1 < pathSegments.length) {
+          final slug = pathSegments[i + 1];
+          print('🔍 Slug: Found slug after "Comic": $slug');
+          return slug;
+        }
+      }
+      
+      // Try to extract from the last segment
+      if (pathSegments.isNotEmpty) {
+        final lastSegment = pathSegments.last;
+        print('🔍 Slug: Checking last segment: $lastSegment');
+        
+        if (lastSegment.isNotEmpty && lastSegment != 'truyen-tranh') {
+          print('🔍 Slug: Using last segment as slug: $lastSegment');
+          return lastSegment;
+        }
+      }
+      
+      print('🔍 Slug: No slug found');
+      return null;
+    } catch (e) {
+      print('🔍 Slug: Exception during extraction: $e');
+      return null;
+    }
+  }
+
+  /// Parse chapters from API response
+  List<String> _parseChaptersFromAPIResponse(String responseBody, String baseUrl, String comicSlug) {
+    try {
+      // Try to parse as JSON first
+      if (responseBody.trim().startsWith('{') || responseBody.trim().startsWith('[')) {
+        return _parseChaptersFromJSON(responseBody, baseUrl, comicSlug);
+      }
+      
+      // Try to parse as XML
+      if (responseBody.contains('<') && responseBody.contains('>')) {
+        return _parseChaptersFromXML(responseBody, baseUrl, comicSlug);
+      }
+      
+      // If response format is unknown, return empty list
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  /// Parse chapters from JSON response
+  List<String> _parseChaptersFromJSON(String jsonBody, String baseUrl, String comicSlug) {
+    try {
+      // Parse the JSON response
+      final Map<String, dynamic> jsonData = jsonDecode(jsonBody);
+      
+      // Extract the data array
+      final List<dynamic> chaptersData = jsonData['data'] ?? [];
+      
+      final List<String> chapters = [];
+      
+      for (final chapter in chaptersData) {
+        try {
+          // Extract chapter slug from the response
+          final String? chapterSlug = chapter['chapter_slug'];
+          if (chapterSlug != null && chapterSlug.isNotEmpty) {
+            // We need to get the comic slug from the original URL
+            // For now, we'll construct a basic URL structure
+            // This will need to be improved based on the actual URL pattern
+            final chapterUrl = '$baseUrl/truyen-tranh/$comicSlug/$chapterSlug';
+            chapters.add(chapterUrl);
+          }
+        } catch (e) {
+          print('🔍 API: Error parsing individual chapter: $e');
+          continue;
+        }
+      }
+      
+      print('🔍 API: Successfully parsed ${chapters.length} chapters from JSON');
+      return chapters;
+      
+    } catch (e) {
+      print('🔍 API: Error parsing JSON response: $e');
+      return [];
+    }
+  }
+
+  /// Parse chapters from XML response
+  List<String> _parseChaptersFromXML(String xmlBody, String baseUrl, String comicSlug) {
+    try {
+      // This is a placeholder - implement based on actual API response format
+      // You'll need to examine the actual API response to implement this correctly
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  /// Fallback method: Fetch chapters from HTML (original implementation)
+  Future<List<String>> _fetchChaptersFromHTML(String comicUrl) async {
     try {
       final headers = await _getBaseHeaders();
       final response = await http
