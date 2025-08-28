@@ -220,21 +220,63 @@ class NetTruyenService {
   /// The method is essential for the chapter navigation functionality.
   Future<List<String>> fetchChapters(String comicUrl) async {
     try {
-      // First try the direct API endpoint for better performance
+      // First try to get chapters from HTML (fast, already loaded)
+      final htmlChapters = await _fetchChaptersFromHTML(comicUrl);
+      if (htmlChapters.isNotEmpty) {
+        print('🔍 Chapters: Loaded ${htmlChapters.length} chapters from HTML (fast)');
+        return htmlChapters;
+      }
+      
+      // Fallback to API if HTML parsing fails
       final apiChapters = await _fetchChaptersFromAPI(comicUrl);
       if (apiChapters.isNotEmpty) {
+        print('🔍 Chapters: Loaded ${apiChapters.length} chapters from API (fallback)');
         return apiChapters;
       }
       
-      // Fallback to HTML parsing if API fails
-      return await _fetchChaptersFromHTML(comicUrl);
+      throw Exception('Failed to load chapters from both HTML and API');
     } catch (e) {
-      // If API fails, try HTML parsing as fallback
-      try {
-        return await _fetchChaptersFromHTML(comicUrl);
-      } catch (htmlError) {
-        throw Exception('Failed to load chapters from both API and HTML: $e, HTML Error: $htmlError');
+      throw Exception('Failed to load chapters: $e');
+    }
+  }
+
+  /// NEW: Load additional chapters via API (for "See More" functionality)
+  /// This method is called when user wants to load older chapters
+  Future<List<String>> loadMoreChapters(String comicUrl, {int offset = 0, int limit = 50}) async {
+    try {
+      final slug = _extractSlugFromUrl(comicUrl);
+      if (slug == null) {
+        print('🔍 LoadMore: Could not extract slug from URL: $comicUrl');
+        return [];
       }
+
+      final domain = await getCurrentDomain();
+      final baseUrl = domain.endsWith('/') ? domain.substring(0, domain.length - 1) : domain;
+      
+      // Try to use pagination if API supports it
+      final apiUrl = '$baseUrl/Comic/Services/ComicService.asmx/ChapterList?slug=$slug&offset=$offset&limit=$limit';
+
+      print('🔍 LoadMore: Loading chapters $offset to ${offset + limit} from: $apiUrl');
+
+      final headers = await _getBaseHeaders();
+      final response = await http
+          .get(
+            Uri.parse(apiUrl),
+            headers: headers,
+          )
+          .timeout(const Duration(seconds: 120));
+
+      if (response.statusCode == 200) {
+        final chapters = _parseChaptersFromAPIResponse(response.body, baseUrl, slug);
+        print('🔍 LoadMore: Successfully loaded ${chapters.length} additional chapters');
+        return chapters;
+      } else {
+        print('🔍 LoadMore: HTTP error ${response.statusCode}');
+        return [];
+      }
+    } catch (e) {
+      print('🔍 LoadMore: Exception occurred: $e');
+      return [];
     }
   }
 
@@ -418,14 +460,45 @@ class NetTruyenService {
 
         final document = html.parse(htmlContent);
 
-        // Try different selectors for chapter links
+        // Try to find the chapter list container
+        final chapterListContainer = document.querySelector('#nt_listchapter');
+        if (chapterListContainer != null) {
+          // Look for chapters in the visible list
+          final chapterElements = chapterListContainer.querySelectorAll('#chapter_list li.row .chapter a');
+          
+          if (chapterElements.isNotEmpty) {
+            final chapters = <String>[];
+            for (final element in chapterElements) {
+              final href = element.attributes['href'];
+              if (href != null && href.isNotEmpty) {
+                // Convert relative URLs to absolute URLs
+                String fullUrl;
+                if (href.startsWith('http')) {
+                  fullUrl = href;
+                } else if (href.startsWith('/')) {
+                  final baseDomain = await getCurrentDomain();
+                  fullUrl = '$baseDomain$href';
+                } else {
+                  final baseDomain = await getCurrentDomain();
+                  fullUrl = '$baseDomain/$href';
+                }
+                chapters.add(fullUrl);
+              }
+            }
+            
+            print('🔍 HTML: Found ${chapters.length} visible chapters in HTML');
+            return chapters;
+          }
+        }
+
+        // Fallback to old selectors if new structure not found
         var chapterElements = document.querySelectorAll(
-            '.chapter a, .list-chapter a, .chapters a, a[href*="/chap-"]');
+            '.chapter a, .list-chapter a, .chapters a, a[href*="/chuong-"]');
 
         if (chapterElements.isEmpty) {
           // Try alternative selectors
           final altElements = document
-              .querySelectorAll('a[href*="truyen-tranh"][href*="chap"]');
+              .querySelectorAll('a[href*="truyen-tranh"][href*="chuong"]');
 
           if (altElements.isNotEmpty) {
             chapterElements = altElements;
@@ -451,6 +524,7 @@ class NetTruyenService {
           }
         }
 
+        print('🔍 HTML: Found ${chapters.length} chapters using fallback selectors');
         return chapters;
       } else {
         throw Exception('Failed to load chapters: HTTP ${response.statusCode}');
