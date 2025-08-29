@@ -73,16 +73,13 @@ class CustomComicCard extends StatelessWidget {
                 child: Stack(
                   children: [
                     // Main image with fixed dimensions
-                    Hero(
-                      tag: comic.imageUrl,
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.vertical(
-                          top: Radius.circular(
-                            (customBorderRadius?.topLeft.x ?? 6) - 2,
-                          ),
+                    ClipRRect(
+                      borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(
+                          (customBorderRadius?.topLeft.x ?? 6) - 2,
                         ),
-                        child: _buildImage(context),
                       ),
+                      child: _buildImage(context),
                     ),
                     // Chapter number badge on top left (shows Ch. prefix)
                     if (showChapterBadge && comic.chapterCount != null)

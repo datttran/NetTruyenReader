@@ -2,6 +2,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'dart:io';
 import '../models/comic.dart';
+import 'package:path_provider/path_provider.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper _instance = DatabaseHelper._internal();
@@ -11,18 +12,24 @@ class DatabaseHelper {
   DatabaseHelper._internal();
 
   Future<Database> get database async {
-    if (_database != null) return _database!;
+    if (_database != null) {
+      return _database!;
+    }
+
     _database = await _initDatabase();
     return _database!;
   }
 
   Future<Database> _initDatabase() async {
-    final dbPath = await getDatabasesPath();
-    final path = join(dbPath, 'nettruyen.db');
+    final documentsDirectory = await getApplicationDocumentsDirectory();
+    final path = join(documentsDirectory.path, 'nettruyen_reader.db');
 
+    print('🔍 DatabaseHelper: Initializing database at: $path');
+    print('🔍 DatabaseHelper: Current database version: 8');
+    
     return await openDatabase(
       path,
-      version: 5, // Updated version for scroll tracking fields
+      version: 8, // Updated version for image data storage
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -75,6 +82,33 @@ class DatabaseHelper {
         read INTEGER DEFAULT 0,
         cached_at INTEGER NOT NULL,
         FOREIGN KEY (comic_id) REFERENCES comics (id) ON DELETE CASCADE
+      )
+    ''');
+
+    // Chapter images table for caching
+    await db.execute('''
+      CREATE TABLE chapter_images (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        chapter_url TEXT NOT NULL,
+        image_url TEXT NOT NULL,
+        image_order INTEGER NOT NULL,
+        image_data BLOB NOT NULL,
+        image_width INTEGER,
+        image_height INTEGER,
+        cached_at INTEGER NOT NULL,
+        UNIQUE(chapter_url, image_order)
+      )
+    ''');
+
+    // Chapter reading progress table (NEW - for chapter-specific scroll positions)
+    await db.execute('''
+      CREATE TABLE chapter_reading_progress (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        chapter_url TEXT NOT NULL UNIQUE,
+        current_page INTEGER DEFAULT 1,
+        scroll_offset REAL DEFAULT 0.0,
+        total_pages INTEGER DEFAULT 0,
+        last_read_at INTEGER NOT NULL
       )
     ''');
 
@@ -184,6 +218,96 @@ class DatabaseHelper {
         print('❌ Error updating reading progress table with scroll tracking: $e');
         // Continue with the upgrade even if there's an error
       }
+    }
+    
+    if (oldVersion < 6) {
+      try {
+        // Create chapter images table for caching
+        await db.execute('''
+          CREATE TABLE chapter_images (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            chapter_url TEXT NOT NULL,
+            image_url TEXT NOT NULL,
+            image_order INTEGER NOT NULL,
+            cached_at INTEGER NOT NULL,
+            UNIQUE(chapter_url, image_order)
+          )
+        ''');
+        
+        print('✅ Chapter images table created successfully for caching');
+      } catch (e) {
+        print('❌ Error creating chapter images table: $e');
+        // Continue with the upgrade even if there's an error
+      }
+    }
+    
+    if (oldVersion < 7) {
+      try {
+        print('🔍 DatabaseHelper: Upgrading from version $oldVersion to 7');
+        print('🔍 DatabaseHelper: Creating chapter_reading_progress table...');
+        
+        // Create chapter reading progress table for chapter-specific scroll positions
+        await db.execute('''
+          CREATE TABLE chapter_reading_progress (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            chapter_url TEXT NOT NULL UNIQUE,
+            current_page INTEGER DEFAULT 1,
+            scroll_offset REAL DEFAULT 0.0,
+            total_pages INTEGER DEFAULT 0,
+            last_read_at INTEGER NOT NULL
+          )
+        ''');
+        
+        print('✅ Chapter reading progress table created successfully');
+        print('🔍 DatabaseHelper: Database upgrade to version 7 completed');
+      } catch (e) {
+        print('❌ Error creating chapter reading progress table: $e');
+        print('🔍 DatabaseHelper: Database upgrade to version 7 failed');
+      }
+    }
+    
+    if (oldVersion < 8) {
+      try {
+        print('🔍 DatabaseHelper: Upgrading from version $oldVersion to 8');
+        print('🔍 DatabaseHelper: Recreating chapter_images table with new schema...');
+        
+        // Recreate the chapter_images table with new schema
+        await _recreateChapterImagesTable(db);
+        
+        print('✅ Database upgrade to version 8 completed');
+      } catch (e) {
+        print('❌ Error upgrading to version 8: $e');
+        print('🔍 DatabaseHelper: Database upgrade to version 8 failed');
+      }
+    }
+  }
+
+  // Force recreate chapter_images table with new schema (for version 8 upgrade)
+  Future<void> _recreateChapterImagesTable(Database db) async {
+    try {
+      print('🔍 DatabaseHelper: Recreating chapter_images table with new schema...');
+      
+      // Drop the old table
+      await db.execute('DROP TABLE IF EXISTS chapter_images');
+      
+      // Create new table with image data columns
+      await db.execute('''
+        CREATE TABLE chapter_images (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          chapter_url TEXT NOT NULL,
+          image_url TEXT NOT NULL,
+          image_order INTEGER NOT NULL,
+          image_data BLOB NOT NULL,
+          image_width INTEGER,
+          image_height INTEGER,
+          cached_at INTEGER NOT NULL,
+          UNIQUE(chapter_url, image_order)
+        )
+      ''');
+      
+      print('✅ Chapter images table recreated with new schema');
+    } catch (e) {
+      print('❌ Error recreating chapter_images table: $e');
     }
   }
 
@@ -348,8 +472,8 @@ class DatabaseHelper {
     await db.close();
 
     // Delete database file
-    final dbPath = await getDatabasesPath();
-    final path = join(dbPath, 'nettruyen.db');
+    final documentsDirectory = await getApplicationDocumentsDirectory();
+    final path = join(documentsDirectory.path, 'nettruyen_reader.db');
     final file = File(path);
     if (await file.exists()) {
       await file.delete();
@@ -429,8 +553,8 @@ class DatabaseHelper {
   Future<String> getDatabaseSize() async {
     try {
       final db = await database;
-      final dbPath = await getDatabasesPath();
-      final path = join(dbPath, 'nettruyen.db');
+      final documentsDirectory = await getApplicationDocumentsDirectory();
+      final path = join(documentsDirectory.path, 'nettruyen_reader.db');
 
       final file = File(path);
       if (await file.exists()) {
@@ -459,19 +583,41 @@ class DatabaseHelper {
       // This shows how much of the available content the user has completed
       final completionPercentage = (chapterNumber / lastAvailableChapter * 100).clamp(0.0, 100.0);
       
-      await db.insert(
+      // Check if a record already exists to preserve scroll progress
+      final existingRecord = await db.query(
         'reading_progress',
-        {
-          'comic_detail_url': comicDetailUrl,
-          'last_chapter_url': chapterUrl,
-          'last_chapter_number': chapterNumber,
-          'last_read_at': DateTime.now().millisecondsSinceEpoch,
-          'completion_percentage': completionPercentage,
-        },
-        conflictAlgorithm: ConflictAlgorithm.replace,
+        where: 'comic_detail_url = ?',
+        whereArgs: [comicDetailUrl],
       );
       
-      print('✅ Reading progress saved for comic: $comicDetailUrl, chapter: $chapterNumber, completion: ${completionPercentage.toStringAsFixed(1)}% (${chapterNumber}/${lastAvailableChapter})');
+      if (existingRecord.isNotEmpty) {
+        // Update existing record while preserving scroll progress
+        await db.execute('''
+          UPDATE reading_progress 
+          SET last_chapter_url = ?, last_chapter_number = ?, completion_percentage = ?, last_read_at = ?
+          WHERE comic_detail_url = ?
+        ''', [chapterUrl, chapterNumber, completionPercentage, DateTime.now().millisecondsSinceEpoch, comicDetailUrl]);
+        
+        print('✅ Reading progress updated for comic: $comicDetailUrl, chapter: $chapterNumber, completion: ${completionPercentage.toStringAsFixed(1)}% (${chapterNumber}/${lastAvailableChapter})');
+      } else {
+        // Insert new record with default values for scroll progress
+        await db.insert(
+          'reading_progress',
+          {
+            'comic_detail_url': comicDetailUrl,
+            'last_chapter_url': chapterUrl,
+            'last_chapter_number': chapterNumber,
+            'last_read_at': DateTime.now().millisecondsSinceEpoch,
+            'completion_percentage': completionPercentage,
+            'current_page': 1, // Default to page 1
+            'scroll_offset': 0.0, // Default to start
+            'total_pages': 0, // Default to 0
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+        
+        print('✅ New reading progress record created for comic: $comicDetailUrl, chapter: $chapterNumber, completion: ${completionPercentage.toStringAsFixed(1)}% (${chapterNumber}/${lastAvailableChapter})');
+      }
     } catch (e) {
       print('❌ Error saving reading progress: $e');
     }
@@ -612,6 +758,300 @@ class DatabaseHelper {
       print('✅ Reading progress cleared for comic: $comicDetailUrl');
     } catch (e) {
       print('❌ Error clearing reading progress: $e');
+    }
+  }
+
+  // Chapter Images Caching Methods
+  
+  // Store chapter images with actual image data in database cache
+  Future<void> cacheChapterImages(String chapterUrl, List<Map<String, dynamic>> imageData) async {
+    final db = await database;
+    
+    try {
+      // First, clear any existing cached images for this chapter
+      await db.delete(
+        'chapter_images',
+        where: 'chapter_url = ?',
+        whereArgs: [chapterUrl],
+      );
+      
+      // Insert all images with their data
+      for (int i = 0; i < imageData.length; i++) {
+        final image = imageData[i];
+        await db.insert(
+          'chapter_images',
+          {
+            'chapter_url': chapterUrl,
+            'image_url': image['url'] as String,
+            'image_order': i,
+            'image_data': image['data'] as List<int>,
+            'image_width': image['width'] as int?,
+            'image_height': image['height'] as int?,
+            'cached_at': DateTime.now().millisecondsSinceEpoch,
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+      
+      print('✅ Cached ${imageData.length} images with data for chapter: $chapterUrl');
+    } catch (e) {
+      print('❌ Error caching chapter images with data: $e');
+    }
+  }
+
+  // Get cached chapter images with data from database
+  Future<List<Map<String, dynamic>>> getCachedChapterImages(String chapterUrl) async {
+    final db = await database;
+    
+    try {
+      final result = await db.query(
+        'chapter_images',
+        where: 'chapter_url = ? AND image_data IS NOT NULL',
+        whereArgs: [chapterUrl],
+        orderBy: 'image_order ASC',
+      );
+      
+      if (result.isNotEmpty) {
+        final imageData = result.map((row) => {
+          'url': row['image_url'] as String,
+          'data': row['image_data'] as List<int>,
+          'width': row['image_width'] as int?,
+          'height': row['image_height'] as int?,
+          'order': row['image_order'] as int,
+        }).toList();
+        
+        print('✅ Retrieved ${imageData.length} cached images with data for chapter: $chapterUrl');
+        return imageData;
+      }
+      
+      print('📖 No cached images with data found for chapter: $chapterUrl');
+      return [];
+    } catch (e) {
+      print('❌ Error getting cached chapter images with data: $e');
+      return [];
+    }
+  }
+
+  // Check if a chapter has cached images with data
+  Future<bool> hasCachedChapterImages(String chapterUrl) async {
+    final db = await database;
+    
+    try {
+      final result = await db.query(
+        'chapter_images',
+        where: 'chapter_url = ? AND image_data IS NOT NULL',
+        whereArgs: [chapterUrl],
+        limit: 1,
+      );
+      
+      return result.isNotEmpty;
+    } catch (e) {
+      print('❌ Error checking cached chapter images: $e');
+      return false;
+    }
+  }
+
+  // Clear cached images for a specific chapter
+  Future<void> clearCachedChapterImages(String chapterUrl) async {
+    final db = await database;
+    
+    try {
+      final deletedCount = await db.delete(
+        'chapter_images',
+        where: 'chapter_url = ?',
+        whereArgs: [chapterUrl],
+      );
+      
+      print('✅ Cleared $deletedCount cached images for chapter: $chapterUrl');
+    } catch (e) {
+      print('❌ Error clearing cached chapter images: $e');
+    }
+  }
+
+  // Clear all cached chapter images (for cleanup)
+  Future<void> clearAllCachedChapterImages() async {
+    final db = await database;
+    
+    try {
+      final deletedCount = await db.delete('chapter_images');
+      print('✅ Cleared all cached chapter images ($deletedCount images)');
+    } catch (e) {
+      print('❌ Error clearing all cached chapter images: $e');
+    }
+  }
+
+  // Debug method to check database structure
+  Future<void> debugDatabaseStructure() async {
+    final db = await database;
+    
+    try {
+      print('🔍 DatabaseHelper: Checking database structure...');
+      
+      // Check if chapter_reading_progress table exists
+      final tables = await db.rawQuery("SELECT name FROM sqlite_master WHERE type='table'");
+      print('🔍 DatabaseHelper: Available tables: ${tables.map((t) => t['name']).toList()}');
+      
+      // Check chapter_reading_progress table structure
+      try {
+        final chapterProgressColumns = await db.rawQuery('PRAGMA table_info(chapter_reading_progress)');
+        print('🔍 DatabaseHelper: chapter_reading_progress columns: ${chapterProgressColumns.map((c) => '${c['name']} (${c['type']})').toList()}');
+      } catch (e) {
+        print('❌ DatabaseHelper: chapter_reading_progress table not found or error: $e');
+      }
+      
+      // Check reading_progress table structure
+      try {
+        final readingProgressColumns = await db.rawQuery('PRAGMA table_info(reading_progress)');
+        print('🔍 DatabaseHelper: reading_progress columns: ${readingProgressColumns.map((c) => '${c['name']} (${c['type']})').toList()}');
+      } catch (e) {
+        print('❌ DatabaseHelper: reading_progress table not found or error: $e');
+      }
+      
+    } catch (e) {
+      print('❌ DatabaseHelper: Error checking database structure: $e');
+    }
+  }
+
+  // Chapter Reading Progress Methods (NEW - for chapter-specific scroll positions)
+  
+  // Save chapter reading progress (scroll position, page, etc.)
+  Future<void> saveChapterReadingProgress({
+    required String chapterUrl,
+    required int currentPage,
+    required double scrollOffset,
+    required int totalPages,
+  }) async {
+    final db = await database;
+    
+    try {
+      print('🔍 DatabaseHelper: Saving chapter reading progress...');
+      print('🔍 DatabaseHelper: Chapter URL: $chapterUrl');
+      print('🔍 DatabaseHelper: Current Page: $currentPage');
+      print('🔍 DatabaseHelper: Scroll Offset: ${scrollOffset.toStringAsFixed(1)}');
+      print('🔍 DatabaseHelper: Total Pages: $totalPages');
+      
+      await db.insert(
+        'chapter_reading_progress',
+        {
+          'chapter_url': chapterUrl,
+          'current_page': currentPage,
+          'scroll_offset': scrollOffset,
+          'total_pages': totalPages,
+          'last_read_at': DateTime.now().millisecondsSinceEpoch,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+      
+      print('✅ Chapter reading progress saved for: $chapterUrl, page: $currentPage/$totalPages, offset: ${scrollOffset.toStringAsFixed(1)}');
+    } catch (e) {
+      print('❌ Error saving chapter reading progress: $e');
+      print('🔍 DatabaseHelper: Stack trace: ${StackTrace.current}');
+    }
+  }
+
+  // Get chapter reading progress
+  Future<Map<String, dynamic>?> getChapterReadingProgress(String chapterUrl) async {
+    final db = await database;
+    
+    try {
+      print('🔍 DatabaseHelper: Getting chapter reading progress for: $chapterUrl');
+      
+      final result = await db.query(
+        'chapter_reading_progress',
+        where: 'chapter_url = ?',
+        whereArgs: [chapterUrl],
+      );
+      
+      if (result.isNotEmpty) {
+        print('✅ Retrieved chapter reading progress for: $chapterUrl');
+        print('🔍 DatabaseHelper: Progress data: $result');
+        return result.first;
+      }
+      
+      print('📖 No chapter reading progress found for: $chapterUrl');
+      return null;
+    } catch (e) {
+      print('❌ Error getting chapter reading progress: $e');
+      print('🔍 DatabaseHelper: Stack trace: ${StackTrace.current}');
+      return null;
+    }
+  }
+
+  // Check if chapter has reading progress
+  Future<bool> hasChapterReadingProgress(String chapterUrl) async {
+    final db = await database;
+    
+    try {
+      final result = await db.query(
+        'chapter_reading_progress',
+        where: 'chapter_url = ?',
+        whereArgs: [chapterUrl],
+        limit: 1,
+      );
+      
+      return result.isNotEmpty;
+    } catch (e) {
+      print('❌ Error checking chapter reading progress: $e');
+      return false;
+    }
+  }
+
+  // Clear chapter reading progress
+  Future<void> clearChapterReadingProgress(String chapterUrl) async {
+    final db = await database;
+    
+    try {
+      final deletedCount = await db.delete(
+        'chapter_reading_progress',
+        where: 'chapter_url = ?',
+        whereArgs: [chapterUrl],
+      );
+      
+      print('✅ Cleared chapter reading progress for: $chapterUrl ($deletedCount records)');
+    } catch (e) {
+      print('❌ Error clearing chapter reading progress: $e');
+    }
+  }
+
+  // Force database upgrade to latest version
+  Future<void> forceDatabaseUpgrade() async {
+    try {
+      print('🔍 DatabaseHelper: Force upgrading database to version 8...');
+      
+      // Close existing database connection
+      if (_database != null) {
+        await _database!.close();
+        _database = null;
+      }
+      
+      // Delete the old database file to force recreation
+      final documentsDirectory = await getApplicationDocumentsDirectory();
+      final path = join(documentsDirectory.path, 'nettruyen_reader.db');
+      final file = File(path);
+      
+      if (await file.exists()) {
+        await file.delete();
+        print('🔍 DatabaseHelper: Old database file deleted, will recreate with new schema');
+      }
+      
+      // Reinitialize database with new schema
+      await database;
+      print('✅ Database force upgrade completed successfully');
+    } catch (e) {
+      print('❌ Error during force database upgrade: $e');
+    }
+  }
+
+  // Check if database needs upgrade
+  Future<bool> needsUpgrade() async {
+    try {
+      final db = await database;
+      final version = await db.getVersion();
+      print('🔍 DatabaseHelper: Current database version: $version, Target: 8');
+      return version < 8;
+    } catch (e) {
+      print('❌ Error checking database version: $e');
+      return true; // Assume upgrade needed if we can't check
     }
   }
 }

@@ -248,7 +248,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           comic.imageUrl.contains('.png') ||
           comic.imageUrl.contains('.webp') ||
           comic.imageUrl.contains('.gif')) {
-        print('✅ Allowed: Has image extension - ${comic.title} - URL: ${comic.imageUrl}');
         return true;
       }
       
@@ -931,8 +930,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                           },
                                           frameBuilder: (context, child, frame,
                                               wasSynchronouslyLoaded) {
-                                            print(
-                                                'Logo frame loaded: frame=$frame, sync=$wasSynchronouslyLoaded');
+
                                             return child;
                                           },
                                         ),
