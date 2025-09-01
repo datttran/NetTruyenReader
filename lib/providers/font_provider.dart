@@ -72,7 +72,6 @@ class FontProvider extends ChangeNotifier {
       validScale = 2.0;
     } else {
       // If an invalid value is passed, don't change anything
-      print('Warning: Invalid font scale value: $scale. Must be 1.0, 1.5, or 2.0');
       return;
     }
 
@@ -381,8 +380,8 @@ class FontProvider extends ChangeNotifier {
 
   /// Debug method to check current font scale state
   void debugFontScale() {
-    print('🔍 Current font scale: $_fontScale');
-    print('🔍 Valid scale values: [1.0, 1.5, 2.0]');
-    print('🔍 Actual font multiplier: ${_actualFontMultiplier}x');
+    // print('🔍 Current font scale: $_fontScale');
+    // print('🔍 Valid scale values: [1.0, 1.5, 2.0]');
+    // print('🔍 Actual font multiplier: ${_actualFontMultiplier}x');
   }
 }

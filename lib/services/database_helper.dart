@@ -21,18 +21,20 @@ class DatabaseHelper {
   }
 
   Future<Database> _initDatabase() async {
-    final documentsDirectory = await getApplicationDocumentsDirectory();
-    final path = join(documentsDirectory.path, 'nettruyen_reader.db');
-
-    print('🔍 DatabaseHelper: Initializing database at: $path');
-    print('🔍 DatabaseHelper: Current database version: 8');
-    
-    return await openDatabase(
-      path,
-      version: 8, // Updated version for image data storage
-      onCreate: _createDB,
-      onUpgrade: _upgradeDB,
-    );
+    try {
+      final documentsDirectory = await getApplicationDocumentsDirectory();
+      final path = join(documentsDirectory.path, 'nettruyen_reader.db');
+      
+      return await openDatabase(
+        path,
+        version: 8, // Updated version for image data storage
+        onCreate: _createDB,
+        onUpgrade: _upgradeDB,
+      );
+    } catch (e) {
+      // Error initializing database - rethrow to handle properly
+      throw Exception('Failed to initialize database: $e');
+    }
   }
 
   Future<void> _createDB(Database db, int version) async {
@@ -285,29 +287,22 @@ class DatabaseHelper {
   // Force recreate chapter_images table with new schema (for version 8 upgrade)
   Future<void> _recreateChapterImagesTable(Database db) async {
     try {
-      print('🔍 DatabaseHelper: Recreating chapter_images table with new schema...');
-      
-      // Drop the old table
+      // Drop the old table if it exists
       await db.execute('DROP TABLE IF EXISTS chapter_images');
       
-      // Create new table with image data columns
+      // Create the new table with the updated schema
       await db.execute('''
         CREATE TABLE chapter_images (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           chapter_url TEXT NOT NULL,
           image_url TEXT NOT NULL,
           image_order INTEGER NOT NULL,
-          image_data BLOB NOT NULL,
-          image_width INTEGER,
-          image_height INTEGER,
-          cached_at INTEGER NOT NULL,
-          UNIQUE(chapter_url, image_order)
+          image_data BLOB,
+          timestamp INTEGER NOT NULL
         )
       ''');
-      
-      print('✅ Chapter images table recreated with new schema');
     } catch (e) {
-      print('❌ Error recreating chapter_images table: $e');
+      // Error recreating chapter_images table
     }
   }
 

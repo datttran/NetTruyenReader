@@ -39,10 +39,9 @@ class MangaDexThumbnailCache {
         // Save updated cache
         await prefs.setString(_cacheKey, json.encode(cache));
         
-        print('🔍 MangaDex Cache: ✅ Cached thumbnail for $comicUrl');
       }
     } catch (e) {
-      print('🔍 MangaDex Cache: ❌ Error caching thumbnail: $e');
+      // Error caching thumbnail
     }
   }
   
@@ -65,21 +64,17 @@ class MangaDexThumbnailCache {
             // Try to load the cached image
             final imageData = await _loadImageFile(fileName);
             if (imageData != null) {
-              print('🔍 MangaDex Cache: ✅ Retrieved cached thumbnail for $comicUrl');
               return imageData;
             }
           } else {
             // File is too old, remove from cache
             await _removeCachedThumbnail(comicUrl);
-            print('🔍 MangaDex Cache: 🗑️ Removed expired thumbnail for $comicUrl');
           }
         }
       }
       
-      print('🔍 MangaDex Cache: ❌ No cached thumbnail found for $comicUrl');
       return null;
     } catch (e) {
-      print('🔍 MangaDex Cache: ❌ Error retrieving cached thumbnail: $e');
       return null;
     }
   }
@@ -109,7 +104,6 @@ class MangaDexThumbnailCache {
       
       return false;
     } catch (e) {
-      print('🔍 MangaDex Cache: ❌ Error checking cached thumbnail: $e');
       return false;
     }
   }
@@ -136,7 +130,6 @@ class MangaDexThumbnailCache {
       
       return null;
     } catch (e) {
-      print('🔍 MangaDex Cache: ❌ Error getting cached MangaDex URL: $e');
       return null;
     }
   }
@@ -162,7 +155,7 @@ class MangaDexThumbnailCache {
         await prefs.setString(_cacheKey, json.encode(cache));
       }
     } catch (e) {
-      print('🔍 MangaDex Cache: ❌ Error removing cached thumbnail: $e');
+      // Error removing cached thumbnail
     }
   }
   
@@ -186,9 +179,8 @@ class MangaDexThumbnailCache {
         cache.remove(entry.key);
       }
       
-      print('🔍 MangaDex Cache: 🗑️ Cleaned up ${entriesToRemove.length} old entries');
     } catch (e) {
-      print('🔍 MangaDex Cache: ❌ Error cleaning up cache: $e');
+      // Error cleaning up cache
     }
   }
   
@@ -202,7 +194,7 @@ class MangaDexThumbnailCache {
       await file.writeAsBytes(imageData);
       return fileName;
     } catch (e) {
-      print('🔍 MangaDex Cache: ❌ Error storing image file: $e');
+      // Error storing image file
       return null;
     }
   }
@@ -218,7 +210,6 @@ class MangaDexThumbnailCache {
       }
       return null;
     } catch (e) {
-      print('🔍 MangaDex Cache: ❌ Error loading image file: $e');
       return null;
     }
   }
@@ -239,7 +230,7 @@ class MangaDexThumbnailCache {
         await file.delete();
       }
     } catch (e) {
-      print('🔍 MangaDex Cache: ❌ Error deleting image file: $e');
+      // Error deleting image file
     }
   }
   
@@ -273,9 +264,8 @@ class MangaDexThumbnailCache {
         await cacheDir.delete(recursive: true);
       }
       
-      print('🔍 MangaDex Cache: 🗑️ Cleared all cached thumbnails');
     } catch (e) {
-      print('🔍 MangaDex Cache: ❌ Error clearing cache: $e');
+      // Error clearing cache
     }
   }
   
@@ -306,7 +296,6 @@ class MangaDexThumbnailCache {
         'maxAgeDays': _maxFileAge,
       };
     } catch (e) {
-      print('🔍 MangaDex Cache: ❌ Error getting cache stats: $e');
       return {};
     }
   }

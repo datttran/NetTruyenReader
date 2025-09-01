@@ -302,8 +302,6 @@ class _GenreComicsScreenState extends State<GenreComicsScreen> {
         setState(() {
           _selectedSort = label;
         });
-        // TODO: Implement actual sorting logic based on selection
-        print('Selected sort: $label');
       },
       child: DecoratedBox(
         decoration: BoxDecoration(

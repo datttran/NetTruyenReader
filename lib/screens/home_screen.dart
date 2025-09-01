@@ -130,35 +130,25 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           _thunderLottieController.forward(from: 0.0); // Restart the animation
         } else {
           // Animation has played the desired number of times
-          print('✅ Thunder animation completed after $_maxThunderPlays plays');
         }
       }
     });
 
-    print('🔍 HomeScreen: initState called');
-    
     // Use initial comics if provided, otherwise load them
     if (widget.initialComics != null && widget.initialComics!.isNotEmpty) {
-      print('🔍 HomeScreen: Using initial comics (${widget.initialComics!.length} items)');
       _allComics = _filterComicsWithThumbnails(List.from(widget.initialComics!));
-      print('🔍 HomeScreen: After filtering: ${_allComics.length} comics');
       _displayComics = _allComics.take(_pageSize).toList();
       _hasMore = _allComics.length > _pageSize;
       _currentPage = 1;
     } else {
-      print('🔍 HomeScreen: No initial comics, will load them');
       _loadMore();
     }
     
     // Use initial top comics if provided, otherwise load them
     if (widget.initialTopComics != null && widget.initialTopComics!.isNotEmpty) {
-      print('🔍 HomeScreen: Using initial top comics (${widget.initialTopComics!.length} items)');
       // Use preloaded top comics from loading screen
       _topComics = _filterComicsWithThumbnails(List.from(widget.initialTopComics!));
-      print('🔍 HomeScreen: After filtering top comics: ${_topComics.length} comics');
       _topComicsCacheTimestamp = DateTime.now();
-      print('✅ HomeScreen: Using preloaded top comics (${_topComics.length} items)');
-      print('✅ HomeScreen: First top comic: ${_topComics.first.title}');
     }
     
     _initializeLastUsedDomain();
@@ -182,28 +172,22 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           // Use preloaded top comics from loading screen
           _topComics = _filterComicsWithThumbnails(List.from(widget.initialTopComics!));
           _topComicsCacheTimestamp = DateTime.now();
-          print('✅ HomeScreen: Using preloaded top comics (${_topComics.length} items)');
-          print('✅ HomeScreen: First top comic: ${_topComics.first.title}');
         } else {
           // Fetch top comics if not preloaded
-          print('🔄 HomeScreen: No preloaded top comics, fetching...');
           _fetchTopComics();
         }
       } else {
-        print('✅ HomeScreen: Top comics already loaded (${_topComics.length} items)');
+        // Top comics already loaded
       }
   }
 
   /// Filter out comics without valid thumbnails
   List<Comic> _filterComicsWithThumbnails(List<Comic> comics) {
-    print('🔍 _filterComicsWithThumbnails: Starting with ${comics.length} comics');
-    
     final filteredComics = comics.where((comic) {
       // Basic URL validation
       if (comic.imageUrl.isEmpty || 
           comic.imageUrl == 'null' || 
           comic.imageUrl == 'undefined') {
-        print('❌ Filtered out: Empty/null/undefined URL - ${comic.title}');
         return false;
       }
       
@@ -219,26 +203,22 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           comic.imageUrl.contains('noimage') ||
           comic.imageUrl.contains('404') ||
           comic.imageUrl.contains('not-found')) {
-        print('❌ Filtered out: Contains broken image pattern - ${comic.title} - URL: ${comic.imageUrl}');
         return false;
       }
       
       // Check for invalid URL patterns
       if (!comic.imageUrl.startsWith('http://') && 
           !comic.imageUrl.startsWith('https://')) {
-        print('❌ Filtered out: Invalid URL pattern - ${comic.title} - URL: ${comic.imageUrl}');
         return false;
       }
       
       // Check for extremely short URLs (likely invalid)
       if (comic.imageUrl.length < 20) {
-        print('❌ Filtered out: URL too short - ${comic.title} - URL: ${comic.imageUrl}');
         return false;
       }
       
       // Check for URLs that are too long (might be malformed)
       if (comic.imageUrl.length > 500) {
-        print('❌ Filtered out: URL too long - ${comic.title} - URL: ${comic.imageUrl}');
         return false;
       }
       
@@ -252,11 +232,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       }
       
       // Only allow comics with clear image extensions - be very strict
-      print('❌ Filtered out: No clear image extension - ${comic.title} - URL: ${comic.imageUrl}');
       return false;
     }).toList();
     
-    print('🔍 _filterComicsWithThumbnails: Filtered to ${filteredComics.length} comics');
     return filteredComics;
   }
 
@@ -267,10 +245,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     // Use initial domain from loading screen if available, otherwise fetch fresh
     if (widget.initialDomain != null) {
       _lastUsedDomain = widget.initialDomain;
-      print('✅ HomeScreen: Using initial domain from loading screen: $_lastUsedDomain');
     } else {
       _lastUsedDomain = await NetTruyenService().getCurrentDomain();
-      print('🔄 HomeScreen: Fetched fresh domain: $_lastUsedDomain');
     }
   }
 
@@ -298,13 +274,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   /// the automatic content refresh functionality when returning from settings.
   Future<void> _checkAndReloadIfNeeded() async {
     final currentDomain = await NetTruyenService().getCurrentDomain();
-    print('🔍 HomeScreen: Checking domain - Last: $_lastUsedDomain, Current: $currentDomain');
 
     if (_lastUsedDomain != null && _lastUsedDomain != currentDomain) {
-      print('🔄 HomeScreen: Domain changed, triggering reload');
       _reloadContent();
-    } else {
-      print('✅ HomeScreen: Domain unchanged, no reload needed');
     }
     _lastUsedDomain = currentDomain;
   }
@@ -313,7 +285,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   /// by clearing existing comics and triggering a fresh load. It's essential for
   /// ensuring that content from the new domain is displayed properly.
   Future<void> _reloadContent() async {
-    print('🔄 HomeScreen: _reloadContent() called - clearing main comics');
     setState(() {
       _allComics.clear();
       _displayComics.clear();
@@ -323,10 +294,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     // Only clear top comics cache if we don't have preloaded data
     // This prevents clearing the data that was just passed from loading screen
     if (widget.initialTopComics == null || widget.initialTopComics!.isEmpty) {
-      print('🔄 HomeScreen: Clearing top comics cache (no preloaded data)');
       _clearTopComicsCache();
-    } else {
-      print('✅ HomeScreen: Preserving preloaded top comics (${widget.initialTopComics!.length} items)');
     }
     
     await _loadMore();
@@ -374,23 +342,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       if (cachedData != null) {
         _filteredComics = _filterComicsWithThumbnails(cachedData);
       } else {
-        final startTime = DateTime.now();
         _filteredComics = _filterComicsWithThumbnails(
             await NetTruyenService().fetchComicsByGenre(genrePath));
-        final endTime = DateTime.now();
-        final duration = endTime.difference(startTime);
-        print(
-            '🔍 Loaded ${_filteredComics.length} comics for genre $genreName in ${duration.inMilliseconds}ms');
-        // Debug: Print first few comics with chapter info
-        for (int i = 0; i < _filteredComics.length && i < 3; i++) {
-          final comic = _filteredComics[i];
-          print(
-              '🔍 Genre Comic ${i + 1}: ${comic.title} - Chapter Count: ${comic.chapterCount}, Chapter Info: ${comic.chapterInfo}');
-        }
-
-        // Debug: Check if chapter data is preserved after assignment
-        print(
-            '🔍 After assignment - First comic chapter data: ${_filteredComics.isNotEmpty ? _filteredComics.first.chapterCount : 'No comics'}');
 
         // Cache the fetched data
         _cacheGenreData(genrePath, _filteredComics);
@@ -512,13 +465,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             _allComics = _filterComicsWithThumbnails(cachedPopularData);
           } else {
             _allComics = _filterComicsWithThumbnails(await NetTruyenService().fetchComics());
-            print('🔍 Loaded ${_allComics.length} comics from service');
-            // Debug: Print first few comics with chapter info
-            for (int i = 0; i < _allComics.length && i < 3; i++) {
-              final comic = _allComics[i];
-              print(
-                  '🔍 Comic ${i + 1}: ${comic.title} - Chapter Count: ${comic.chapterCount}, Chapter Info: ${comic.chapterInfo}');
-            }
             _applyDeduplication();
 
             // Cache the popular comics
@@ -891,16 +837,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                     onTap: () {
                                       if (_thunderLottieController.isAnimating) {
                                         _thunderLottieController.stop(); // Stop thunder if already playing
-                                        print('⏸️ Thunder animation stopped');
                                       } else if (_thunderLottieController.isCompleted) {
                                         _thunderPlayCount = 0; // Reset play count
                                         _thunderLottieController.reset(); // Reset thunder animation
                                         _thunderLottieController.forward(); // Play thunder again
-                                        print('🔄 Thunder animation reset and restarted');
                                       } else {
                                         _thunderPlayCount = 0; // Reset play count
                                         _thunderLottieController.forward(); // Start thunder from beginning
-                                        print('▶️ Thunder animation started');
                                       }
                                     },
                                     child: SizedBox(
@@ -916,9 +859,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                           'assets/images/logo.png',
                                           fit: BoxFit.contain,
                                           errorBuilder: (context, error, stackTrace) {
-                                            // Debug: Print error info
-                                            print('Logo loading error: $error');
-                                            print('Logo stack trace: $stackTrace');
                                             // Fallback to icon if logo fails to load
                                             return Icon(
                                               Icons.auto_stories,
@@ -951,11 +891,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                             repeat: false, // Don't repeat automatically
                                             animate: true,
                                             onLoaded: (composition) {
-                                              print('✅ Thunder Lottie animation loaded successfully!');
-                                              print('   - Duration: ${composition.duration}');
-                                              print('   - Frame rate: ${composition.frameRate}');
-                                              print('   - Bounds: ${composition.bounds}');
-                                              
                                               // Set the duration and start the animation
                                               _thunderLottieController.duration = composition.duration;
                                               // Start thunder animation after logo animation completes
@@ -966,9 +901,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                               });
                                             },
                                             errorBuilder: (context, error, stackTrace) {
-                                              print('❌ Thunder Lottie animation failed to load:');
-                                              print('   - Error: $error');
-                                              print('   - Stack trace: $stackTrace');
                                               // Fallback to static icon
                                               return Icon(
                                                 Icons.flash_on,
@@ -1436,10 +1368,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   repeat: false, // Play once and stop
                   animate: true,
                   onLoaded: (composition) {
-                    print('✅ reload.json completion animation loaded successfully!');
-                    print('   - Duration: ${composition.duration}');
-                    print('   - Frame rate: ${composition.frameRate}');
-                    
                     // Hide animation after it completes playing
                     Future.delayed(composition.duration, () {
                       if (mounted) {
@@ -1450,7 +1378,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     });
                   },
                   errorBuilder: (context, error, stackTrace) {
-                    print('❌ reload.json completion animation failed to load: $error');
                     return const Icon(
                       Icons.check_circle,
                       size: 200,
@@ -1780,7 +1707,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       
       return _topComics;
     } catch (e) {
-      print('Error fetching top comics: $e');
       // Return cached data if available, otherwise empty list
       return _topComics.isNotEmpty ? _topComics : [];
     } finally {

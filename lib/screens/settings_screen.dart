@@ -88,7 +88,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       setState(() {
         _currentDomain = newDomain;
       });
-      print('🔍 Domain saved: $newDomain');
     } else if (newDomain.isEmpty) {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('custom_domain');
@@ -96,7 +95,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       setState(() {
         _currentDomain = AppConstants.PRIMARY_DOMAIN;
       });
-      print('🔍 Domain cleared, using default: ${AppConstants.PRIMARY_DOMAIN}');
     }
   }
 

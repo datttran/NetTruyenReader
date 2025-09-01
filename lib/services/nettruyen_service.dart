@@ -223,14 +223,12 @@ class NetTruyenService {
       // First try to get chapters from HTML (fast, already loaded)
       final htmlChapters = await _fetchChaptersFromHTML(comicUrl);
       if (htmlChapters.isNotEmpty) {
-        print('🔍 Chapters: Loaded ${htmlChapters.length} chapters from HTML (fast)');
         return htmlChapters;
       }
       
       // Fallback to API if HTML parsing fails
       final apiChapters = await _fetchChaptersFromAPI(comicUrl);
       if (apiChapters.isNotEmpty) {
-        print('🔍 Chapters: Loaded ${apiChapters.length} chapters from API (fallback)');
         return apiChapters;
       }
       
@@ -246,7 +244,6 @@ class NetTruyenService {
     try {
       final slug = _extractSlugFromUrl(comicUrl);
       if (slug == null) {
-        print('🔍 LoadMore: Could not extract slug from URL: $comicUrl');
         return [];
       }
 
@@ -255,8 +252,6 @@ class NetTruyenService {
       
       // Try to use pagination if API supports it
       final apiUrl = '$baseUrl/Comic/Services/ComicService.asmx/ChapterList?slug=$slug&offset=$offset&limit=$limit';
-
-      print('🔍 LoadMore: Loading chapters $offset to ${offset + limit} from: $apiUrl');
 
       final headers = await _getBaseHeaders();
       final response = await http
@@ -268,14 +263,11 @@ class NetTruyenService {
 
       if (response.statusCode == 200) {
         final chapters = _parseChaptersFromAPIResponse(response.body, baseUrl, slug);
-        print('🔍 LoadMore: Successfully loaded ${chapters.length} additional chapters');
         return chapters;
       } else {
-        print('🔍 LoadMore: HTTP error ${response.statusCode}');
         return [];
       }
     } catch (e) {
-      print('🔍 LoadMore: Exception occurred: $e');
       return [];
     }
   }
@@ -286,16 +278,12 @@ class NetTruyenService {
       // Extract slug from comic URL
       final slug = _extractSlugFromUrl(comicUrl);
       if (slug == null) {
-        print('🔍 API: Could not extract slug from URL: $comicUrl');
         return [];
       }
 
       final domain = await getCurrentDomain();
       final baseUrl = domain.endsWith('/') ? domain.substring(0, domain.length - 1) : domain;
       final apiUrl = '$baseUrl/Comic/Services/ComicService.asmx/ChapterList?slug=$slug';
-
-      print('🔍 API: Attempting to fetch chapters from: $apiUrl');
-      print('🔍 API: Slug extracted: $slug');
 
       final headers = await _getBaseHeaders();
       final response = await http
@@ -305,23 +293,13 @@ class NetTruyenService {
           )
           .timeout(const Duration(seconds: 120));
 
-      print('🔍 API: Response status: ${response.statusCode}');
-      print('🔍 API: Response headers: ${response.headers}');
-      
       if (response.statusCode == 200) {
-        print('🔍 API: Response body preview: ${response.body.substring(0, response.body.length > 200 ? 200 : response.body.length)}...');
-        
-        // Parse the API response (likely XML or JSON)
         final chapters = _parseChaptersFromAPIResponse(response.body, baseUrl, slug);
-        print('🔍 API: Parsed ${chapters.length} chapters from API');
         return chapters;
       } else {
-        print('🔍 API: HTTP error ${response.statusCode}, falling back to HTML');
         return []; // Return empty list to trigger HTML fallback
       }
     } catch (e) {
-      print('🔍 API: Exception occurred: $e');
-      // Return empty list to trigger HTML fallback
       return [];
     }
   }
@@ -329,43 +307,32 @@ class NetTruyenService {
   /// Extract slug from comic URL for API calls
   String? _extractSlugFromUrl(String comicUrl) {
     try {
-      print('🔍 Slug: Extracting from URL: $comicUrl');
       final uri = Uri.parse(comicUrl);
       final pathSegments = uri.pathSegments;
-      print('🔍 Slug: Path segments: $pathSegments');
       
       // Look for slug in path segments
       for (int i = 0; i < pathSegments.length; i++) {
         final segment = pathSegments[i];
-        print('🔍 Slug: Checking segment $i: $segment');
         
         if (segment == 'truyen-tranh' && i + 1 < pathSegments.length) {
-          final slug = pathSegments[i + 1];
-          print('🔍 Slug: Found slug after "truyen-tranh": $slug');
-          return slug;
+          return pathSegments[i + 1];
         }
         if (segment == 'Comic' && i + 1 < pathSegments.length) {
-          final slug = pathSegments[i + 1];
-          print('🔍 Slug: Found slug after "Comic": $slug');
-          return slug;
+          return pathSegments[i + 1];
         }
       }
       
       // Try to extract from the last segment
       if (pathSegments.isNotEmpty) {
         final lastSegment = pathSegments.last;
-        print('🔍 Slug: Checking last segment: $lastSegment');
         
         if (lastSegment.isNotEmpty && lastSegment != 'truyen-tranh') {
-          print('🔍 Slug: Using last segment as slug: $lastSegment');
           return lastSegment;
         }
       }
       
-      print('🔍 Slug: No slug found');
       return null;
     } catch (e) {
-      print('🔍 Slug: Exception during extraction: $e');
       return null;
     }
   }
@@ -413,16 +380,13 @@ class NetTruyenService {
             chapters.add(chapterUrl);
           }
         } catch (e) {
-          print('🔍 API: Error parsing individual chapter: $e');
           continue;
         }
       }
       
-      print('🔍 API: Successfully parsed ${chapters.length} chapters from JSON');
       return chapters;
       
     } catch (e) {
-      print('🔍 API: Error parsing JSON response: $e');
       return [];
     }
   }
@@ -486,7 +450,6 @@ class NetTruyenService {
               }
             }
             
-            print('🔍 HTML: Found ${chapters.length} visible chapters in HTML');
             return chapters;
           }
         }
@@ -524,7 +487,6 @@ class NetTruyenService {
           }
         }
 
-        print('🔍 HTML: Found ${chapters.length} chapters using fallback selectors');
         return chapters;
       } else {
         throw Exception('Failed to load chapters: HTTP ${response.statusCode}');
@@ -575,11 +537,8 @@ class NetTruyenService {
     Function(String imageUrl)? onImageFound,
   }) async {
     try {
-      print('🔍 NetTruyen Service: fetchChapterPagesWithCallback called with URL: $chapterUrl');
       final headers = await _getBaseHeaders();
-      print('🔍 NetTruyen Service: Headers loaded: $headers');
       
-      print('🔍 NetTruyen Service: Making HTTP request...');
       final response = await http
           .get(
             Uri.parse(chapterUrl),
@@ -587,40 +546,11 @@ class NetTruyenService {
           )
           .timeout(const Duration(seconds: 30));
 
-      print('🔍 NetTruyen Service: HTTP response status: ${response.statusCode}');
       if (response.statusCode == 200) {
         final htmlContent = response.body;
-        print('🔍 NetTruyen Service: HTML content length: ${htmlContent.length}');
         
         final document = html.parse(htmlContent);
         final imageElements = document.querySelectorAll('.page-chapter img');
-        print('🔍 NetTruyen Service: Found ${imageElements.length} image elements');
-
-        // Debug: Let's see what the HTML structure looks like
-        print('🔍 NetTruyen Service: Looking for .page-chapter container...');
-        final pageChapterContainer = document.querySelector('.page-chapter');
-        if (pageChapterContainer != null) {
-          print('🔍 NetTruyen Service: .page-chapter container found');
-          final containerHtml = pageChapterContainer.outerHtml;
-          final previewLength = containerHtml.length > 500 ? 500 : containerHtml.length;
-          print('🔍 NetTruyen Service: Container HTML: ${containerHtml.substring(0, previewLength)}...');
-        } else {
-          print('🔍 NetTruyen Service: .page-chapter container NOT found');
-          // Try to find any containers with images
-          final allContainers = document.querySelectorAll('div');
-          print('🔍 NetTruyen Service: Found ${allContainers.length} div elements');
-          for (int i = 0; i < allContainers.length; i++) {
-            final container = allContainers[i];
-            final images = container.querySelectorAll('img');
-            if (images.isNotEmpty) {
-              print('🔍 NetTruyen Service: Div $i has ${images.length} images');
-              print('🔍 NetTruyen Service: Div $i class: ${container.className}');
-              final containerHtml = container.outerHtml;
-              final previewLength = containerHtml.length > 200 ? 200 : containerHtml.length;
-              print('🔍 NetTruyen Service: Div $i HTML preview: ${containerHtml.substring(0, previewLength)}...');
-            }
-          }
-        }
 
         final imageUrls = <String>[];
         for (int i = 0; i < imageElements.length; i++) {
@@ -642,26 +572,17 @@ class NetTruyenService {
             imageUrl = img.attributes['data-sv2'];
           }
           
-          print('🔍 NetTruyen Service: Image $i - data-src: ${img.attributes['data-src']}');
-          print('🔍 NetTruyen Service: Image $i - src: ${img.attributes['src']}');
-          print('🔍 NetTruyen Service: Image $i - data-sv1: ${img.attributes['data-sv1']}');
-          print('🔍 NetTruyen Service: Image $i - data-sv2: ${img.attributes['data-sv2']}');
-          print('🔍 NetTruyen Service: Image $i - Final URL: $imageUrl');
-          
           if (imageUrl != null && imageUrl.isNotEmpty) {
             imageUrls.add(imageUrl);
             onImageFound?.call(imageUrl);
           }
         }
 
-        print('🔍 NetTruyen Service: Returning ${imageUrls.length} image URLs');
         return imageUrls;
       } else {
-        print('🔍 NetTruyen Service: HTTP error: ${response.statusCode}');
         throw Exception('Failed to load chapter: HTTP ${response.statusCode}');
       }
     } catch (e) {
-      print('🔍 NetTruyen Service: Exception in fetchChapterPagesWithCallback: $e');
       throw Exception('Failed to load chapter pages: $e');
     }
   }
@@ -715,7 +636,6 @@ class NetTruyenService {
   /// The method is essential for the comic information display functionality.
   Future<Map<String, dynamic>> fetchComicDetails(String comicUrl) async {
     try {
-      print('🔍 NetTruyen Service: fetchComicDetails called with URL: $comicUrl');
       final headers = await _getBaseHeaders();
 
       final response = await http
@@ -735,7 +655,6 @@ class NetTruyenService {
         }
 
         final document = html.parse(htmlContent);
-        print('🔍 NetTruyen Service: HTML parsed successfully, document length: ${document.body?.text.length ?? 0}');
 
         // Try multiple selectors for different HTML structures
         final title = document
@@ -853,19 +772,13 @@ class NetTruyenService {
 
         // Try to extract alternative names ("Tên khác") - similar to genre parsing
         List<String> alternativeNames = [];
-        print('🔍 NetTruyen Service: Looking for alternative names...');
         
         // Try the same approach as genres - look for elements with "othername" in class
-        print('🔍 NetTruyen Service: Looking for li.othername.row...');
         final alternativeNameContainer = document.querySelector('li.othername.row');
         if (alternativeNameContainer != null) {
-          print('🔍 NetTruyen Service: Found alternative names container: "${alternativeNameContainer.text.trim()}"');
-          
-          // Look for the h2.other-name element within the container
           final otherNameElement = alternativeNameContainer.querySelector('h2.other-name');
           if (otherNameElement != null) {
             String altNamesText = otherNameElement.text.trim();
-            print('🔍 NetTruyen Service: Found other-name element: "$altNamesText"');
             
             if (altNamesText.isNotEmpty) {
               // Split by semicolon and clean up
@@ -875,24 +788,18 @@ class NetTruyenService {
                   .where((name) => name.isNotEmpty)
                   .toList();
               
-              print('🔍 NetTruyen Service: Parsed alternative names from h2.other-name: $alternativeNames');
             }
           } else {
-            print('🔍 NetTruyen Service: No h2.other-name element found within container');
             // Debug: let's see what elements are inside the container
             final allElements = alternativeNameContainer.querySelectorAll('*');
-            print('🔍 NetTruyen Service: Elements inside container: ${allElements.map((e) => '${e.localName}.${e.className}').toList()}');
           }
         } else {
-          print('🔍 NetTruyen Service: No alternative names container found with selector: li.othername.row');
           // Debug: let's see what li elements exist
           final allLiElements = document.querySelectorAll('li');
-          print('🔍 NetTruyen Service: All li elements: ${allLiElements.map((e) => '${e.className}').toList()}');
         }
         
         // Fallback: Also try to find any elements with "ten" in class or text
         if (alternativeNames.isEmpty) {
-          print('🔍 NetTruyen Service: Trying fallback selectors...');
           final fallbackSelectors = [
             '.ten-khac', '.other-name', '.alternative-names',
             '.ten-khac-list', '.other-names', '.info-item', '.detail-item'
@@ -902,7 +809,6 @@ class NetTruyenService {
             try {
               final element = document.querySelector(selector);
               if (element != null && element.text.contains('Tên khác')) {
-                print('🔍 NetTruyen Service: Found element with "$selector" containing "Tên khác": "${element.text.trim()}"');
                 
                 String altNamesText = element.text.trim();
                 altNamesText = altNamesText.replaceAll(RegExp(r'^.*?Tên khác\s*'), '');
@@ -914,22 +820,16 @@ class NetTruyenService {
                       .where((name) => name.isNotEmpty)
                       .toList();
                   
-                  print('🔍 NetTruyen Service: Parsed alternative names from fallback: $alternativeNames');
-                  break;
                 }
               }
             } catch (e) {
-              print('🔍 NetTruyen Service: Error with fallback selector "$selector": $e');
             }
           }
         }
         
-                print('🔍 NetTruyen Service: Final alternative names result: $alternativeNames');
-        
         // Fallback: Add common alternative names for popular manga if none found
         if (alternativeNames.isEmpty) {
-          print('🔍 NetTruyen Service: No alternative names found, trying fallback...');
-          print('🔍 NetTruyen Service: Comic URL for fallback: "$comicUrl"');
+          final urlPath = comicUrl.split('/').last;
           
           // Common alternative names for popular manga
           final fallbackNames = {
@@ -947,22 +847,13 @@ class NetTruyenService {
           };
           
           // Extract slug from URL to check fallback
-          final urlPath = comicUrl.split('/').last;
-          print('🔍 NetTruyen Service: URL path for fallback check: "$urlPath"');
-          print('🔍 NetTruyen Service: Available fallback keys: ${fallbackNames.keys.toList()}');
-          print('🔍 NetTruyen Service: URL split result: ${comicUrl.split('/')}');
-          
           if (fallbackNames.containsKey(urlPath)) {
             alternativeNames = fallbackNames[urlPath]!;
-            print('🔍 NetTruyen Service: Using fallback alternative names: $alternativeNames');
           } else {
-            print('🔍 NetTruyen Service: No fallback found for URL path: "$urlPath"');
             // Try to find a partial match
             for (final key in fallbackNames.keys) {
               if (urlPath.contains(key) || key.contains(urlPath)) {
-                print('🔍 NetTruyen Service: Found partial match: "$key" matches "$urlPath"');
                 alternativeNames = fallbackNames[key]!;
-                print('🔍 NetTruyen Service: Using partial match fallback: $alternativeNames');
                 break;
               }
             }
@@ -1000,7 +891,6 @@ class NetTruyenService {
       // First, check if we have cached data in the database
       final helper = DatabaseHelper();
       final cachedComic = await helper.getComic(comic.detailUrl);
-      print('🔍 NetTruyen Service: updateComicWithDetails - cachedComic found: ${cachedComic != null}');
 
       // If we have cached data with meaningful content and it's recent (less than 1 hour old), use it
       if (cachedComic != null &&
@@ -1012,24 +902,15 @@ class NetTruyenService {
             DateTime.fromMillisecondsSinceEpoch(
                 await helper.getComicCacheAge(comic.detailUrl) ?? 0));
         
-        print('🔍 NetTruyen Service: Cache timestamp: ${await helper.getComicCacheAge(comic.detailUrl)}');
-        print('🔍 NetTruyen Service: Current timestamp: ${DateTime.now().millisecondsSinceEpoch}');
-        print('🔍 NetTruyen Service: Cache age in minutes: ${cacheAge.inMinutes}');
-
         if (cacheAge.inMinutes < 5) { // Temporarily reduce to 5 minutes for testing
           // Use cached data - it's recent enough
-          print('🔍 NetTruyen Service: Using cached data (recent enough)');
-          print('🔍 NetTruyen Service: Cached alternative names: ${cachedComic.alternativeNames}');
           return cachedComic;
         } else {
-          print('🔍 NetTruyen Service: Cache too old, will fetch fresh data');
         }
       } else {
-        print('🔍 NetTruyen Service: No valid cached data, will fetch fresh data');
       }
 
       // No recent cached data, fetch from network
-      print('🔍 NetTruyen Service: Fetching fresh data from network...');
       final details = await fetchComicDetails(comic.detailUrl);
 
       final updated = Comic(
@@ -1044,8 +925,6 @@ class NetTruyenService {
         alternativeNames: details['alternativeNames'] ?? [],
       );
       
-      print('🔍 NetTruyen Service: Fresh data fetched, alternative names: ${details['alternativeNames']}');
-
       // Save to database (this will update existing records)
       try {
         final comicId = await helper.insertComic(updated);
@@ -1216,6 +1095,111 @@ class NetTruyenService {
         rethrow; // Re-throw Cloudflare exceptions for proper handling
       }
       throw Exception('Failed to fetch comics from URL: $e');
+    }
+  }
+
+  /// Fetch top comics from the main page
+  Future<List<Comic>> fetchTopComics() async {
+    try {
+      final domain = await getCurrentDomain();
+      final baseUrl = domain.endsWith('/') ? domain.substring(0, domain.length - 1) : domain;
+      final url = '$baseUrl/tim-truyen?status=&sort=10';
+      
+      return await fetchComicsFromUrl(url);
+    } catch (e) {
+      return [];
+    }
+  }
+
+  /// Get the next chapter URL from the current chapter page
+  /// Looks for the element with class "next a_next" and extracts the href
+  Future<String?> getNextChapterUrl(String currentChapterUrl) async {
+    try {
+      final headers = await _getBaseHeaders();
+      final response = await http
+          .get(
+            Uri.parse(currentChapterUrl),
+            headers: headers,
+          )
+          .timeout(const Duration(seconds: 30));
+
+      if (response.statusCode == 200) {
+        final htmlContent = response.body;
+        final document = html.parse(htmlContent);
+        
+        // Find the next chapter link with class "next a_next"
+        final nextChapterElement = document.querySelector('a.next.a_next');
+        
+        if (nextChapterElement != null) {
+          final nextChapterUrl = nextChapterElement.attributes['href'];
+          if (nextChapterUrl != null && nextChapterUrl.isNotEmpty) {
+            // Convert relative URL to absolute URL if needed
+            if (nextChapterUrl.startsWith('/')) {
+              final domain = await getCurrentDomain();
+              final baseUrl = domain.endsWith('/') ? domain.substring(0, domain.length - 1) : domain;
+              return '$baseUrl$nextChapterUrl';
+            } else if (nextChapterUrl.startsWith('http')) {
+              return nextChapterUrl;
+            } else {
+              // Handle relative URLs
+              final uri = Uri.parse(currentChapterUrl);
+              final baseUrl = '${uri.scheme}://${uri.host}';
+              return '$baseUrl/$nextChapterUrl';
+            }
+          }
+        }
+      }
+      
+      return null; // No next chapter found
+    } catch (e) {
+      print('Error getting next chapter URL: $e');
+      return null;
+    }
+  }
+
+  /// Get the previous chapter URL from the current chapter page
+  /// Looks for the element with class "prev a_prev" and extracts the href
+  Future<String?> getPreviousChapterUrl(String currentChapterUrl) async {
+    try {
+      final headers = await _getBaseHeaders();
+      final response = await http
+          .get(
+            Uri.parse(currentChapterUrl),
+            headers: headers,
+          )
+          .timeout(const Duration(seconds: 30));
+
+      if (response.statusCode == 200) {
+        final htmlContent = response.body;
+        final document = html.parse(htmlContent);
+        
+        // Find the previous chapter link with class "prev a_prev"
+        final prevChapterElement = document.querySelector('a.prev.a_prev');
+        
+        if (prevChapterElement != null) {
+          final prevChapterUrl = prevChapterElement.attributes['href'];
+          if (prevChapterUrl != null && prevChapterUrl.isNotEmpty) {
+            // Convert relative URL to absolute URL if needed
+            if (prevChapterUrl.startsWith('/')) {
+              final domain = await getCurrentDomain();
+              final baseUrl = domain.endsWith('/') ? domain.substring(0, domain.length - 1) : domain;
+              return '$baseUrl$prevChapterUrl';
+            } else if (prevChapterUrl.startsWith('http')) {
+              return prevChapterUrl;
+            } else {
+              // Handle relative URLs
+              final uri = Uri.parse(currentChapterUrl);
+              final baseUrl = '${uri.scheme}://${uri.host}';
+              return '$baseUrl/$prevChapterUrl';
+            }
+          }
+        }
+      }
+      
+      return null; // No previous chapter found
+    } catch (e) {
+      print('Error getting previous chapter URL: $e');
+      return null;
     }
   }
 }

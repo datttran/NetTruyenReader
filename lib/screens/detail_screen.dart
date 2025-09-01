@@ -144,7 +144,15 @@ class DetailScreenState extends State<DetailScreen> {
     try {
       await _databaseHelper.clearReadingProgress(widget.comic.detailUrl);
       setState(() {
-        _readingProgress = null;
+        // Reset progress to 0% instead of null to keep widget visible
+        _readingProgress = {
+          'last_chapter_number': 0,
+          'completion_percentage': 0.0,
+          'last_read_at': null,
+          'last_chapter_url': null,
+          'current_page': null,
+          'total_pages': null,
+        };
       });
       print('✅ DetailScreen: Reading progress cleared');
       
@@ -717,58 +725,8 @@ class DetailScreenState extends State<DetailScreen> {
 
                     return Column(
                       children: [
-                                              // Top row: Read from beginning and Read latest
-                        Row(
-                          children: [
-                            Expanded(
-                                                    child: _buildActionButton(
-                                                      onPressed: chapters
-                                                                  .isEmpty ||
-                                                              isLoading
-                                    ? null
-                                                          : () => _openReader(
-                                                              chapters[0]),
-                                                      text: 'Đọc từ đầu',
-                                                      icon: Icons.play_arrow,
-                                                      backgroundColor: isLoading
-                                                          ? ThemeConstants
-                                                              .netflixRed
-                                                              .withValues(
-                                                                  alpha: 0.6)
-                                                          : ThemeConstants
-                                                              .netflixRed,
-                                                      isPrimary: true,
-                                                    ),
-                                                  ),
-                                                  const SizedBox(
-                                                      width:
-                                                          12), // Reduced spacing
-                            Expanded(
-                                                    child: _buildActionButton(
-                                                      onPressed: chapters
-                                                                  .isEmpty ||
-                                                              isLoading
-                                    ? null
-                                    : () => _openReader(
-                                                              chapters[chapters
-                                                                      .length -
-                                                                  1]),
-                                                      text:
-                                                          'Đọc mới', // Shortened text
-                                                      icon: Icons.new_releases,
-                                                      backgroundColor: isLoading
-                                                          ? Colors.orange
-                                                              .withValues(
-                                                                  alpha: 0.6)
-                                                          : Colors.orange,
-                                                      isPrimary: true,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                              const SizedBox(height: 16),
-                                              // Bottom row: Find similar comics
-                                              if (_readingProgress != null) ...[
+                                              // Reading progress section (only visible when there's progress or when chapters are loaded)
+                                              if (_readingProgress != null || chapters.isNotEmpty) ...[
                                                 const SizedBox(height: 24),
                                                 Container(
                                                   padding: const EdgeInsets.all(16),
@@ -782,7 +740,7 @@ class DetailScreenState extends State<DetailScreen> {
                                                   ),
                                                   child: Column(
                                                     crossAxisAlignment: CrossAxisAlignment.start,
-                                                    children: [
+                      children: [
                                                       Row(
                                                         children: [
                                                           Icon(
@@ -796,14 +754,14 @@ class DetailScreenState extends State<DetailScreen> {
                                                             style: ThemeConstants.inconsolataSubheading.copyWith(
                                                               fontWeight: FontWeight.w600,
                                                               color: ThemeConstants.netflixRed,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                                                      Row(
-                                                        children: [
-                                                          Expanded(
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                      const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
                                                             child: Column(
                                                               crossAxisAlignment: CrossAxisAlignment.start,
                                                               children: [
@@ -816,112 +774,126 @@ class DetailScreenState extends State<DetailScreen> {
                                                                 ),
                                                                 const SizedBox(height: 4),
                                                                 Text(
-                                                                  'Chapter ${_readingProgress!['last_chapter_number']}',
-                                                                  style: ThemeConstants.inconsolataBody.copyWith(
-                                                                    fontWeight: FontWeight.w600,
-                                                                  ),
-                                                                ),
-                                                              ],
-                                                            ),
-                                                          ),
-                                                          Column(
-                                                            crossAxisAlignment: CrossAxisAlignment.end,
-                                                            children: [
-                                                              Text(
-                                                                'Hoàn thành:',
-                                                                style: TextStyle(
-                                                                  color: Colors.grey[600],
-                                                                  fontSize: 12,
-                                                                ),
-                                                              ),
-                                                              const SizedBox(height: 4),
-                                                              Text(
-                                                                '${_readingProgress!['completion_percentage']?.toStringAsFixed(1) ?? '0.0'}%',
-                                                                style: ThemeConstants.inconsolataBody.copyWith(
-                                                                  fontWeight: FontWeight.w600,
-                                                                  color: ThemeConstants.netflixRed,
-                                                                ),
-                                                              ),
-                                                              const SizedBox(height: 2),
-                                                              Text(
-                                                                '${_readingProgress!['last_chapter_number']} / ${_getLastAvailableChapter()} chương',
-                                                                style: TextStyle(
-                                                                  color: Colors.grey[500],
-                                                                  fontSize: 11,
-                                                                ),
-                                                              ),
-                                                              if (_readingProgress!['current_page'] != null) ...[
-                                                                const SizedBox(height: 2),
-                                                                Text(
-                                                                  'Trang ${_readingProgress!['current_page']} / ${_readingProgress!['total_pages'] ?? '?'}',
-                                                                  style: TextStyle(
-                                                                    color: Colors.grey[500],
-                                                                    fontSize: 11,
-                                                                  ),
-                                                                ),
-                                                              ],
-                                                            ],
-                                                          ),
-                                                        ],
-                                                      ),
-                                                      const SizedBox(height: 12),
-                                                      // Rainbow progress bar
-                                                      Container(
-                                                        height: 8,
-                                                        decoration: BoxDecoration(
-                                                          borderRadius: BorderRadius.circular(4),
-                                                          border: Border.all(
-                                                            color: Colors.grey[300]!,
-                                                            width: 1,
-                                                          ),
-                                                        ),
-                                                        child: ClipRRect(
-                                                          borderRadius: BorderRadius.circular(4),
-                                                          child: LinearProgressIndicator(
-                                                            value: (_readingProgress!['completion_percentage'] ?? 0.0) / 100.0,
-                                                            backgroundColor: Colors.grey[100],
-                                                            valueColor: AlwaysStoppedAnimation<Color>(
-                                                              _getRainbowColor(_readingProgress!['completion_percentage'] ?? 0.0),
-                                                            ),
-                                                            minHeight: 8,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                      const SizedBox(height: 8),
-                                                      Text(
-                                                        'Lần đọc cuối: ${_formatLastReadTime(_readingProgress!['last_read_at'])}',
-                                                        style: TextStyle(
-                                                          color: Colors.grey[500],
-                                                          fontSize: 11,
-                                                          fontStyle: FontStyle.italic,
-                                                        ),
-                                                      ),
-                                                      const SizedBox(height: 12),
-                                                      Row(
-                                                        children: [
-                                                          Expanded(
-                                                            child: _buildActionButton(
-                                                              onPressed: () => _openReader(_readingProgress!['last_chapter_url']),
-                                                              text: 'Tiếp tục đọc',
-                                                              icon: Icons.play_arrow,
-                                                              backgroundColor: ThemeConstants.netflixRed,
-                                                              isFullWidth: true,
-                                                            ),
-                                                          ),
-                                                          const SizedBox(width: 12),
-                                                          _buildActionButton(
-                                                            onPressed: _clearReadingProgress,
-                                                            text: 'Xóa tiến độ',
-                                                            icon: Icons.clear,
-                                                            backgroundColor: Colors.grey[600]!,
-                                                            isFullWidth: false,
-                                                          ),
-                                                        ],
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                              ],
+                                                                  (_readingProgress?['last_chapter_number'] ?? 0) > 0 
+                                                                    ? 'Chapter ${_readingProgress?['last_chapter_number'] ?? 0}'
+                                                                    : 'Chưa đọc',
+                                                                   style: ThemeConstants.inconsolataBody.copyWith(
+                                                                     fontWeight: FontWeight.w600,
+                                                                   ),
+                                                                 ),
+                                                               ],
+                                                             ),
+                                                           ),
+                                                           Column(
+                                                             crossAxisAlignment: CrossAxisAlignment.end,
+                                                             children: [
+                                                               Text(
+                                                                 'Hoàn thành:',
+                                                                 style: TextStyle(
+                                                                   color: Colors.grey[600],
+                                                                   fontSize: 12,
+                                                                 ),
+                                                               ),
+                                                               const SizedBox(height: 4),
+                                                               Text(
+                                                                 '${(_readingProgress?['completion_percentage'] ?? 0.0).toStringAsFixed(1)}%',
+                                                                 style: ThemeConstants.inconsolataBody.copyWith(
+                                                                   fontWeight: FontWeight.w600,
+                                                                   color: ThemeConstants.netflixRed,
+                                                                 ),
+                                                               ),
+                                                               const SizedBox(height: 2),
+                                                               Text(
+                                                                 '${_readingProgress?['last_chapter_number'] ?? 0} / ${_getLastAvailableChapter()} chương',
+                                                                 style: TextStyle(
+                                                                   color: Colors.grey[500],
+                                                                   fontSize: 11,
+                                                                 ),
+                                                               ),
+                                                               if (_readingProgress?['current_page'] != null) ...[
+                                                                 const SizedBox(height: 2),
+                                                                 Text(
+                                                                   'Trang ${_readingProgress?['current_page'] ?? 0} / ${_readingProgress?['total_pages'] ?? '?'}',
+                                                                   style: TextStyle(
+                                                                     color: Colors.grey[500],
+                                                                     fontSize: 11,
+                                                                   ),
+                                                                 ),
+                                                               ],
+                                                             ],
+                                                           ),
+                                                         ],
+                                                       ),
+                                                       const SizedBox(height: 12),
+                                                       // Rainbow progress bar
+                                                       Container(
+                                                         height: 8,
+                                                         decoration: BoxDecoration(
+                                                           borderRadius: BorderRadius.circular(4),
+                                                           border: Border.all(
+                                                             color: Colors.grey[300]!,
+                                                             width: 1,
+                                                           ),
+                                                         ),
+                                                         child: ClipRRect(
+                                                           borderRadius: BorderRadius.circular(4),
+                                                           child: LinearProgressIndicator(
+                                                             value: (_readingProgress?['completion_percentage'] ?? 0.0) / 100.0,
+                                                             backgroundColor: Colors.grey[100],
+                                                             valueColor: AlwaysStoppedAnimation<Color>(
+                                                               _getRainbowColor(_readingProgress?['completion_percentage'] ?? 0.0),
+                                                             ),
+                                                             minHeight: 8,
+                                                           ),
+                                                         ),
+                                                       ),
+                                                       const SizedBox(height: 8),
+                                                       Text(
+                                                         _readingProgress?['last_read_at'] != null
+                                                           ? 'Lần đọc cuối: ${_formatLastReadTime(_readingProgress?['last_read_at'] ?? 0)}'
+                                                           : 'Chưa có tiến độ đọc',
+                                                         style: TextStyle(
+                                                           color: Colors.grey[500],
+                                                           fontSize: 11,
+                                                           fontStyle: FontStyle.italic,
+                                                         ),
+                                                       ),
+                                                       const SizedBox(height: 12),
+                                                       Row(
+                                                         children: [
+                            Expanded(
+                                                             child: _buildActionButton(
+                                                               onPressed: chapters.isEmpty || isLoading
+                                    ? null
+                                                                 : (_readingProgress?['last_chapter_url'] != null 
+                                                                     ? () => _openReader(_readingProgress?['last_chapter_url'] ?? '')
+                                                                     : () => _openReader(chapters[0])), // Đọc từ đầu if no progress
+                                                               text: _readingProgress?['last_chapter_url'] != null 
+                                                                 ? 'Tiếp tục đọc' 
+                                                                 : 'Đọc từ đầu',
+                                                               icon: _readingProgress?['last_chapter_url'] != null 
+                                                                 ? Icons.play_arrow 
+                                                                 : Icons.play_arrow,
+                                                               backgroundColor: chapters.isEmpty || isLoading
+                                                                 ? Colors.grey[400]!
+                                                                 : ThemeConstants.netflixRed,
+                                                               isFullWidth: true,
+                                                             ),
+                                                           ),
+                                                           const SizedBox(width: 12),
+                                                           _buildActionButton(
+                                                             onPressed: _clearReadingProgress,
+                                                             text: 'Xóa tiến độ',
+                                                             icon: Icons.clear,
+                                                             backgroundColor: Colors.grey[600]!,
+                                                             isFullWidth: false,
+                            ),
+                          ],
+                        ),
+                                                     ],
+                                                   ),
+                                                 ),
+                                               ],
                       ],
                     );
                   },

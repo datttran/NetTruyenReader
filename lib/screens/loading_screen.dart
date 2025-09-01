@@ -53,7 +53,6 @@ class _LoadingScreenState extends State<LoadingScreen> with TickerProviderStateM
           _thunderLottieController.forward(from: 0.0); // Restart the animation
         } else {
           // Animation has played the desired number of times
-          print('✅ Thunder animation completed after $_maxThunderPlays plays');
         }
       }
     });
@@ -111,62 +110,47 @@ class _LoadingScreenState extends State<LoadingScreen> with TickerProviderStateM
 
   Future<void> _loadComicsInBackground() async {
     try {
-      print('🔄 LoadingScreen: Starting to load comics and top comics in background...');
-      final netTruyenService = NetTruyenService();
-      
-      // Load both main comics and top comics in parallel
-      // First get the current domain to ensure consistency
-      _currentDomain = await netTruyenService.getCurrentDomain();
-      print('🌐 LoadingScreen: Using domain: $_currentDomain');
-      final comics = await netTruyenService.fetchComics();
-      final topComics = await netTruyenService.fetchComicsFromUrl('$_currentDomain/tim-truyen?status=&sort=10');
-      
-      print('✅ LoadingScreen: Successfully loaded ${comics.length} comics and ${topComics.length} top comics');
-      
+      // Load comics and top comics in background
+      final comics = await NetTruyenService().fetchComics();
+      final topComics = await NetTruyenService().fetchTopComics();
+
       if (mounted) {
         setState(() {
           _comics = comics;
           _topComics = topComics;
         });
-        
-        print('📱 LoadingScreen: All comics loaded, scheduling navigation with ${_comics.length} comics and ${_topComics.length} top comics');
-        // Wait for animation to complete, then navigate with comics
-        _scheduleNavigationWithComics();
+
+        // Schedule navigation after a short delay to show completion
+        _scheduleNavigation();
       }
     } catch (e) {
-      print('❌ LoadingScreen: Error loading comics: $e');
-      // If loading fails, still navigate to home screen (it will handle its own loading)
+      // Navigate to home screen even if there's an error
       if (mounted) {
-        print('🔄 LoadingScreen: Navigating to home screen despite error');
-        _scheduleNavigationWithComics();
+        _scheduleNavigation();
       }
     }
   }
 
-  void _scheduleNavigationWithComics() {
-    print('⏰ LoadingScreen: Scheduling navigation with ${_comics.length} comics and ${_topComics.length} top comics');
-    // Wait for animation to complete, then navigate with comics
-    Future.delayed(const Duration(milliseconds: 1200), () {
+  void _scheduleNavigation() {
+    // Schedule navigation with a short delay to show completion
+    Future.delayed(const Duration(milliseconds: 500), () {
       if (mounted) {
-        print('🚀 LoadingScreen: Navigating to HomeScreen with ${_comics.length} comics and ${_topComics.length} top comics');
-        Navigator.of(context).pushReplacement(
-          PageRouteBuilder(
-            pageBuilder: (context, animation, secondaryAnimation) => HomeScreen(
-              initialComics: _comics,
-              initialTopComics: _topComics,
-              initialDomain: _currentDomain, // Pass the domain used to fetch comics
-            ),
-            transitionsBuilder: (context, animation, secondaryAnimation, child) {
-              return FadeTransition(
-                opacity: animation,
-                child: child,
-              );
-            },
-            transitionDuration: const Duration(milliseconds: 800),
-          ),
-        );
+        _navigateToHome();
       }
     });
+  }
+
+  void _navigateToHome() {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) => HomeScreen(
+          initialComics: _comics,
+          initialTopComics: _topComics,
+          initialDomain: _currentDomain,
+        ),
+      ),
+    );
   }
 
   @override
@@ -236,11 +220,6 @@ class _LoadingScreenState extends State<LoadingScreen> with TickerProviderStateM
                                   repeat: false, // Don't repeat automatically
                                   animate: true,
                                   onLoaded: (composition) {
-                                    print('✅ Thunder Lottie animation loaded successfully!');
-                                    print('   - Duration: ${composition.duration}');
-                                    print('   - Frame rate: ${composition.frameRate}');
-                                    print('   - Bounds: ${composition.bounds}');
-                                    
                                     // Set the duration and start the animation
                                     _thunderLottieController.duration = composition.duration;
                                     // Start thunder animation after logo animation completes
@@ -251,14 +230,11 @@ class _LoadingScreenState extends State<LoadingScreen> with TickerProviderStateM
                                     });
                                   },
                                   errorBuilder: (context, error, stackTrace) {
-                                    print('❌ Thunder Lottie animation failed to load:');
-                                    print('   - Error: $error');
-                                    print('   - Stack trace: $stackTrace');
                                     // Fallback to static icon
                                     return Icon(
                                       Icons.flash_on,
                                       color: Colors.yellow,
-                                      size: 40,
+                                      size: 20 * 1.0, // Assuming scale is 1.0 for now, adjust if needed
                                     );
                                   },
                                 ),
