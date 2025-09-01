@@ -38,6 +38,7 @@ class NetTruyenReaderApp extends StatelessWidget {
           theme: ThemeConstants.lightTheme(fontProvider),
           darkTheme: ThemeConstants.darkTheme(fontProvider),
           themeMode: themeProvider.themeMode,
+          restorationScopeId: 'nettruyen_reader_app', // Enable restoration scope
           home: const LoadingScreen(),
         );
       },
